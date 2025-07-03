@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金幣與炸彈 DEMO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+        .active-level-glow {
+            box-shadow: 0 0 25px 8px rgba(250, 204, 21, 0.7);
+            border: 2px solid rgba(250, 204, 21, 0.9);
+            transform: scale(1.02);
+        }
+        .box {
+            position: relative; /* 父容器必須是相對定位 */
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+        }
+        .box.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .box-face {
+            position: absolute; /* 子元素是絕對定位 */
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            -webkit-backface-visibility: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem; /* rounded-lg */
+        }
+        .box-front {
+             background-color: #0891b2; /* bg-cyan-600 */
+        }
+        .box-back {
+            background-color: #4b5563; /* bg-gray-600 */
+            transform: rotateY(180deg);
+        }
+        @keyframes roll {
+            0% { transform: rotate(0deg) scale(1.5); }
+            25% { transform: rotate(180deg) scale(1.5); }
+            50% { transform: rotate(360deg) scale(1.5); }
+            75% { transform: rotate(540deg) scale(1.5); }
+            100% { transform: rotate(720deg) scale(1); }
+        }
+        .dice-rolling {
+            animation: roll 1s ease-out;
+        }
+        /* 自訂滾動軸樣式 */
+        main::-webkit-scrollbar {
+            width: 8px;
+        }
+        main::-webkit-scrollbar-track {
+            background: #1f2937; /* bg-gray-800 */
+        }
+        main::-webkit-scrollbar-thumb {
+            background-color: #4b5563; /* bg-gray-600 */
+            border-radius: 4px;
+            border: 2px solid #1f2937; /* bg-gray-800 */
+        }
+        main::-webkit-scrollbar-thumb:hover {
+            background-color: #6b7280; /* bg-gray-500 */
+        }
+        /* 被選中格子的特殊框線 */
+        .selected-box-highlight .box-back {
+            box-shadow: inset 0 0 0 4px #facc15; /* yellow-400 */
+        }
+        /* 未選中格子的黑色遮罩 */
+        .dimmed-box .box-back::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            border-radius: 0.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
+
+    <!-- 左側控制面板 -->
+    <aside id="control-panel" class="w-full md:w-64 lg:w-80 bg-gray-800 p-6 flex flex-col justify-between order-2 md:order-1 shrink-0">
+        <div>
+            <h2 class="text-xl font-bold text-amber-400 mb-4">控制中心</h2>
+            <div class="mb-6">
+                <input type="file" id="config-uploader" accept=".json" class="hidden">
+                <button id="upload-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg">
+                    載入設定檔 (config.json)
+                </button>
+            </div>
+            <div id="game-area" class="hidden">
+                 <!-- 玩家金額顯示 -->
+                <div class="bg-black rounded-lg p-4 mb-6">
+                    <p class="text-sm text-gray-400 mb-2">目前金額</p>
+                    <div id="player-balance-display" class="font-orbitron text-4xl text-yellow-400 text-center tracking-tight" style="text-shadow: 0 0 10px rgba(250, 204, 21, 0.5);">
+                        $10,000
+                    </div>
+                </div>
+                <div class="bg-black rounded-lg p-4 mb-6">
+                    <p class="text-sm text-gray-400 mb-2">地圖碎片 (通關時有用)</p>
+                    <div id="fragment-display" class="font-orbitron text-6xl text-cyan-400 text-center tracking-widest" style="text-shadow: 0 0 10px rgba(34, 211, 238, 0.7);">
+                        0
+                    </div>
+                    <div id="extra-payout-display" class="text-center text-yellow-400 text-xs mt-2 h-4"></div>
+                </div>
+                <div class="bg-black rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-400 mb-1">目前層數</p>
+                        <div id="current-level-text" class="font-orbitron text-3xl text-green-400 text-center">--</div>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-400 mb-1">可提現賠率</p>
+                        <div id="current-payout-text" class="font-orbitron text-3xl text-green-400 text-center">--</div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <button id="action-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-transform transform active:scale-95">
+                        開始遊戲 (-$100)
+                    </button>
+                    <button id="cash-out-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform active:scale-95" disabled>
+                        CASH OUT
+                    </button>
+                </div>
+                <div class="mt-8 flex justify-center items-center">
+                    <div id="dice-container" class="text-5xl relative">🎲</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 中央遊戲區域 -->
+    <main id="main-content" class="flex-1 flex flex-col items-center p-4 relative order-1 md:order-2 overflow-y-auto">
+        <div class="h-1/2 shrink-0"></div>
+        <div id="levels-wrapper" class="flex flex-col-reverse gap-y-2 md:gap-y-4">
+            <div id="initial-message" class="text-center text-gray-400">
+                <h2 class="text-2xl font-bold mb-4">歡迎來到遊戲 DEMO</h2>
+                <p>請點擊左側的「載入設定檔」按鈕，<br>並選擇您的 `config.json` 檔案來開始。</p>
+            </div>
+        </div>
+        <div class="h-1/2 shrink-0"></div>
+    </main>
+
+    <!-- 訊息彈窗 -->
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+        <div class="bg-gray-800 rounded-lg p-8 text-center max-w-sm mx-auto shadow-2xl">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4">遊戲結束</h3>
+            <p id="modal-text" class="mb-6 whitespace-pre-wrap"></p>
+            <button id="modal-btn" class="bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-6 rounded-lg">好的</button>
+        </div>
+    </div>
+
+    <script type="module">
+        // DOM 元素
+        const levelsWrapper = document.getElementById('levels-wrapper');
+        const fragmentDisplay = document.getElementById('fragment-display');
+        const actionBtn = document.getElementById('action-btn');
+        const cashOutBtn = document.getElementById('cash-out-btn');
+        const diceContainer = document.getElementById('dice-container');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalText = document.getElementById('modal-text');
+        const modalBtn = document.getElementById('modal-btn');
+        const currentLevelText = document.getElementById('current-level-text');
+        const currentPayoutText = document.getElementById('current-payout-text');
+        const configUploader = document.getElementById('config-uploader');
+        const uploadBtn = document.getElementById('upload-btn');
+        const gameArea = document.getElementById('game-area');
+        const initialMessage = document.getElementById('initial-message');
+        const extraPayoutDisplay = document.getElementById('extra-payout-display');
+        const playerBalanceDisplay = document.getElementById('player-balance-display');
+
+        // 遊戲狀態
+        let config;
+        let currentLevel = 1;
+        let totalFragments = 0;
+        let gameInProgress = false; // 初始為 false，等待開始
+        let playerBalance = 10000;
+        const betAmount = 100;
+
+        // 處理檔案上傳
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                showErrorState("未選擇任何檔案。");
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    config = JSON.parse(e.target.result);
+                    if (!config.levels || !config.final_payout) {
+                        throw new Error("設定檔缺少 'levels' 或 'final_payout' 的必要欄位。");
+                    }
+                    initialMessage.classList.add('hidden');
+                    gameArea.classList.remove('hidden');
+                    resetUIForNewRound();
+                } catch (error) {
+                    showErrorState(`無法解析 JSON 檔案。<br><br>請檢查檔案內容是否為有效的 JSON 格式，例如是否有遺漏逗號或括號。<br><br>詳細錯誤: ${error.message}`);
+                }
+            };
+            reader.onerror = function() {
+                showErrorState(`讀取檔案時發生錯誤: ${reader.error}`);
+            };
+            reader.readAsText(file);
+        }
+
+        // 顯示錯誤訊息的函式
+        function showErrorState(message) {
+            levelsWrapper.innerHTML = `<div class="text-center text-red-400 bg-red-900/50 p-8 rounded-lg">${message}</div>`;
+            initialMessage.classList.remove('hidden');
+            gameArea.classList.add('hidden'); // 隱藏遊戲控制項
+        }
+
+        // 重置 UI 到可以開始新一局的狀態
+        function resetUIForNewRound() {
+            levelsWrapper.innerHTML = '';
+            currentLevelText.textContent = '--';
+            currentPayoutText.textContent = '--';
+            fragmentDisplay.textContent = '0';
+            extraPayoutDisplay.textContent = '';
+            playerBalanceDisplay.textContent = `$${playerBalance.toLocaleString()}`;
+            actionBtn.textContent = `開始遊戲 (-$${betAmount})`;
+            actionBtn.disabled = playerBalance < betAmount;
+            cashOutBtn.disabled = true;
+            gameInProgress = false;
+            modal.classList.add('hidden');
+        }
+
+        // 開始一局新遊戲
+        function startGame() {
+            if (playerBalance < betAmount) {
+                showModal("餘額不足", "您的餘額不足以開始新遊戲。", "確認");
+                return;
+            }
+            playerBalance -= betAmount;
+            
+            currentLevel = 1;
+            totalFragments = 0;
+            gameInProgress = true;
+            
+            levelsWrapper.innerHTML = '';
+            createLevels();
+            updateGameView();
+            updateUI();
+            
+            actionBtn.textContent = '擲骰子';
+            actionBtn.disabled = false;
+            cashOutBtn.disabled = true;
+        }
+
+        function createLevels() {
+            config.levels.forEach(levelData => {
+                const levelElement = document.createElement('div');
+                levelElement.id = `level-${levelData.level}`;
+                levelElement.className = 'flex justify-center items-center gap-2 md:gap-4 p-2 md:p-3 bg-gray-700/50 rounded-2xl transition-all duration-500';
+                
+                const levelLabel = document.createElement('div');
+                levelLabel.className = 'absolute -left-8 font-bold text-gray-500';
+                levelLabel.textContent = `L${levelData.level}`;
+                levelElement.style.position = 'relative';
+                levelElement.appendChild(levelLabel);
+
+                let contents = Array(levelData.coins).fill('coin').concat(Array(levelData.bombs).fill('bomb'));
+                contents.sort(() => Math.random() - 0.5);
+
+                for (let i = 0; i < 6; i++) {
+                    const boxContainer = document.createElement('div');
+                    boxContainer.className = 'box w-16 h-16 md:w-20 md:h-20 perspective-[1000px]';
+                    
+                    const boxFaceFront = document.createElement('div');
+                    // 核心修正：調整字體大小並顯示賠率
+                    boxFaceFront.className = 'box-face box-front text-xl md:text-2xl font-bold p-1';
+                    boxFaceFront.textContent = `${levelData.cash_out_payout.toFixed(2)}x`;
+
+                    const boxFaceBack = document.createElement('div');
+                    boxFaceBack.className = 'box-face box-back text-4xl md:text-5xl';
+                    
+                    if (contents[i] === 'coin') {
+                        boxFaceBack.textContent = '💰';
+                    } else {
+                        boxFaceBack.innerHTML = `
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" class="w-12 h-12">
+                                <g>
+                                    <path d="M 50 15 Q 65 5, 75 20" stroke="#A0522D" stroke-width="6" fill="none" stroke-linecap="round" />
+                                    <path d="M 73 22 L 80 15 L 87 22 L 80 29 Z" fill="#FFD700" stroke="orange" stroke-width="1" />
+                                    <circle cx="50" cy="60" r="35" fill="#222" />
+                                    <path d="M 35 40 Q 50 35, 65 45" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" opacity="0.3"/>
+                                </g>
+                            </svg>
+                        `;
+                    }
+                    
+                    boxContainer.dataset.content = contents[i];
+                    
+                    const fragmentIconContainer = document.createElement('div');
+                    boxFaceBack.classList.add('relative');
+                    fragmentIconContainer.className = 'fragment-container absolute top-0 left-1 flex flex-wrap w-full';
+                    boxFaceBack.appendChild(fragmentIconContainer);
+                    
+                    boxContainer.appendChild(boxFaceFront);
+                    boxContainer.appendChild(boxFaceBack);
+                    levelElement.appendChild(boxContainer);
+                }
+                levelsWrapper.appendChild(levelElement);
+            });
+        }
+
+        function updateGameView() {
+            document.querySelectorAll('[id^="level-"]').forEach(el => el.classList.remove('active-level-glow'));
+            const activeLevelElement = document.getElementById(`level-${currentLevel}`);
+            if (activeLevelElement) {
+                activeLevelElement.classList.add('active-level-glow');
+                activeLevelElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        }
+        
+        function updateUI() {
+            playerBalanceDisplay.textContent = `$${playerBalance.toLocaleString()}`;
+            fragmentDisplay.textContent = totalFragments;
+            currentLevelText.textContent = gameInProgress ? currentLevel : '--';
+            
+            const payout = gameInProgress && currentLevel > 1 ? config.levels[currentLevel - 2].cash_out_payout : 0;
+            currentPayoutText.textContent = gameInProgress && payout > 0 ? `${payout.toFixed(2)}x` : '--';
+            
+            cashOutBtn.disabled = !gameInProgress || currentLevel === 1;
+            actionBtn.disabled = gameInProgress;
+            updateExtraPayoutDisplay();
+        }
+
+        function updateExtraPayoutDisplay() {
+            if (!config || !config.final_payout) return;
+            const payoutRules = config.final_payout.extra_payout_by_fragments;
+            const sortedTiers = Object.keys(payoutRules).map(Number).sort((a, b) => b - a);
+            let currentExtraPayout = 0;
+            for (const tier of sortedTiers) {
+                if (totalFragments >= tier) {
+                    currentExtraPayout = payoutRules[tier];
+                    break;
+                }
+            }
+            extraPayoutDisplay.textContent = currentExtraPayout > 0 ? `通關額外獎勵: +${currentExtraPayout}x` : '';
+        }
+
+        async function handleActionClick() {
+            if (!gameInProgress) {
+                startGame();
+            } else {
+                await handleRollDice();
+            }
+        }
+
+        async function handleRollDice() {
+            actionBtn.disabled = true;
+            cashOutBtn.disabled = true;
+
+            const diceFaces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+            diceContainer.classList.add('dice-rolling');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            diceContainer.classList.remove('dice-rolling');
+
+            const diceResult = Math.floor(Math.random() * 6) + 1;
+            diceContainer.textContent = diceFaces[diceResult - 1];
+
+            const activeLevelElement = document.getElementById(`level-${currentLevel}`);
+            const selectedBox = activeLevelElement.children[diceResult];
+            const levelConf = config.levels[currentLevel - 1];
+            let fragmentsWon = 0;
+            
+            if (selectedBox.dataset.content === 'coin') {
+                fragmentsWon = getFragmentAward(levelConf.fragment_chances);
+                if (fragmentsWon > 0) {
+                    const fragmentContainer = selectedBox.querySelector('.fragment-container');
+                    for(let i = 0; i < fragmentsWon; i++){
+                        const icon = document.createElement('span');
+                        icon.textContent = '💎';
+                        icon.className = 'text-xs';
+                        fragmentContainer.appendChild(icon);
+                    }
+                }
+            }
+            
+            selectedBox.classList.add('is-flipped', 'selected-box-highlight');
+            setTimeout(() => revealRemainingBoxes(activeLevelElement, selectedBox), 500);
+            await new Promise(resolve => setTimeout(resolve, 1200));
+
+            if (selectedBox.dataset.content === 'bomb') {
+                gameOver();
+            } else {
+                levelUp(fragmentsWon);
+            }
+        }
+        
+        function revealRemainingBoxes(levelElement, selectedBox) {
+            const levelConf = config.levels[currentLevel - 1];
+            for (let i = 1; i < levelElement.children.length; i++) {
+                const box = levelElement.children[i];
+                if (box !== selectedBox) {
+                    if (box.dataset.content === 'coin') {
+                        const fragmentsForShow = getFragmentAward(levelConf.fragment_chances);
+                        if (fragmentsForShow > 0) {
+                            const fragmentContainer = box.querySelector('.fragment-container');
+                            fragmentContainer.innerHTML = '';
+                            for(let j = 0; j < fragmentsForShow; j++){
+                                const icon = document.createElement('span');
+                                icon.textContent = '💎';
+                                icon.className = 'text-xs';
+                                fragmentContainer.appendChild(icon);
+                            }
+                        }
+                    }
+                    box.classList.add('is-flipped', 'dimmed-box');
+                }
+            }
+        }
+
+        async function levelUp(fragmentsWon) {
+            totalFragments += fragmentsWon;
+            if (currentLevel >= 7) {
+                gameWon();
+                return;
+            }
+            currentLevel++;
+            await new Promise(resolve => setTimeout(resolve, 600)); 
+            updateGameView();
+            updateUI();
+            actionBtn.disabled = false;
+            cashOutBtn.disabled = false;
+            diceContainer.textContent = '🎲';
+        }
+        
+        function gameOver() {
+            gameInProgress = false;
+            showModal('遊戲結束', `您踩到炸彈了！\n損失賭注 $${betAmount}`, '確認');
+        }
+        
+        function gameWon() {
+            gameInProgress = false;
+            let finalPayout = config.final_payout.base_payout;
+            let extraPayout = 0;
+            const sortedTiers = Object.keys(config.final_payout.extra_payout_by_fragments).map(Number).sort((a, b) => b - a);
+            for (const tier of sortedTiers) {
+                if (totalFragments >= tier) {
+                    extraPayout = config.final_payout.extra_payout_by_fragments[tier];
+                    break;
+                }
+            }
+            finalPayout += extraPayout;
+            const winnings = betAmount * finalPayout;
+            playerBalance += winnings;
+            showModal('恭喜通關！', `您成功通過所有 7 層挑戰！\n獲得 ${totalFragments} 個碎片。\n贏得獎金 $${winnings.toLocaleString()}`, '太棒了！');
+        }
+        
+        function handleCashOut() {
+            if (!gameInProgress || currentLevel === 1) return;
+            gameInProgress = false;
+            const payout = config.levels[currentLevel - 2].cash_out_payout;
+            const winnings = betAmount * payout;
+            playerBalance += winnings;
+
+            const activeLevelElement = document.getElementById(`level-${currentLevel}`);
+            revealRemainingBoxes(activeLevelElement, null);
+            showModal('CASH OUT', `您在挑戰第 ${currentLevel} 層前選擇提現。\n贏得獎金 $${winnings.toLocaleString()}`, '確認');
+        }
+        
+        function showModal(title, text, btnText) {
+            modalTitle.textContent = title;
+            modalText.textContent = text;
+            modalBtn.textContent = btnText;
+            modal.classList.remove('hidden');
+        }
+
+        function getFragmentAward(chances) {
+            let rand = Math.random();
+            let cumulativeProbability = 0;
+            for (const fragmentCountStr in chances) {
+                const probability = chances[fragmentCountStr];
+                cumulativeProbability += probability;
+                if (rand < cumulativeProbability) {
+                    return parseInt(fragmentCountStr, 10);
+                }
+            }
+            return 0;
+        }
+
+        // 事件監聽
+        uploadBtn.addEventListener('click', () => configUploader.click());
+        configUploader.addEventListener('change', handleFileSelect);
+        actionBtn.addEventListener('click', handleActionClick);
+        cashOutBtn.addEventListener('click', handleCashOut);
+        modalBtn.addEventListener('click', resetUIForNewRound);
+
+    </script>
+</body>
+</html>
