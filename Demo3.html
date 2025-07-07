@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>簡化版遊戲 DEMO</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+        }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .active-level-glow {
+            box-shadow: 0 0 25px 8px rgba(250, 204, 21, 0.7);
+            border: 2px solid rgba(250, 204, 21, 0.9);
+            transform: scale(1.02);
+        }
+        .box { position: relative; transform-style: preserve-3d; transition: transform 0.6s; }
+        .box.is-flipped { transform: rotateY(180deg); }
+        .box-face {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden; -webkit-backface-visibility: hidden;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 0.5rem;
+            overflow: hidden; /* 確保動畫內容不超出邊界 */
+        }
+        .box-front { background-color: #0891b2; }
+        .box-back { background-color: #4b5563; transform: rotateY(180deg); }
+        
+        @keyframes roll {
+            0% { transform: rotate(0deg) scale(1.5); } 100% { transform: rotate(720deg) scale(1); }
+        }
+        .dice-rolling { animation: roll 1s ease-out; }
+        
+        main::-webkit-scrollbar { width: 8px; }
+        main::-webkit-scrollbar-track { background: #1f2937; }
+        main::-webkit-scrollbar-thumb { background-color: #4b5563; border-radius: 4px; border: 2px solid #1f2937; }
+        main::-webkit-scrollbar-thumb:hover { background-color: #6b7280; }
+        
+        .selected-box-highlight .box-back { box-shadow: inset 0 0 0 4px #facc15; }
+        .dimmed-box .box-back::after {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5); border-radius: 0.5rem;
+        }
+        
+        /* --- 二級玩法樣式 --- */
+        .secondary-box {
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .secondary-box:hover {
+            transform: translateY(-10px) scale(1.05);
+            box-shadow: 0 20px 30px rgba(0,0,0,0.4);
+        }
+        .mystery-box-back {
+            background: linear-gradient(45deg, #6d28d9, #d946ef);
+            box-shadow: 0 0 15px rgba(217, 70, 239, 0.6);
+        }
+        
+        /* 數字滾動動畫 */
+        @keyframes number-cycle-in {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes number-cycle-out {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(100%); opacity: 0; }
+        }
+        .payout-anim-text {
+            position: absolute;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col md:flex-row h-screen overflow-hidden">
+
+    <!-- 左側控制面板 -->
+    <aside id="control-panel" class="w-full md:w-64 lg:w-80 bg-gray-800 p-6 flex flex-col justify-between order-2 md:order-1 shrink-0">
+        <div>
+            <h2 class="text-xl font-bold text-amber-400 mb-2">控制中心</h2>
+            <div id="test-mode-indicator" class="hidden text-center bg-yellow-500 text-black font-bold py-1 rounded-md mb-4 text-sm">
+                測試模式已啟用
+            </div>
+            <div class="mb-6">
+                <input type="file" id="config-uploader" accept=".json" class="hidden">
+                <button id="upload-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg">
+                    載入設定檔 (config.json)
+                </button>
+            </div>
+            <div id="game-area" class="hidden">
+                <div class="bg-black rounded-lg p-4 mb-6">
+                    <p class="text-sm text-gray-400 mb-2">目前金額</p>
+                    <div id="player-balance-display" class="font-orbitron text-4xl text-yellow-400 text-center tracking-tight" style="text-shadow: 0 0 10px rgba(250, 204, 21, 0.5);">$10,000</div>
+                </div>
+                <div class="bg-black rounded-lg p-4 mb-6 grid grid-cols-2 gap-4">
+                    <div>
+                        <p class="text-sm text-gray-400 mb-1">目前層數</p>
+                        <div id="current-level-text" class="font-orbitron text-3xl text-green-400 text-center">--</div>
+                    </div>
+                    <div>
+                        <p class="text-sm text-gray-400 mb-1">可提現賠率</p>
+                        <div id="current-payout-text" class="font-orbitron text-3xl text-green-400 text-center">--</div>
+                    </div>
+                </div>
+                <div class="space-y-4">
+                    <button id="action-btn" class="w-full bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-3 px-4 rounded-lg transition-transform transform active:scale-95">開始遊戲 (-$100)</button>
+                    <button id="cash-out-btn" class="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-transform transform active:scale-95" disabled>CASH OUT</button>
+                </div>
+                <div class="mt-8 flex justify-center items-center">
+                    <div id="dice-container" class="text-5xl relative">🎲</div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 中央遊戲區域 -->
+    <main id="main-content" class="flex-1 flex flex-col items-center p-4 relative order-1 md:order-2 overflow-y-auto">
+        <div class="h-1/2 shrink-0"></div>
+        <div id="levels-wrapper" class="flex flex-col-reverse gap-y-2 md:gap-y-4">
+            <div id="initial-message" class="text-center text-gray-400">
+                <h2 class="text-2xl font-bold mb-4">歡迎來到遊戲 DEMO</h2>
+                <p>請點擊左側的「載入設定檔」按鈕，<br>並選擇您的 `config.json` 檔案來開始。</p>
+            </div>
+        </div>
+        <div class="h-1/2 shrink-0"></div>
+    </main>
+
+    <!-- 訊息彈窗 (通用) -->
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+        <div class="bg-gray-800 rounded-lg p-8 text-center max-w-sm mx-auto shadow-2xl">
+            <h3 id="modal-title" class="text-2xl font-bold mb-4">遊戲結束</h3>
+            <div id="modal-content-wrapper"><p id="modal-text" class="mb-6 whitespace-pre-wrap"></p></div>
+            <button id="modal-btn" class="bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold py-2 px-6 rounded-lg">好的</button>
+        </div>
+    </div>
+    
+    <!-- 二級玩法彈窗 -->
+    <div id="secondary-game-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-95 flex-col items-center justify-center z-40 p-4 transition-opacity duration-500">
+        <h2 id="secondary-title" class="text-4xl font-bold text-amber-400 mb-8 font-orbitron">選擇你的命運寶箱</h2>
+        <div id="secondary-boxes-container" class="grid grid-cols-3 gap-6 mb-8">
+            <!-- 寶箱將由 JS 動態生成 -->
+        </div>
+    </div>
+
+
+    <script type="module">
+        // DOM 元素
+        const controlPanel = document.getElementById('control-panel');
+        const mainContent = document.getElementById('main-content');
+        const levelsWrapper = document.getElementById('levels-wrapper');
+        const actionBtn = document.getElementById('action-btn');
+        const cashOutBtn = document.getElementById('cash-out-btn');
+        const diceContainer = document.getElementById('dice-container');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalContentWrapper = document.getElementById('modal-content-wrapper');
+        const modalBtn = document.getElementById('modal-btn');
+        const currentLevelText = document.getElementById('current-level-text');
+        const currentPayoutText = document.getElementById('current-payout-text');
+        const configUploader = document.getElementById('config-uploader');
+        const uploadBtn = document.getElementById('upload-btn');
+        const gameArea = document.getElementById('game-area');
+        const initialMessage = document.getElementById('initial-message');
+        const playerBalanceDisplay = document.getElementById('player-balance-display');
+        const secondaryGameModal = document.getElementById('secondary-game-modal');
+        const secondaryBoxesContainer = document.getElementById('secondary-boxes-container');
+        const secondaryTitle = document.getElementById('secondary-title');
+        const testModeIndicator = document.getElementById('test-mode-indicator');
+
+        // 遊戲狀態
+        let config;
+        let allLevelsData = [];
+        let currentLevel = 1;
+        let gameInProgress = false;
+        let playerBalance = 10000;
+        const betAmount = 100;
+        let isTestMode = false;
+
+        // 處理檔案上傳
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) { return; }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    config = JSON.parse(e.target.result);
+                    if (!config.levels || !config.final_level) throw new Error("設定檔缺少 'levels' 或 'final_level'。");
+                    
+                    isTestMode = config.simulation_config && config.simulation_config.test_mode === true;
+                    testModeIndicator.classList.toggle('hidden', !isTestMode);
+
+                    allLevelsData = [...config.levels, config.final_level];
+                    initialMessage.classList.add('hidden');
+                    gameArea.classList.remove('hidden');
+                    resetUIForNewRound();
+                } catch (error) {
+                    showErrorState(`無法解析 JSON 檔案。<br><br>詳細錯誤: ${error.message}`);
+                }
+            };
+            reader.onerror = () => showErrorState(`讀取檔案時發生錯誤: ${reader.error}`);
+            reader.readAsText(file);
+        }
+
+        function showErrorState(message) {
+            levelsWrapper.innerHTML = `<div class="text-center text-red-400 bg-red-900/50 p-8 rounded-lg">${message}</div>`;
+            initialMessage.classList.remove('hidden');
+            gameArea.classList.add('hidden');
+        }
+
+        function resetUIForNewRound() {
+            levelsWrapper.innerHTML = '';
+            currentLevelText.textContent = '--';
+            currentPayoutText.textContent = '--';
+            playerBalanceDisplay.textContent = `$${playerBalance.toLocaleString()}`;
+            actionBtn.textContent = `開始遊戲 (-$${betAmount})`;
+            actionBtn.disabled = playerBalance < betAmount;
+            cashOutBtn.disabled = true;
+            gameInProgress = false;
+            modal.classList.add('hidden');
+            secondaryGameModal.classList.add('hidden', 'opacity-0');
+            controlPanel.classList.remove('hidden');
+            mainContent.classList.remove('hidden');
+            let modalText = modalContentWrapper.querySelector('#modal-text');
+            if(!modalText) {
+                modalContentWrapper.innerHTML = '<p id="modal-text" class="mb-6 whitespace-pre-wrap"></p>';
+            }
+        }
+
+        function startGame() {
+            if (playerBalance < betAmount) {
+                showModal("餘額不足", "您的餘額不足以開始新遊戲。");
+                return;
+            }
+            playerBalance -= betAmount;
+            currentLevel = 1;
+            gameInProgress = true;
+            levelsWrapper.innerHTML = '';
+            createLevels();
+            updateGameView();
+            updateUI();
+            actionBtn.textContent = '擲骰子';
+            actionBtn.disabled = false;
+            cashOutBtn.disabled = true;
+        }
+
+        function createLevels() {
+            allLevelsData.forEach(levelData => {
+                const levelElement = document.createElement('div');
+                levelElement.id = `level-${levelData.level}`;
+                levelElement.className = 'flex justify-center items-center gap-2 md:gap-4 p-2 md:p-3 bg-gray-700/50 rounded-2xl transition-all duration-500';
+                const levelLabel = document.createElement('div');
+                levelLabel.className = 'absolute -left-8 font-bold text-gray-500';
+                levelLabel.textContent = `L${levelData.level}`;
+                levelElement.style.position = 'relative';
+                levelElement.appendChild(levelLabel);
+                
+                // 如果是測試模式，強制全為金幣
+                let contents = isTestMode 
+                    ? Array(6).fill('coin') 
+                    : Array(levelData.coins).fill('coin').concat(Array(levelData.bombs).fill('bomb'));
+                
+                contents.sort(() => Math.random() - 0.5);
+
+                for (let i = 0; i < 6; i++) {
+                    const boxContainer = document.createElement('div');
+                    boxContainer.className = 'box w-16 h-16 md:w-20 md:h-20 perspective-[1000px]';
+                    const boxFaceFront = document.createElement('div');
+                    boxFaceFront.className = 'box-face box-front text-xl md:text-2xl font-bold p-1';
+                    if (levelData.level === 5) {
+                        boxFaceFront.textContent = '🏆';
+                        boxFaceFront.classList.add('text-4xl');
+                    } else {
+                        boxFaceFront.textContent = `${levelData.cash_out_payout.toFixed(2)}x`;
+                    }
+                    const boxFaceBack = document.createElement('div');
+                    boxFaceBack.className = 'box-face box-back text-4xl md:text-5xl';
+                    boxFaceBack.textContent = contents[i] === 'coin' ? '💰' : '💣';
+                    boxContainer.dataset.content = contents[i];
+                    boxContainer.appendChild(boxFaceFront);
+                    boxContainer.appendChild(boxFaceBack);
+                    levelElement.appendChild(boxContainer);
+                }
+                levelsWrapper.appendChild(levelElement);
+            });
+        }
+
+        function updateGameView() {
+            document.querySelectorAll('[id^="level-"]').forEach(el => el.classList.remove('active-level-glow'));
+            const activeLevelElement = document.getElementById(`level-${currentLevel}`);
+            if (activeLevelElement) {
+                activeLevelElement.classList.add('active-level-glow');
+                activeLevelElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }
+        
+        function updateUI() {
+            playerBalanceDisplay.textContent = `$${playerBalance.toLocaleString()}`;
+            currentLevelText.textContent = gameInProgress ? currentLevel : '--';
+            const payout = gameInProgress && currentLevel > 1 ? allLevelsData[currentLevel - 2].cash_out_payout : 0;
+            currentPayoutText.textContent = gameInProgress && payout > 0 ? `${payout.toFixed(2)}x` : '--';
+            cashOutBtn.disabled = !gameInProgress || currentLevel === 1;
+            actionBtn.disabled = gameInProgress;
+        }
+
+        async function handleActionClick() {
+            if (!gameInProgress) startGame();
+            else await handleRollDice();
+        }
+
+        async function handleRollDice() {
+            actionBtn.disabled = true;
+            cashOutBtn.disabled = true;
+            const diceFaces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+            diceContainer.classList.add('dice-rolling');
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            diceContainer.classList.remove('dice-rolling');
+            const diceResult = Math.floor(Math.random() * 6) + 1;
+            diceContainer.textContent = diceFaces[diceResult - 1];
+            const activeLevelElement = document.getElementById(`level-${currentLevel}`);
+            const selectedBox = activeLevelElement.children[diceResult];
+            selectedBox.classList.add('is-flipped', 'selected-box-highlight');
+            setTimeout(() => revealRemainingBoxes(activeLevelElement, selectedBox), 500);
+            await new Promise(resolve => setTimeout(resolve, 1200));
+            if (selectedBox.dataset.content === 'bomb') gameOver();
+            else levelUp();
+        }
+        
+        function revealRemainingBoxes(levelElement, selectedBox) {
+            for (let i = 1; i < levelElement.children.length; i++) {
+                const box = levelElement.children[i];
+                if (box !== selectedBox) box.classList.add('is-flipped', 'dimmed-box');
+            }
+        }
+
+        async function levelUp() {
+            if (currentLevel >= 5) {
+                await gameWon();
+                return;
+            }
+            currentLevel++;
+            await new Promise(resolve => setTimeout(resolve, 600)); 
+            updateGameView();
+            updateUI();
+            actionBtn.disabled = false;
+            cashOutBtn.disabled = false;
+            diceContainer.textContent = '🎲';
+        }
+        
+        function gameOver() {
+            gameInProgress = false;
+            showModal('遊戲結束', `您踩到炸彈了！\n損失賭注 $${betAmount}`);
+        }
+        
+        async function gameWon() {
+            gameInProgress = false;
+            controlPanel.classList.add('hidden');
+            mainContent.classList.add('hidden');
+            secondaryGameModal.classList.remove('hidden');
+            setTimeout(() => secondaryGameModal.classList.remove('opacity-0'), 100);
+            
+            setupSecondaryGame();
+        }
+
+        function setupSecondaryGame() {
+            secondaryBoxesContainer.innerHTML = '';
+            secondaryTitle.textContent = '選擇你的命運寶箱';
+
+            // 如果是測試模式，強制全為 mystery
+            let items = isTestMode 
+                ? Array(6).fill('mystery')
+                : ['mystery', 'default', 'default', 'default', 'default', 'default'];
+
+            items.sort(() => Math.random() - 0.5);
+
+            items.forEach(itemType => {
+                const box = document.createElement('div');
+                box.className = 'box w-32 h-40 md:w-40 md:h-52 perspective-[1000px] secondary-box';
+                
+                const front = document.createElement('div');
+                front.className = 'box-face box-front text-6xl';
+                front.textContent = '🎁'; 
+
+                const back = document.createElement('div');
+                back.className = 'box-face box-back text-5xl font-orbitron';
+
+                if (itemType === 'mystery') {
+                    back.classList.add('mystery-box-back');
+                    back.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="w-20 h-20 text-white"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" /></svg>`;
+                } else {
+                    back.textContent = `${config.final_level.secondary_game.default_payout}x`;
+                }
+                
+                box.dataset.type = itemType;
+                box.appendChild(front);
+                box.appendChild(back);
+                box.addEventListener('click', handleSecondaryBoxClick, { once: true });
+                secondaryBoxesContainer.appendChild(box);
+            });
+        }
+
+        async function handleSecondaryBoxClick(event) {
+            const clickedBox = event.currentTarget;
+            const allBoxes = secondaryBoxesContainer.querySelectorAll('.box');
+            allBoxes.forEach(box => {
+                box.removeEventListener('click', handleSecondaryBoxClick);
+                box.classList.add('is-flipped');
+                if (box !== clickedBox) {
+                    box.classList.add('dimmed-box');
+                }
+            });
+
+            await new Promise(r => setTimeout(r, 1000));
+
+            if (clickedBox.dataset.type === 'mystery') {
+                const backFace = clickedBox.querySelector('.box-back');
+                await playPayoutAnimation(backFace);
+            } else {
+                const payout = config.final_level.secondary_game.default_payout;
+                const winnings = betAmount * payout;
+                playerBalance += winnings;
+                showModal('恭喜！', `您獲得了 ${payout}x 獎勵！\n總計贏得 $${winnings.toLocaleString()}`);
+            }
+        }
+
+        async function playPayoutAnimation(element) {
+            const mysteryConfig = config.final_level.secondary_game.mystery_box;
+            const finalPayout = getWeightedRandom(mysteryConfig.payouts, mysteryConfig.weights);
+            
+            element.innerHTML = ''; // 清空問號圖示
+            const textEl = document.createElement('div');
+            textEl.className = 'payout-anim-text';
+            element.appendChild(textEl);
+            
+            const duration = 1500; // 動畫總時長
+            const interval = 50; // 數字更新間隔
+            const startTime = Date.now();
+
+            const animationInterval = setInterval(() => {
+                const elapsedTime = Date.now() - startTime;
+                if (elapsedTime >= duration) {
+                    clearInterval(animationInterval);
+                    textEl.textContent = `${finalPayout}x`;
+                    
+                    // 動畫結束後顯示最終結果
+                    setTimeout(() => {
+                        const winnings = betAmount * finalPayout;
+                        playerBalance += winnings;
+                        showModal('超級大獎！', `您獲得了 ${finalPayout}x 的驚喜獎勵！\n總計贏得 $${winnings.toLocaleString()}`);
+                    }, 500);
+
+                    return;
+                }
+                
+                // 隨機顯示一個獎項
+                const randomPrize = mysteryConfig.payouts[Math.floor(Math.random() * mysteryConfig.payouts.length)];
+                textEl.textContent = `${randomPrize}x`;
+                
+                // 簡單的進出場動畫
+                textEl.style.animation = 'none';
+                void textEl.offsetWidth; // 強制重繪
+                textEl.style.animation = 'number-cycle-in 0.1s ease-out forwards';
+
+            }, interval);
+        }
+        
+        function handleCashOut() {
+            if (!gameInProgress || currentLevel === 1) return;
+            gameInProgress = false;
+            const payout = allLevelsData[currentLevel - 2].cash_out_payout;
+            const winnings = betAmount * payout;
+            playerBalance += winnings;
+            const activeLevelElement = document.getElementById(`level-${currentLevel}`);
+            revealRemainingBoxes(activeLevelElement, null);
+            showModal('CASH OUT', `您在挑戰第 ${currentLevel} 層前選擇提現。\n贏得獎金 $${winnings.toLocaleString()}`);
+        }
+        
+        function showModal(title, text) {
+            modalTitle.textContent = title;
+            let textEl = modalContentWrapper.querySelector('#modal-text');
+            if (!textEl) {
+                modalContentWrapper.innerHTML = '<p id="modal-text" class="mb-6 whitespace-pre-wrap"></p>';
+                textEl = modalContentWrapper.querySelector('#modal-text');
+            }
+            textEl.innerHTML = text.replace(/\n/g, '<br>');
+            modal.classList.remove('hidden');
+        }
+
+        function getWeightedRandom(options, weights) {
+            let rand = Math.random();
+            let cumulativeProbability = 0;
+            for (let i = 0; i < options.length; i++) {
+                cumulativeProbability += weights[i];
+                if (rand < cumulativeProbability) return options[i];
+            }
+            return options[options.length - 1];
+        }
+
+        // 事件監聽
+        uploadBtn.addEventListener('click', () => configUploader.click());
+        configUploader.addEventListener('change', handleFileSelect);
+        actionBtn.addEventListener('click', handleActionClick);
+        cashOutBtn.addEventListener('click', handleCashOut);
+        modalBtn.addEventListener('click', resetUIForNewRound);
+
+    </script>
+</body>
+</html>
