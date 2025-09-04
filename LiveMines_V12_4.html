@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>閃電九宮格 DEMO (乘法版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        html, body {
+            height: 100%;
+            overflow: hidden;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+        }
+        .pixel-font {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 10px;
+            line-height: 1.2;
+            text-shadow: 1px 1px 0px #000;
+        }
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            width: 100%;
+            max-width: 450px;
+            margin: auto;
+        }
+        .grid-cell {
+            position: relative;
+            aspect-ratio: 1 / 1;
+            background-color: #333;
+            border: 2px solid #555;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #ddd;
+            overflow: hidden;
+        }
+        .grid-cell.selected {
+            border-color: #facc15; /* yellow-400 */
+            background-color: #4a4a4a;
+            box-shadow: 0 0 15px rgba(250, 204, 21, 0.5);
+        }
+        .ball {
+            position: absolute;
+            width: 25%;
+            height: 25%;
+            background-color: #ef4444; /* red-500 */
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.7);
+            transition: all 0.5s ease-out;
+            opacity: 0;
+            transform: scale(0);
+        }
+        .lightning-payout {
+            position: absolute;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 14px;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+            transform: scale(1.5);
+            transition: opacity 0.3s, transform 0.3s;
+            text-shadow: 1px 1px 2px #000, -1px -1px 2px #000;
+        }
+        .base-payout-display {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            color: rgba(255, 255, 255, 0.6);
+            padding: 2px;
+            border-radius: 3px;
+        }
+        .bonus-text-animation {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(1.5);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.2rem;
+            color: #fde047; /* yellow-300 */
+            opacity: 0;
+            animation: bonus-flash 1.5s ease-out forwards;
+            pointer-events: none;
+            text-shadow: 0 0 5px #f59e0b, 0 0 10px #f59e0b;
+        }
+        @keyframes bonus-flash {
+            0% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            50% { opacity: 1; transform: translate(-50%, -50%) scale(1.5); }
+            100% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+        }
+        #toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #dc2626; /* red-600 */
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease-in-out;
+            pointer-events: none;
+        }
+        #winDetails p span.highlight-base { color: #60a5fa; } /* blue-400 */
+        #winDetails p span.highlight-purchased { color: #fcd34d; } /* amber-300 */
+        #winDetails p span.highlight-bonus { color: #fde047; } /* yellow-300 */
+    </style>
+</head>
+<body>
+
+    <div id="toast"></div>
+
+    <main class="flex-grow overflow-y-auto flex flex-col items-center justify-center p-4">
+        <div id="file-loader-section" class="w-full max-w-2xl text-center mb-4">
+            <h1 class="text-3xl font-bold text-yellow-300 mb-2">閃電九宮格 DEMO</h1>
+            <p class="text-gray-400">規則: 閃電不重複 & 局部二級玩法</p>
+            <div class="mt-2">
+                <input type="file" id="configFile" class="hidden" accept=".json">
+                <label for="configFile" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg cursor-pointer transition-colors">
+                    讀取 config.json
+                </label>
+                <span id="configFileName" class="ml-3 text-gray-400">未選擇檔案</span>
+            </div>
+        </div>
+
+        <div id="game-wrapper" class="hidden w-full max-w-2xl flex flex-col items-center">
+            <div class="grid-container">
+                <!-- Grids will be generated by JavaScript -->
+            </div>
+
+            <div id="winDetails" class="w-full max-w-2xl text-sm mt-4 p-4 bg-gray-800 rounded-lg hidden font-mono">
+                <!-- Win details will be populated here -->
+            </div>
+            
+            <div class="w-full max-w-2xl text-center mt-4 space-y-2">
+                <div class="flex justify-center items-center space-x-4">
+                     <div class="text-lg">
+                        <span class="text-gray-400">總押注:</span>
+                        <span id="totalBet" class="font-bold text-xl text-white">0</span>
+                    </div>
+                    <div class="text-lg">
+                        <span class="text-gray-400">總贏分:</span>
+                        <span id="totalWin" class="font-bold text-xl text-green-400">0</span>
+                    </div>
+                </div>
+               
+                <div class="flex items-center justify-center space-x-3 pt-2">
+                     <input type="checkbox" id="purchaseFeature" class="h-5 w-5 rounded text-yellow-500 focus:ring-yellow-600 border-gray-400 bg-gray-700 disabled:opacity-50" disabled>
+                     <label for="purchaseFeature" class="text-gray-300 disabled:opacity-50">購買額外閃電</label>
+                </div>
+
+                <div class="pt-2">
+                    <button id="startButton" class="w-48 bg-gray-500 text-white font-bold py-3 px-6 rounded-lg text-lg transition-all duration-300 cursor-not-allowed" disabled>
+                        開始
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const gridContainer = document.querySelector('.grid-container');
+        const totalBetEl = document.getElementById('totalBet');
+        const totalWinEl = document.getElementById('totalWin');
+        const startButton = document.getElementById('startButton');
+        const purchaseFeatureCheckbox = document.getElementById('purchaseFeature');
+        const configFileEl = document.getElementById('configFile');
+        const configFileNameEl = document.getElementById('configFileName');
+        const toastEl = document.getElementById('toast');
+        const winDetailsEl = document.getElementById('winDetails');
+        const fileLoaderSection = document.getElementById('file-loader-section');
+        const gameWrapper = document.getElementById('game-wrapper');
+
+        let config = null;
+        let selectedGrids = new Set();
+        const betAmountPerGrid = 100;
+        let isPlaying = false;
+
+        function initializeGrid() {
+            gridContainer.innerHTML = '';
+            for (let i = 0; i < 9; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('grid-cell');
+                cell.dataset.id = i;
+                cell.textContent = i + 1;
+                
+                const basePayoutsDisplay = document.createElement('div');
+                basePayoutsDisplay.classList.add('base-payout-display', 'pixel-font');
+                if (config && config.mainGame.singleAreaBasePayouts) {
+                    const payouts = config.mainGame.singleAreaBasePayouts;
+                    basePayoutsDisplay.innerHTML = `1:${payouts[0] || '?'}x<br>2:${payouts[1] || '?'}x<br>3:${payouts[2] || '?'}x`;
+                }
+                cell.appendChild(basePayoutsDisplay);
+
+                cell.addEventListener('click', () => toggleGridSelection(i));
+                gridContainer.appendChild(cell);
+            }
+        }
+
+        function toggleGridSelection(id) {
+            if (isPlaying) return;
+            const cell = document.querySelector(`.grid-cell[data-id='${id}']`);
+            if (selectedGrids.has(id)) {
+                selectedGrids.delete(id);
+                cell.classList.remove('selected');
+            } else {
+                selectedGrids.add(id);
+                cell.classList.add('selected');
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            const baseBet = selectedGrids.size * betAmountPerGrid;
+            let displayBet = baseBet;
+
+            if (purchaseFeatureCheckbox.checked && config) {
+                displayBet = baseBet * (1 + config.mainGame.extraPurchaseCostPercent);
+            }
+            totalBetEl.textContent = displayBet.toFixed(0);
+
+            if (config) {
+                 startButton.disabled = false;
+                 startButton.classList.remove('bg-gray-500', 'cursor-not-allowed');
+                 startButton.classList.add('bg-green-600', 'hover:bg-green-700');
+            }
+        }
+        
+        function showToast(message) {
+            toastEl.textContent = message;
+            toastEl.style.opacity = 1;
+            setTimeout(() => {
+                toastEl.style.opacity = 0;
+            }, 2000);
+        }
+
+        function weightedRandom(values, weights) {
+            const totalWeight = weights.reduce((acc, w) => acc + w, 0);
+            let random = Math.random() * totalWeight;
+            for (let i = 0; i < values.length; i++) {
+                if (random < weights[i]) return values[i];
+                random -= weights[i];
+            }
+            return values[values.length - 1];
+        }
+        
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        async function runGameLogic() {
+            if (selectedGrids.size === 0) {
+                 showToast("請至少選擇一個格子！");
+                 return;
+            }
+            isPlaying = true;
+            disableUI();
+
+            // 清除上一局的所有視覺元素
+            document.querySelectorAll('.ball, .lightning-payout').forEach(el => el.remove());
+
+            const baseLightningGrid = new Map();
+            const purchasedLightningGrid = new Map();
+
+            // 1. 基礎閃電
+            const numBaseStrikes = weightedRandom(config.lightningFeature.strikes.values, config.lightningFeature.strikes.weights);
+            
+            if (numBaseStrikes > config.mainGame.numberOfGrids) {
+                showToast(`無效局: 基礎閃電次數 (${numBaseStrikes}) > 格子數`);
+                await resetGame(true);
+                return;
+            }
+
+            let allGridIds = Array.from({ length: config.mainGame.numberOfGrids }, (_, i) => i);
+            let shuffledGridIds = shuffleArray([...allGridIds]);
+            const baseTargetGrids = shuffledGridIds.slice(0, numBaseStrikes);
+
+            for (const gridId of baseTargetGrids) {
+                const payout = weightedRandom(config.lightningFeature.payoutMultipliers.values, config.lightningFeature.payoutMultipliers.weights);
+                baseLightningGrid.set(gridId, (baseLightningGrid.get(gridId) || 0) + payout);
+                await animateLightning(gridId, payout, 'base');
+            }
+
+            // 2. 購買的閃電
+            if (purchaseFeatureCheckbox.checked) {
+                const numPurchasedStrikes = weightedRandom(config.purchasedLightningFeature.strikes.values, config.purchasedLightningFeature.strikes.weights);
+                 
+                if (numPurchasedStrikes > config.mainGame.numberOfGrids) {
+                    showToast(`無效局: 購買閃電次數 (${numPurchasedStrikes}) > 格子數`);
+                    await resetGame(true);
+                    return;
+                }
+
+                shuffledGridIds = shuffleArray([...allGridIds]);
+                const purchasedTargetGrids = shuffledGridIds.slice(0, numPurchasedStrikes);
+
+                for (const gridId of purchasedTargetGrids) {
+                    const payout = weightedRandom(config.purchasedLightningFeature.payoutMultipliers.values, config.purchasedLightningFeature.payoutMultipliers.weights);
+                    purchasedLightningGrid.set(gridId, (purchasedLightningGrid.get(gridId) || 0) + payout);
+                    await animateLightning(gridId, payout, 'purchased');
+                }
+            }
+
+            // 3. 落球
+            const ballLandings = [];
+            for (let i = 0; i < config.mainGame.numberOfBalls; i++) {
+                ballLandings.push(Math.floor(Math.random() * config.mainGame.numberOfGrids));
+                await new Promise(res => setTimeout(res, 300));
+            }
+            await animateBalls(ballLandings);
+
+            // 4. 計算結果
+            let totalWin = 0;
+            let winDetailsHtml = '<h3 class="text-lg font-bold text-yellow-200 mb-2">贏分詳情:</h3>';
+            const ballCounts = ballLandings.reduce((acc, gridId) => {
+                acc[gridId] = (acc[gridId] || 0) + 1;
+                return acc;
+            }, {});
+            
+            let bonusTriggeredGrid = -1;
+            if (ballLandings.length === config.mainGame.numberOfBalls && new Set(ballLandings).size === 1) {
+                bonusTriggeredGrid = ballLandings[0];
+                await animateBonusTrigger(bonusTriggeredGrid);
+            }
+
+            for (const gridId of selectedGrids) {
+                const matches = ballCounts[gridId] || 0;
+                let gridWin = 0;
+                let detailText = '';
+
+                if (matches > 0) {
+                    const basePayout = config.mainGame.singleAreaBasePayouts[matches - 1] || 0;
+                    const baseWin = betAmountPerGrid * basePayout;
+                    
+                    const baseLightningMultiplier = baseLightningGrid.get(gridId) || 0;
+                    const purchasedLightningMultiplier = purchasedLightningGrid.get(gridId) || 0;
+                    const totalLightningMultiplier = baseLightningMultiplier + purchasedLightningMultiplier;
+                    
+                    const finalWin = baseWin * (1 + totalLightningMultiplier);
+                    gridWin += finalWin;
+                    
+                    detailText += `格子 ${gridId + 1}: 中${matches}球 (${basePayout.toFixed(1)}x) * (1`;
+                    if(baseLightningMultiplier > 0) detailText += ` + <span class="highlight-base">${baseLightningMultiplier.toFixed(1)}</span>`;
+                    if(purchasedLightningMultiplier > 0) detailText += ` + <span class="highlight-purchased">${purchasedLightningMultiplier.toFixed(1)}</span>`;
+                    detailText += `) = ${finalWin.toFixed(2)}`;
+                }
+                
+                if (gridId === bonusTriggeredGrid) {
+                    const bonusWin = betAmountPerGrid * config.bonusGame.expectedPayout;
+                    gridWin += bonusWin;
+                    if(detailText) detailText += '<br>';
+                    detailText += `格子 ${gridId + 1}: <span class="highlight-bonus">二級玩法獎勵</span> = ${bonusWin.toFixed(2)}`;
+                }
+                
+                if (gridWin > 0) {
+                    totalWin += gridWin;
+                    winDetailsHtml += `<p class="mb-1">${detailText}</p>`;
+                }
+            }
+
+            if(totalWin > 0){
+                winDetailsEl.innerHTML = winDetailsHtml;
+                winDetailsEl.classList.remove('hidden');
+            }
+            
+            totalWinEl.textContent = totalWin.toFixed(2);
+            resetGame(); // MODIFIED: No longer needs await, happens instantly
+        }
+
+        async function animateLightning(gridId, payout, type) {
+            const cell = document.querySelector(`.grid-cell[data-id='${gridId}']`);
+            cell.style.transition = 'none';
+            cell.style.backgroundColor = '#fff';
+            
+            const payoutEl = document.createElement('div');
+            payoutEl.classList.add('lightning-payout');
+            payoutEl.textContent = `+${payout.toFixed(1)}x`;
+
+            if (type === 'base') {
+                payoutEl.style.color = '#60a5fa'; // blue-400
+                payoutEl.style.bottom = '10px';
+                payoutEl.style.right = '10px';
+            } else { // purchased
+                payoutEl.style.color = '#fcd34d'; // amber-300
+                payoutEl.style.bottom = '30px';
+                payoutEl.style.right = '10px';
+            }
+            cell.appendChild(payoutEl);
+            
+            await new Promise(res => setTimeout(res, 50));
+            cell.style.transition = 'all 0.2s ease';
+            cell.style.backgroundColor = selectedGrids.has(gridId) ? '#4a4a4a' : '#333';
+            
+            await new Promise(res => setTimeout(res, 50));
+            payoutEl.style.opacity = '1';
+            payoutEl.style.transform = 'scale(1)';
+            
+            await new Promise(res => setTimeout(res, 500));
+        }
+
+        async function animateBalls(landings) {
+            const ballElements = [];
+            for (let i = 0; i < landings.length; i++) {
+                const gridId = landings[i];
+                const cell = document.querySelector(`.grid-cell[data-id='${gridId}']`);
+                const ball = document.createElement('div');
+                ball.classList.add('ball');
+                // Stagger ball positions within a cell
+                ball.style.top = `${20 + i * 15 + Math.random() * 10}%`;
+                ball.style.left = `${37.5 + Math.random() * 10}%`;
+                cell.appendChild(ball);
+                ballElements.push(ball);
+            }
+
+            await new Promise(res => setTimeout(res, 100));
+            
+            for (const ball of ballElements) {
+                ball.style.opacity = '1';
+                ball.style.transform = 'scale(1)';
+                await new Promise(res => setTimeout(res, 150));
+            }
+            await new Promise(res => setTimeout(res, 1000));
+        }
+        
+        async function animateBonusTrigger(gridId) {
+            const cell = document.querySelector(`.grid-cell[data-id='${gridId}']`);
+            const bonusEl = document.createElement('div');
+            bonusEl.classList.add('bonus-text-animation');
+            bonusEl.textContent = 'BONUS!';
+            cell.appendChild(bonusEl);
+            await new Promise(res => setTimeout(res, 1500));
+            bonusEl.remove();
+        }
+
+
+        function resetGame() {
+             // (MODIFIED) Removed delay. Button becomes clickable immediately.
+                         
+             // Update button
+             startButton.textContent = '重新一局';
+             startButton.classList.remove('bg-green-600', 'hover:bg-green-700');
+             startButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
+             startButton.disabled = false;
+             startButton.classList.remove('cursor-not-allowed');
+
+             isPlaying = false;
+             enableUI();
+        }
+        
+        function handleResetClick() {
+            totalWinEl.textContent = '0';
+            winDetailsEl.innerHTML = '';
+            winDetailsEl.classList.add('hidden');
+            
+            // (MODIFIED) Clear balls and lightning from previous round, keep selections
+            document.querySelectorAll('.ball, .lightning-payout').forEach(el => el.remove());
+            
+            updateUI();
+            
+            startButton.textContent = '開始';
+            startButton.classList.remove('bg-blue-600', 'hover:bg-blue-700');
+            startButton.classList.add('bg-green-600', 'hover:bg-green-700');
+            startButton.disabled = false;
+            startButton.classList.remove('cursor-not-allowed');
+        }
+
+
+        function disableUI() {
+            purchaseFeatureCheckbox.disabled = true;
+            startButton.disabled = true;
+            startButton.classList.add('cursor-not-allowed');
+        }
+
+        function enableUI() {
+            if (config) {
+                 purchaseFeatureCheckbox.disabled = false;
+            }
+        }
+
+        // --- Event Listeners ---
+        purchaseFeatureCheckbox.addEventListener('change', updateUI);
+
+        configFileEl.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            configFileNameEl.textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    config = JSON.parse(e.target.result);
+                    console.log("Config loaded:", config);
+                    
+                    // Hide loader and show game
+                    fileLoaderSection.classList.add('hidden');
+                    gameWrapper.classList.remove('hidden');
+
+                    purchaseFeatureCheckbox.disabled = false;
+                    initializeGrid(); 
+                    handleResetClick();
+                } catch (error) {
+                    console.error("Error parsing JSON:", error);
+                    showToast("無效的 config.json 檔案！");
+                    config = null;
+                }
+            };
+            reader.readAsText(file);
+        });
+        
+        startButton.addEventListener('click', () => {
+             if (!config) {
+                 showToast("請先載入 config.json 檔案！");
+                 return;
+             }
+             if (isPlaying) return;
+             
+             if (startButton.textContent === '開始') {
+                 runGameLogic();
+             } else {
+                 handleResetClick();
+             }
+        });
+        
+        // Initial setup
+        initializeGrid();
+
+    </script>
+</body>
+</html>
+
