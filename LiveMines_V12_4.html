@@ -8,7 +8,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
         html, body {
-            height: 100%;
+            height: 100vh;
             overflow: hidden;
         }
         body {
@@ -16,7 +16,6 @@
             background-color: #1a1a1a;
             color: #f0f0f0;
             display: flex;
-            flex-direction: column;
         }
         .pixel-font {
             font-family: 'Press Start 2P', cursive;
@@ -121,11 +120,11 @@
         #winDetails p span.highlight-bonus { color: #fde047; } /* yellow-300 */
     </style>
 </head>
-<body>
+<body class="flex h-screen">
 
     <div id="toast"></div>
 
-    <main class="flex-grow overflow-y-auto flex flex-col items-center justify-center p-4">
+    <main class="flex-grow overflow-y-auto flex flex-col items-center justify-center p-4 w-3/4">
         <div id="file-loader-section" class="w-full max-w-2xl text-center mb-4">
             <h1 class="text-3xl font-bold text-yellow-300 mb-2">閃電九宮格 DEMO</h1>
             <p class="text-gray-400">規則: 閃電不重複 & 局部二級玩法</p>
@@ -173,7 +172,32 @@
         </div>
     </main>
 
+    <aside class="w-1/4 bg-gray-900/50 p-4 flex flex-col h-full border-l-2 border-gray-700">
+        <div class="flex-shrink-0">
+            <h2 class="text-2xl font-bold text-yellow-300 border-b-2 border-gray-600 pb-2 mb-4">玩家資訊</h2>
+            <div class="space-y-3 text-lg">
+                <div>
+                    <span class="text-gray-400">餘額:</span>
+                    <span id="playerBalance" class="font-bold text-white float-right">1000000.00</span>
+                </div>
+                <div>
+                    <span class="text-gray-400">總RTP:</span>
+                    <span id="runningRtp" class="font-bold text-white float-right">-.-- %</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex-grow mt-6 flex flex-col min-h-0">
+            <h3 class="text-xl font-bold text-yellow-300 border-b-2 border-gray-600 pb-2 mb-2 flex-shrink-0">歷史紀錄</h3>
+            <div id="historyLog" class="flex-grow overflow-y-auto pr-2 space-y-2">
+                <!-- History entries will be added here -->
+            </div>
+        </div>
+    </aside>
+
+
     <script>
+        // DOM Elements
         const gridContainer = document.querySelector('.grid-container');
         const totalBetEl = document.getElementById('totalBet');
         const totalWinEl = document.getElementById('totalWin');
@@ -185,11 +209,21 @@
         const winDetailsEl = document.getElementById('winDetails');
         const fileLoaderSection = document.getElementById('file-loader-section');
         const gameWrapper = document.getElementById('game-wrapper');
+        const playerBalanceEl = document.getElementById('playerBalance');
+        const runningRtpEl = document.getElementById('runningRtp');
+        const historyLogEl = document.getElementById('historyLog');
 
+        // Game State
         let config = null;
         let selectedGrids = new Set();
         const betAmountPerGrid = 100;
         let isPlaying = false;
+
+        // Player Stats
+        let playerBalance = 1000000;
+        let cumulativeTotalBet = 0;
+        let cumulativeTotalWin = 0;
+        let roundCounter = 0;
 
         function initializeGrid() {
             gridContainer.innerHTML = '';
@@ -233,6 +267,7 @@
                 displayBet = baseBet * (1 + config.mainGame.extraPurchaseCostPercent);
             }
             totalBetEl.textContent = displayBet.toFixed(0);
+            playerBalanceEl.textContent = playerBalance.toFixed(2);
 
             if (config) {
                  startButton.disabled = false;
@@ -241,8 +276,9 @@
             }
         }
         
-        function showToast(message) {
+        function showToast(message, isError = true) {
             toastEl.textContent = message;
+            toastEl.style.backgroundColor = isError ? '#dc2626' : '#16a34a'; // red or green
             toastEl.style.opacity = 1;
             setTimeout(() => {
                 toastEl.style.opacity = 0;
@@ -272,8 +308,18 @@
                  showToast("請至少選擇一個格子！");
                  return;
             }
+            
+            const currentRoundBet = parseFloat(totalBetEl.textContent);
+            if (playerBalance < currentRoundBet) {
+                showToast("餘額不足！");
+                return;
+            }
+
             isPlaying = true;
             disableUI();
+
+            playerBalance -= currentRoundBet;
+            updateUI();
 
             // 清除上一局的所有視覺元素
             document.querySelectorAll('.ball, .lightning-payout').forEach(el => el.remove());
@@ -286,6 +332,7 @@
             
             if (numBaseStrikes > config.mainGame.numberOfGrids) {
                 showToast(`無效局: 基礎閃電次數 (${numBaseStrikes}) > 格子數`);
+                playerBalance += currentRoundBet; // Refund
                 await resetGame(true);
                 return;
             }
@@ -306,6 +353,7 @@
                  
                 if (numPurchasedStrikes > config.mainGame.numberOfGrids) {
                     showToast(`無效局: 購買閃電次數 (${numPurchasedStrikes}) > 格子數`);
+                    playerBalance += currentRoundBet; // Refund
                     await resetGame(true);
                     return;
                 }
@@ -376,6 +424,8 @@
                     winDetailsHtml += `<p class="mb-1">${detailText}</p>`;
                 }
             }
+            
+            playerBalance += totalWin;
 
             if(totalWin > 0){
                 winDetailsEl.innerHTML = winDetailsHtml;
@@ -383,7 +433,41 @@
             }
             
             totalWinEl.textContent = totalWin.toFixed(2);
-            resetGame(); // MODIFIED: No longer needs await, happens instantly
+            updateStatsAndHistory(currentRoundBet, totalWin);
+            resetGame(); 
+        }
+
+        function updateStatsAndHistory(bet, win) {
+            roundCounter++;
+            cumulativeTotalBet += bet;
+            cumulativeTotalWin += win;
+
+            // Update RTP
+            const rtp = cumulativeTotalBet > 0 ? (cumulativeTotalWin / cumulativeTotalBet) * 100 : 0;
+            runningRtpEl.textContent = `${rtp.toFixed(2)} %`;
+
+            // Update Balance
+            playerBalanceEl.textContent = playerBalance.toFixed(2);
+
+            // Add to history
+            const historyEntry = document.createElement('div');
+            historyEntry.classList.add('bg-gray-800', 'p-2', 'rounded-md', 'text-sm');
+            
+            const winLoss = win - bet;
+            const winLossColor = winLoss >= 0 ? 'text-green-400' : 'text-red-400';
+            const sign = winLoss >= 0 ? '+' : '';
+
+            historyEntry.innerHTML = `
+                <div class="flex justify-between font-mono">
+                    <span>第 ${roundCounter} 局</span>
+                    <span class="${winLossColor}">${sign}${winLoss.toFixed(2)}</span>
+                </div>
+                <div class="flex justify-between text-xs text-gray-400 mt-1">
+                    <span>押注: ${bet.toFixed(2)}</span>
+                    <span>贏分: ${win.toFixed(2)}</span>
+                </div>
+            `;
+            historyLogEl.prepend(historyEntry);
         }
 
         async function animateLightning(gridId, payout, type) {
@@ -453,9 +537,6 @@
 
 
         function resetGame() {
-             // (MODIFIED) Removed delay. Button becomes clickable immediately.
-                         
-             // Update button
              startButton.textContent = '重新一局';
              startButton.classList.remove('bg-green-600', 'hover:bg-green-700');
              startButton.classList.add('bg-blue-600', 'hover:bg-blue-700');
@@ -471,7 +552,6 @@
             winDetailsEl.innerHTML = '';
             winDetailsEl.classList.add('hidden');
             
-            // (MODIFIED) Clear balls and lightning from previous round, keep selections
             document.querySelectorAll('.ball, .lightning-payout').forEach(el => el.remove());
             
             updateUI();
@@ -510,13 +590,13 @@
                     config = JSON.parse(e.target.result);
                     console.log("Config loaded:", config);
                     
-                    // Hide loader and show game
                     fileLoaderSection.classList.add('hidden');
                     gameWrapper.classList.remove('hidden');
 
                     purchaseFeatureCheckbox.disabled = false;
                     initializeGrid(); 
                     handleResetClick();
+                    updateUI(); // Set initial balance display
                 } catch (error) {
                     console.error("Error parsing JSON:", error);
                     showToast("無效的 config.json 檔案！");
