@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveMines 模擬報告分析器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            background-color: #f1f5f9;
+        }
+        .chart-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+        .tab-button {
+            transition: all 0.3s ease;
+        }
+        .tab-button.active {
+            background-color: #1e40af;
+            color: white;
+        }
+        .tab-button:not(.active) {
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+        code {
+            background-color: #e2e8f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-slate-800">LiveMines 模擬報告分析器</h1>
+            <p class="text-sm text-slate-500 mt-2">開發者: Pascal | 日期: 2025-10-01</p>
+            <p class="text-slate-600 mt-2">點擊下方按鈕以選擇並分析 `multiplayer_simulation_report.txt` 檔案。</p>
+        </header>
+
+        <main>
+            <!-- 輸入區 -->
+            <section id="input-section" class="mb-8">
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                     <label for="file-input" class="w-full bg-blue-700 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-800 transition-colors shadow-sm cursor-pointer block text-center">
+                        選擇並讀取報告檔案 (.txt)
+                    </label>
+                    <input type="file" id="file-input" class="hidden" accept=".txt">
+                </div>
+            </section>
+
+            <!-- 載入與錯誤訊息 -->
+            <div id="message-area" class="text-center mb-8"></div>
+
+            <!-- 篩選與結果區 (預設隱藏) -->
+            <div id="results-section" class="hidden">
+                <div id="report-header" class="bg-blue-100 border-l-4 border-blue-500 text-blue-800 p-4 rounded-md mb-8 text-sm"></div>
+
+                <!-- 篩選器 -->
+                <section id="filters" class="bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div>
+                        <label for="strategy-select" class="block text-sm font-medium text-slate-700 mb-1">二級玩法策略</label>
+                        <select id="strategy-select" class="w-full md:w-auto p-2 border border-slate-300 rounded-md focus:ring-blue-500 focus:border-blue-500">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">購買 Extra Bet</label>
+                        <div class="flex rounded-md shadow-sm">
+                            <button id="toggle-no-extra" class="tab-button w-28 py-2 px-4 rounded-l-md font-semibold text-sm focus:outline-none">無購買</button>
+                            <button id="toggle-with-extra" class="tab-button w-28 py-2 px-4 rounded-r-md font-semibold text-sm focus:outline-none">有購買</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- RTP 總覽 -->
+                <section id="rtp-overview-section" class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800 mb-4">RTP 總覽</h2>
+                    <div class="bg-white p-6 rounded-lg shadow-md overflow-x-auto">
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-50 border-b border-slate-200">
+                                <tr>
+                                    <th class="p-4 font-semibold">玩家群體</th>
+                                    <th class="p-4 font-semibold text-right">總投注額</th>
+                                    <th class="p-4 font-semibold text-right">總贏分</th>
+                                    <th class="p-4 font-semibold text-right">總RTP (%)</th>
+                                    <th class="p-4 font-semibold text-right">基礎RTP (%)</th>
+                                    <th class="p-4 font-semibold text-right">閃電RTP (%)</th>
+                                    <th class="p-4 font-semibold text-right">二級玩法RTP (%)</th>
+                                    <th class="p-4 font-semibold text-right">理論JP RTP (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rtp-overview-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- 35局 RTP 區間分佈 -->
+                <section id="rtp-distribution-section" class="mb-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800">35局 RTP 區間分佈</h2>
+                        <div class="flex rounded-md shadow-sm">
+                             <button id="toggle-with-bonus-dist" class="tab-button py-2 px-4 rounded-l-md font-semibold text-sm focus:outline-none">包含二級玩法</button>
+                             <button id="toggle-without-bonus-dist" class="tab-button py-2 px-4 rounded-r-md font-semibold text-sm focus:outline-none">不含二級玩法</button>
+                        </div>
+                    </div>
+                    <div id="charts-container" class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <!-- Chart containers will be generated here -->
+                    </div>
+                </section>
+
+            </div>
+
+        </main>
+    </div>
+
+    <script>
+        // --- 全域變數 ---
+        let parsedData = null;
+        const chartInstances = {};
+
+        // --- DOM 元素 ---
+        const fileInput = document.getElementById('file-input');
+        const resultsSection = document.getElementById('results-section');
+        const messageArea = document.getElementById('message-area');
+        const strategySelect = document.getElementById('strategy-select');
+        const toggleNoExtra = document.getElementById('toggle-no-extra');
+        const toggleWithExtra = document.getElementById('toggle-with-extra');
+        const toggleWithBonusDist = document.getElementById('toggle-with-bonus-dist');
+        const toggleWithoutBonusDist = document.getElementById('toggle-without-bonus-dist');
+
+        // --- 初始設定 ---
+        function initialize() {
+            fileInput.addEventListener('change', handleFileSelect);
+            strategySelect.addEventListener('change', renderAll);
+            toggleNoExtra.addEventListener('click', () => setActiveTab(toggleNoExtra, toggleWithExtra, renderAll));
+            toggleWithExtra.addEventListener('click', () => setActiveTab(toggleWithExtra, toggleNoExtra, renderAll));
+            toggleWithBonusDist.addEventListener('click', () => setActiveTab(toggleWithBonusDist, toggleWithoutBonusDist, renderAll));
+            toggleWithoutBonusDist.addEventListener('click', () => setActiveTab(toggleWithoutBonusDist, toggleWithBonusDist, renderAll));
+
+            setActiveTab(toggleNoExtra, toggleWithExtra);
+            setActiveTab(toggleWithBonusDist, toggleWithoutBonusDist);
+        }
+
+        // --- 核心邏輯 ---
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                showMessage('未選擇任何檔案。', 'info');
+                return;
+            }
+            if (!file.type.startsWith('text/')) {
+                showMessage('請選擇一個有效的文字檔 (.txt)。', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => handleParse(e.target.result);
+            reader.onerror = () => showMessage('讀取檔案時發生錯誤。', 'error');
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        function handleParse(text) {
+            if (!text || !text.trim()) {
+                showMessage('檔案內容為空或格式不符！', 'error');
+                return;
+            }
+
+            let currentLineNumber = 0;
+            let currentLineContent = '';
+
+            try {
+                showMessage('正在解析報告...', 'loading');
+                parsedData = parseReport(text, (lineNum, lineContent) => {
+                    currentLineNumber = lineNum;
+                    currentLineContent = lineContent;
+                });
+
+                console.log("--- 解析完成的資料結構 ---");
+                console.log(parsedData);
+                
+                if(!parsedData || parsedData.rtpOverview.length === 0 || !parsedData.rtpOverview[0].noExtraBet || parsedData.rtpOverview[0].noExtraBet.length === 0) {
+                    throw new Error('無法從報告中解析出有效的 RTP 總覽數據，請檢查內容是否完整。');
+                }
+
+                populateFilters();
+                renderAll();
+                resultsSection.classList.remove('hidden');
+                messageArea.innerHTML = ''; // 解析成功後清空訊息
+            } catch (error) {
+                console.error(`解析錯誤發生在第 ${currentLineNumber} 行:`, currentLineContent);
+                console.error('錯誤詳情:', error);
+                showMessage(`解析失敗: ${error.message}<br><b>錯誤發生在第 ${currentLineNumber} 行:</b><br><code>${currentLineContent.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code>`, 'error');
+                resultsSection.classList.add('hidden');
+            }
+        }
+
+        function populateFilters() {
+            strategySelect.innerHTML = '';
+            parsedData.rtpOverview.forEach((_, index) => {
+                const option = document.createElement('option');
+                option.value = index + 1;
+                option.textContent = `通關 ${index + 1} 層後收手`;
+                strategySelect.appendChild(option);
+            });
+        }
+
+        function renderAll() {
+            if (!parsedData) return;
+            renderRtpOverview();
+            renderRtpDistributionCharts();
+        }
+
+        function renderRtpOverview() {
+            const strategyIndex = parseInt(strategySelect.value) - 1;
+            const useExtraBet = toggleWithExtra.classList.contains('active');
+            const data = useExtraBet ? parsedData.rtpOverview[strategyIndex].withExtraBet : parsedData.rtpOverview[strategyIndex].noExtraBet;
+
+            const tbody = document.getElementById('rtp-overview-tbody');
+            tbody.innerHTML = '';
+
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-slate-200 hover:bg-slate-50';
+                
+                const lightningRtp = useExtraBet ? (row.lightningRtp || 'N/A') : (row.baseLightningRtp || 'N/A');
+
+                tr.innerHTML = `
+                    <td class="p-4 font-medium ${row.group.includes('綜合') ? 'text-blue-700' : ''}">${row.group}</td>
+                    <td class="p-4 text-right">${parseFloat(row.totalBet).toLocaleString('en-US', {maximumFractionDigits: 0})}</td>
+                    <td class="p-4 text-right">${parseFloat(row.totalWin).toLocaleString('en-US', {maximumFractionDigits: 0})}</td>
+                    <td class="p-4 text-right font-semibold ${row.group.includes('綜合') ? 'text-blue-700' : ''}">${row.totalRtp}</td>
+                    <td class="p-4 text-right text-slate-600">${row.baseRtp}</td>
+                    <td class="p-4 text-right text-slate-600">${lightningRtp}</td>
+                    <td class="p-4 text-right text-slate-600">${row.bonusRtp}</td>
+                    <td class="p-4 text-right text-slate-600">${row.jpTheoryRtp}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+        
+        function renderRtpDistributionCharts() {
+            const strategyIndex = parseInt(strategySelect.value) - 1;
+            const useExtraBet = toggleWithExtra.classList.contains('active');
+            const includeBonus = toggleWithBonusDist.classList.contains('active');
+            
+            const distType = includeBonus ? 'withBonus' : 'withoutBonus';
+            const betType = useExtraBet ? 'withExtraBet' : 'noExtraBet';
+            
+            const data = parsedData.rtpDistribution[distType][strategyIndex][betType];
+            
+            const chartsContainer = document.getElementById('charts-container');
+            chartsContainer.innerHTML = ''; 
+
+            Object.values(chartInstances).forEach(chart => {
+                if (chart) chart.destroy();
+            });
+            for (const key in chartInstances) {
+                delete chartInstances[key];
+            }
+
+            if (!data || data.length === 0) {
+                chartsContainer.innerHTML = `<div class="col-span-1 lg:col-span-2 text-center text-slate-500 py-8">此篩選條件下無 35 局分佈數據可顯示。</div>`;
+                return;
+            }
+
+            let globalMax = 0;
+            data.forEach(groupData => {
+                const maxInGroup = Math.max(...groupData.distribution.map(d => Number(d.count) || 0));
+                if (maxInGroup > globalMax) {
+                    globalMax = maxInGroup;
+                }
+            });
+            const yAxisMax = Math.ceil(globalMax / 50000) * 50000;
+
+            data.forEach(groupData => {
+                const container = document.createElement('div');
+                container.className = 'bg-white p-6 rounded-lg shadow-md chart-container';
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+                chartsContainer.appendChild(container);
+                
+                const labels = groupData.distribution.map(d => d.bin);
+                const counts = groupData.distribution.map(d => Number(d.count) || 0);
+                const totalBatches = counts.reduce((a, b) => a + b, 0);
+
+                const chartId = `${groupData.group}-${strategyIndex}-${betType}-${distType}`;
+                
+                const ctx = canvas.getContext('2d');
+                chartInstances[chartId] = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '批次數',
+                            data: counts,
+                            backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                            borderColor: 'rgba(59, 130, 246, 1)',
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: groupData.group,
+                                font: { size: 18 }
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    footer: function(context) {
+                                        const count = context[0].raw;
+                                        const percentage = totalBatches > 0 ? (count / totalBatches * 100).toFixed(2) : 0;
+                                        return `比例: ${percentage}%`;
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: yAxisMax > 0 ? yAxisMax : undefined,
+                                title: {
+                                    display: true,
+                                    text: '批次數'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'RTP 區間 (%)'
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+        }
+
+
+        // --- UI 輔助函式 ---
+
+        function setActiveTab(activeBtn, inactiveBtn, callback) {
+            activeBtn.classList.add('active');
+            inactiveBtn.classList.remove('active');
+            if (callback) {
+                callback();
+            }
+        }
+
+        function showMessage(msg, type = 'info') {
+            const colors = {
+                info: 'bg-blue-100 text-blue-800',
+                success: 'bg-green-100 text-green-800',
+                error: 'bg-red-100 text-red-800',
+                loading: 'bg-yellow-100 text-yellow-800 animate-pulse'
+            };
+            messageArea.innerHTML = `<div class="${colors[type]} p-4 rounded-md font-medium text-left">${msg}</div>`;
+            if (type === 'success') {
+                setTimeout(() => messageArea.innerHTML = '', 5000);
+            }
+        }
+
+        // --- 報告解析核心函式 ---
+
+        function parseReport(text, updateDebugInfo) {
+            const lines = text.split('\n').map(l => l.trim());
+            const data = {
+                reportInfo: {},
+                playerGroups: [],
+                rtpOverview: [],
+                rtpDistribution: {
+                    withBonus: [],
+                    withoutBonus: [],
+                }
+            };
+
+            for (let i = 0; i < 5; i++) {
+                data.rtpOverview.push({ noExtraBet: [], withExtraBet: [] });
+                data.rtpDistribution.withBonus.push({ noExtraBet: [], withExtraBet: [] });
+                data.rtpDistribution.withoutBonus.push({ noExtraBet: [], withExtraBet: [] });
+            }
+            
+            let currentSection = null;
+            let currentStrategy = -1;
+            let currentExtraBet = null;
+
+            const timeMatch = text.match(/報告產出時間: (.*)/);
+            const runsMatch = text.match(/總模擬局數: (.*)/);
+            document.getElementById('report-header').innerHTML = `
+                <p><strong>報告產出時間:</strong> ${timeMatch ? timeMatch[1].trim() : 'N/A'}</p>
+                <p><strong>模擬設定:</strong> ${runsMatch ? runsMatch[1].trim() : 'N/A'}</p>
+            `;
+
+            for (let i = 0; i < lines.length; i++) {
+                if (updateDebugInfo) updateDebugInfo(i + 1, lines[i]);
+                const line = lines[i];
+                
+                const rtpOverviewMatch = line.match(/RTP 總覽 \(二級玩法策略: 通關 (\d+) 層後收手\)/);
+                if (rtpOverviewMatch) {
+                    currentSection = 'rtp-overview';
+                    currentStrategy = parseInt(rtpOverviewMatch[1]) - 1;
+                    continue;
+                }
+                const rtpDistMatch = line.match(/---.*?\d+局 RTP 區間分佈統計.*?---/);
+                if(rtpDistMatch) {
+                    currentSection = 'rtp-distribution';
+                    continue;
+                }
+
+                if (currentSection === 'rtp-overview') {
+                    if (line.includes('無購買額外閃電')) {
+                        currentExtraBet = 'noExtraBet';
+                        continue;
+                    }
+                    if (line.includes('有購買額外閃電')) {
+                        currentExtraBet = 'withExtraBet';
+                        continue;
+                    }
+                    if (line.startsWith('---') || line.includes('玩家群體') || !line) continue;
+
+                    const parts = line.split(/\s{2,}/);
+                    if (parts.length >= 7) { // 確保至少有8個欄位 (索引0-7)
+                        const rowData = {
+                            group: parts[0] || 'N/A',
+                            totalBet: parts[1] || '0',
+                            totalWin: parts[2] || '0',
+                            totalRtp: parts[3] || '0.0',
+                            baseRtp: parts[4] || '0.0',
+                            lightningRtp: parts[5] || '0.0',
+                            baseLightningRtp: parts[5] || '0.0', 
+                            bonusRtp: parts[6] || '0.0',
+                            jpTheoryRtp: parts[7] || '0.0' // 新增 JP 理論 RTP
+                        };
+                        if(currentStrategy > -1 && data.rtpOverview[currentStrategy] && data.rtpOverview[currentStrategy][currentExtraBet]) {
+                           data.rtpOverview[currentStrategy][currentExtraBet].push(rowData);
+                        }
+                    }
+                }
+                else if (currentSection === 'rtp-distribution') {
+                    const groupMatch = line.match(/--- (群體: .*?|綜合全體玩家)\s*\((包含二級玩法|不含二級玩法)\)\s*---/);
+                    if (groupMatch) {
+                        const currentDistGroup = groupMatch[1].trim();
+                        const currentDistType = groupMatch[2].includes('包含') ? 'withBonus' : 'withoutBonus';
+                        
+                        i++; 
+                        for (; i < lines.length; i++) {
+                             if (updateDebugInfo) updateDebugInfo(i + 1, lines[i]);
+                            const innerLine = lines[i];
+
+                            const strategyMatch = innerLine.match(/--- \(策略: 通關 (\d+) 層\) ---/);
+                            if(strategyMatch) {
+                                currentStrategy = parseInt(strategyMatch[1]) - 1;
+                                
+                                i++;
+                                for (; i < lines.length; i++) {
+                                    if (updateDebugInfo) updateDebugInfo(i + 1, lines[i]);
+                                    const tableLine = lines[i];
+
+                                    if(tableLine.includes('(無購買 Extra Bet)')) {
+                                        i = parseRtpDistTable(lines, i + 1, data.rtpDistribution[currentDistType][currentStrategy].noExtraBet, currentDistGroup);
+                                        continue;
+                                    }
+                                    if(tableLine.includes('(有購買 Extra Bet)')) {
+                                        i = parseRtpDistTable(lines, i + 1, data.rtpDistribution[currentDistType][currentStrategy].withExtraBet, currentDistGroup);
+                                        continue;
+                                    }
+                                    if(tableLine.match(/--- \(策略: 通關 \d+ 層\) ---/) || tableLine.match(/--- (群體: .*?|綜合全體玩家)/) || tableLine.startsWith('======')) {
+                                        i--;
+                                        break;
+                                    }
+                                }
+                                continue;
+                            }
+                            
+                            if(innerLine.match(/--- (群體: .*?|綜合全體玩家)/) || innerLine.startsWith('======')) {
+                                i--;
+                                break;
+                            }
+                        }
+                        continue;
+                    }
+                }
+            }
+            return data;
+        }
+
+        function parseRtpDistTable(lines, startIndex, targetArray, groupName) {
+            let groupObject = targetArray.find(g => g.group === groupName);
+            if (!groupObject) {
+                groupObject = { group: groupName, distribution: [] };
+                targetArray.push(groupObject);
+            }
+            groupObject.distribution = []; 
+            
+            let i = startIndex;
+            
+            if(lines[i] && lines[i].includes('RTP 區間')) i++;
+            if(lines[i] && /^-+$/.test(lines[i])) i++;
+
+            for (; i < lines.length; i++) {
+                const line = lines[i];
+                if (!line || line.startsWith('---') || line.includes('(')) {
+                    return i - 1; 
+                }
+
+                const parts = line.split(/\s{2,}/);
+                if (parts.length >= 2) {
+                    const count = parseInt((parts[1] || '').replace(/,/g, ''), 10);
+                    if (!Number.isNaN(count)) {
+                        groupObject.distribution.push({
+                            bin: parts[0],
+                            count: count,
+                            percentage: parts[2] || '0.0 %'
+                        });
+                    }
+                }
+            }
+            return i;
+        }
+
+        // --- 啟動 ---
+        initialize();
+
+    </script>
+</body>
+</html>
+
