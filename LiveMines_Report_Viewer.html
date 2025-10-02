@@ -40,7 +40,7 @@
     <div class="max-w-7xl mx-auto">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-slate-800">LiveMines 模擬報告分析器</h1>
-            <p class="text-sm text-slate-500 mt-2">開發者: Pascal(Trevi機率工程師) | 日期: 2025-10-01</p>
+            <p class="text-sm text-slate-500 mt-2">開發者: Pascal | 日期: 2025-10-02</p>
             <p class="text-slate-600 mt-2">點擊下方按鈕以選擇並分析 `multiplayer_simulation_report.txt` 檔案。</p>
         </header>
 
@@ -70,7 +70,7 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">購買 Extra Bet</label>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">購買 Extra Bet <span id="extra-bet-cost" class="text-xs text-slate-500 font-normal"></span></label>
                         <div class="flex rounded-md shadow-sm">
                             <button id="toggle-no-extra" class="tab-button w-28 py-2 px-4 rounded-l-md font-semibold text-sm focus:outline-none">無購買</button>
                             <button id="toggle-with-extra" class="tab-button w-28 py-2 px-4 rounded-r-md font-semibold text-sm focus:outline-none">有購買</button>
@@ -189,6 +189,9 @@
                 if(!parsedData || parsedData.rtpOverview.length === 0 || !parsedData.rtpOverview[0].noExtraBet || parsedData.rtpOverview[0].noExtraBet.length === 0) {
                     throw new Error('無法從報告中解析出有效的 RTP 總覽數據，請檢查內容是否完整。');
                 }
+                
+                // 新增：更新 Extra Bet 成本比例
+                document.getElementById('extra-bet-cost').textContent = `(額外成本 ${parsedData.reportInfo.extraBetCost || 'N/A'})`;
 
                 populateFilters();
                 renderAll();
@@ -396,6 +399,9 @@
 
             const timeMatch = text.match(/報告產出時間: (.*)/);
             const runsMatch = text.match(/總模擬局數: (.*)/);
+            const extraBetCostMatch = text.match(/Extra Bet 額外成本比例: (.*)/);
+            data.reportInfo.extraBetCost = extraBetCostMatch ? extraBetCostMatch[1].trim() : 'N/A';
+
             document.getElementById('report-header').innerHTML = `
                 <p><strong>報告產出時間:</strong> ${timeMatch ? timeMatch[1].trim() : 'N/A'}</p>
                 <p><strong>模擬設定:</strong> ${runsMatch ? runsMatch[1].trim() : 'N/A'}</p>
@@ -429,7 +435,7 @@
                     if (line.startsWith('---') || line.includes('玩家群體') || !line) continue;
 
                     const parts = line.split(/\s{2,}/);
-                    if (parts.length >= 7) { // 確保至少有8個欄位 (索引0-7)
+                    if (parts.length >= 7) { 
                         const rowData = {
                             group: parts[0] || 'N/A',
                             totalBet: parts[1] || '0',
@@ -439,7 +445,7 @@
                             lightningRtp: parts[5] || '0.0',
                             baseLightningRtp: parts[5] || '0.0', 
                             bonusRtp: parts[6] || '0.0',
-                            jpTheoryRtp: parts[7] || '0.0' // 新增 JP 理論 RTP
+                            jpTheoryRtp: parts[7] || '0.0'
                         };
                         if(currentStrategy > -1 && data.rtpOverview[currentStrategy] && data.rtpOverview[currentStrategy][currentExtraBet]) {
                            data.rtpOverview[currentStrategy][currentExtraBet].push(rowData);
@@ -534,5 +540,4 @@
     </script>
 </body>
 </html>
-
 
