@@ -262,7 +262,7 @@
                     </div>
                     
                     <!-- 高度加倍 (max-h-[600px]) -->
-                    <div class="max-h-[600px] overflow-y-auto pr-2 space-y-2 font-mono text-sm relative">
+                    <div class="max-h-[600px] overflow-y-auto pr-2 space-y-2 font-mono text-sm relative custom-scrollbar">
                         <!-- 渲染所有切片 -->
                         <div v-for="(b, idx) in displayBatches" :key="'batch-'+b.startRound"
                              @click="openBatchModal(b)"
@@ -398,7 +398,7 @@
                 </div>
 
                 <!-- 操作按鈕與進度條區塊 -->
-                <div class="w-full flex flex-col gap-4 mt-2">
+                <div class="w-full flex flex-col gap-4 mt-2 mb-6">
                     <div class="flex flex-col sm:flex-row justify-center gap-4 w-full">
                         <!-- 縮小單局開獎按鈕 -->
                         <button @click="runSimulations(1)" :disabled="totalCost === 0 || isPlaying"
@@ -463,7 +463,7 @@
                                             {{ isAllVersionsSelected ? '取消全選' : '全選' }}
                                         </button>
                                     </div>
-                                    <div class="max-h-[120px] overflow-y-auto bg-gray-800 border border-gray-600 rounded-lg p-2 flex flex-col gap-1">
+                                    <div class="max-h-[120px] overflow-y-auto bg-gray-800 border border-gray-600 rounded-lg p-2 flex flex-col gap-1 custom-scrollbar">
                                         <label v-for="v in availableVersions" :key="'v-'+v" class="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-1.5 rounded transition">
                                             <input type="checkbox" :value="v" v-model="selectedVersions" @change="updateAvailableRounds" class="form-checkbox text-blue-500 w-4 h-4 rounded">
                                             <span class="text-sm text-gray-300 font-bold">Version {{ v }}</span>
@@ -478,7 +478,7 @@
                                             {{ isAllRoundsSelected ? '取消全選' : '全選' }}
                                         </button>
                                     </div>
-                                    <div class="max-h-[120px] overflow-y-auto bg-gray-800 border border-gray-600 rounded-lg p-2 flex flex-col gap-1">
+                                    <div class="max-h-[120px] overflow-y-auto bg-gray-800 border border-gray-600 rounded-lg p-2 flex flex-col gap-1 custom-scrollbar">
                                         <label v-for="r in availableRounds" :key="'r-'+r" class="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-1.5 rounded transition">
                                             <input type="checkbox" :value="r" v-model="selectedRounds" @change="resetCsvIndex" class="form-checkbox text-green-500 w-4 h-4 rounded">
                                             <span class="text-sm text-gray-300 font-bold">Round {{ r }}</span>
@@ -504,12 +504,46 @@
                         <h3 class="text-lg font-bold text-yellow-400 flex items-center gap-2">
                             <span>📈 批次 RTP 走勢圖</span>
                         </h3>
-                        <button @click="openChartModal" :disabled="displayBatches.length === 0" :class="{'opacity-50 cursor-not-allowed': displayBatches.length === 0}" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded shadow transition flex items-center gap-1">
+                        <button @click="openChartModal" :disabled="displayBatches.length === 0" :class="{'opacity-50 cursor-not-allowed': displayBatches.length === 0}" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow transition flex items-center gap-1">
                             <span>🔍</span> <span class="hidden sm:inline">放大圖表</span>
                         </button>
                     </div>
                     <div class="relative w-full h-[300px]">
                         <canvas id="rtpChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- ================= RTP 分佈長條圖 ================= -->
+                <div class="bg-gray-800 rounded-xl p-5 mt-6 border border-gray-700 shadow-lg relative">
+                    <h3 class="text-lg font-bold text-yellow-400 mb-3 border-b border-gray-700 pb-2 flex justify-between items-center">
+                        <span>📊 批次 RTP 分佈圖 (2% 區間)</span>
+                        <span class="text-sm font-normal text-gray-400">總計: {{ batches.length }} 個切片</span>
+                    </h3>
+                    <div class="relative w-full h-[250px]">
+                        <canvas id="rtpDistributionChart"></canvas>
+                    </div>
+                    <div class="text-center mt-2 text-xs text-gray-400">
+                        💡 提示：點擊上方長條圖，可檢視該 RTP 區間內的所有批次列表。
+                    </div>
+                    
+                    <!-- 統計數據 -->
+                    <div class="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center border-t border-gray-700 pt-4">
+                        <div class="bg-gray-900 p-2 rounded-lg">
+                            <p class="text-xs text-gray-400">最低 RTP</p>
+                            <p class="text-lg font-bold text-red-400">{{ minBatchRTP }}%</p>
+                        </div>
+                        <div class="bg-gray-900 p-2 rounded-lg">
+                            <p class="text-xs text-gray-400">最高 RTP</p>
+                            <p class="text-lg font-bold text-green-400">{{ maxBatchRTP }}%</p>
+                        </div>
+                        <div class="bg-gray-900 p-2 rounded-lg">
+                            <p class="text-xs text-gray-400">大於等於 100% 次數</p>
+                            <p class="text-lg font-bold text-blue-400">{{ batchesOver100Count }} 次</p>
+                        </div>
+                        <div class="bg-gray-900 p-2 rounded-lg">
+                            <p class="text-xs text-gray-400">大於等於 100% 佔比</p>
+                            <p class="text-lg font-bold text-purple-400">{{ batchesOver100Percent }}%</p>
+                        </div>
                     </div>
                 </div>
 
@@ -531,11 +565,19 @@
                             <button @click="historyFilter = 'bonus_pass'" :class="historyFilter === 'bonus_pass' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">BONUS 且有通關</button>
                             <button @click="historyFilter = 'jp'" :class="historyFilter === 'jp' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有 JP</button>
                         </div>
+                        <!-- 新增局數範圍篩選 -->
+                        <div class="flex gap-2 items-center mt-1 border-t border-gray-700 pt-2">
+                            <span class="text-gray-400 text-xs whitespace-nowrap">局數:</span>
+                            <input type="number" v-model.number="filterStartRound" placeholder="起" class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 transition">
+                            <span class="text-gray-400 text-xs">-</span>
+                            <input type="number" v-model.number="filterEndRound" placeholder="迄" class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 transition">
+                            <button @click="filterStartRound=null; filterEndRound=null" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs whitespace-nowrap transition">清除</button>
+                        </div>
                     </div>
 
                     <!-- 歷史紀錄列表 -->
-                    <div class="overflow-y-auto pr-2 space-y-2 font-mono text-sm relative" style="height: 2400px;">
-                        <!-- 根據篩選結果顯示，最多渲染 200 筆 -->
+                    <div class="overflow-y-auto pr-2 space-y-2 font-mono text-sm relative custom-scrollbar" style="height: 2400px;">
+                        <!-- 根據篩選結果顯示，最多渲染 200 筆以防卡頓 -->
                         <div v-for="(record, index) in displayHistory" :key="record.round"
                              @click="openHistoryModal(record)"
                              class="bg-gray-900 p-3 rounded border-l-4 cursor-pointer hover:bg-gray-700 transition transform hover:scale-[1.01]" 
@@ -616,9 +658,9 @@
                 
                 <!-- 雙 Canvas 架構以固定 Y 軸 -->
                 <div class="flex-1 flex bg-gray-900 rounded-lg border border-gray-700 relative overflow-hidden">
-                    <!-- 固定 Y 軸圖表區塊 -->
-                    <div class="w-[60px] flex flex-col bg-gray-900 z-10 border-r border-gray-700 shadow-[2px_0_8px_rgba(0,0,0,0.5)]">
-                        <div class="flex-1 p-4 pr-0">
+                    <!-- 固定 Y 軸圖表區塊，加寬至 90px 確保數字不被裁切 -->
+                    <div class="w-[90px] shrink-0 flex flex-col bg-gray-900 z-10 border-r border-gray-700 shadow-[2px_0_8px_rgba(0,0,0,0.5)]">
+                        <div class="flex-1 py-4">
                             <canvas id="expandedYAxisChart"></canvas>
                         </div>
                         <!-- 底部保留 6px 的空間給捲動軸，確保左右 Canvas 高度完全對齊 -->
@@ -626,20 +668,56 @@
                     </div>
                     <!-- 可左右滑動的主要圖表區塊 -->
                     <div class="flex-1 flex flex-col overflow-x-auto overflow-y-hidden custom-scrollbar bg-gray-900">
-                        <div :style="{ width: expandedChartWidth + 'px', minWidth: '100%' }" class="flex-1 p-4 pl-0">
+                        <div :style="{ width: expandedChartWidth + 'px', minWidth: '100%' }" class="flex-1 py-4 pr-4">
                             <canvas id="expandedRtpChart"></canvas>
                         </div>
                     </div>
                 </div>
                 
                 <div class="text-center mt-3 text-sm text-gray-400">
-                    💡 提示：紅線為 100% 理論基準線。若切片數量過多，您可以直接左右滑動圖表來檢視所有波段的轉折點。
+                    💡 提示：紅線為 100% 理論基準線。若切片數量過多，您可以直接左右滑動圖表來檢視所有波段的轉折點。點擊數據點可查看詳細數據。
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 區間批次列表彈跳視窗 (Modal) ================= -->
+        <div v-if="showBinModal" @click.self="closeBinModal" class="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
+            <div class="bg-gray-800 border border-purple-500 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] flex flex-col relative shadow-2xl">
+                <button @click="closeBinModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl font-bold leading-none">&times;</button>
+                
+                <h2 class="text-xl font-bold text-purple-400 mb-4 border-b border-gray-700 pb-2">
+                    📊 區間 {{ selectedBinLabel }} 批次列表
+                    <span class="text-sm text-gray-400 font-normal ml-2">(共 {{ selectedBinBatches.length }} 筆)</span>
+                </h2>
+                
+                <div class="flex-1 overflow-y-auto pr-2 space-y-2 font-mono text-sm custom-scrollbar">
+                    <div v-for="(b, idx) in selectedBinBatches" :key="'bin-batch-'+b.startRound"
+                         @click="openBatchModal(b)"
+                         class="bg-gray-900 p-3 rounded border-l-4 cursor-pointer hover:bg-gray-700 transition transform hover:scale-[1.01]"
+                         :class="getBatchRTP(b, 'total') >= 100 ? 'border-green-500' : 'border-blue-500'">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-gray-300 font-bold">局數 #{{ b.startRound }} ~ #{{ b.endRound }}</span>
+                            <span class="text-[10px] bg-blue-900/80 text-blue-300 px-2 py-0.5 rounded border border-blue-700">已完成 ({{ b.roundsCount }})</span>
+                        </div>
+                        <div class="flex justify-between text-gray-400 text-xs mt-2">
+                            <span>RTP: <span :class="getBatchRTP(b, 'total') >= 100 ? 'text-green-400 font-bold' : 'text-yellow-400 font-bold'">{{ getBatchRTP(b, 'total') }}%</span></span>
+                            <span class="italic text-gray-500 text-[10px]">點擊看詳情 👆</span>
+                        </div>
+                    </div>
+                    <div v-if="selectedBinBatches.length === 0" class="text-center text-gray-500 py-6">
+                        此區間目前沒有資料
+                    </div>
+                </div>
+                
+                <div class="flex justify-end mt-4 pt-4 border-t border-gray-700">
+                    <button @click="closeBinModal" class="px-6 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg font-bold transition">關閉</button>
                 </div>
             </div>
         </div>
 
         <!-- ================= 批次統計詳情彈跳視窗 (Modal) ================= -->
-        <div v-if="selectedBatch" @click.self="closeBatchModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
+        <!-- 注意：加上 z-[60] 確保在圖表放大的時候點擊，這個 Modal 也能蓋在放大版 Modal 的上方 -->
+        <div v-if="selectedBatch" @click.self="closeBatchModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
             <div class="bg-gray-800 border border-blue-500 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto relative shadow-2xl">
                 <button @click="closeBatchModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl font-bold leading-none">&times;</button>
                 
@@ -872,19 +950,12 @@
                 if (y100 >= top && y100 <= bottom) {
                     ctx.save();
                     ctx.beginPath();
-                    ctx.lineWidth = 1.5;
-                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)'; // Tailwind red-500
-                    ctx.setLineDash([5, 5]);
+                    ctx.lineWidth = 2.5; // 加粗實線
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.9)'; // Tailwind red-500
+                    ctx.setLineDash([]); // 實線 (移除虛線設定)
                     ctx.moveTo(left, y100);
                     ctx.lineTo(right, y100);
                     ctx.stroke();
-
-                    // 僅在主要繪圖區加上標籤 (避免重疊到獨立的 Y 軸)
-                    if(chart.canvas.id !== 'expandedYAxisChart') {
-                        ctx.fillStyle = 'rgba(239, 68, 68, 0.9)';
-                        ctx.font = 'bold 12px sans-serif';
-                        ctx.fillText('100%', left + 10, y100 - 8);
-                    }
                     ctx.restore();
                 }
             }
@@ -981,7 +1052,12 @@
                     // Modal 相關
                     showConfigModal: false,
                     showChartModal: false,
+                    showBinModal: false,
                     tempConfigText: "",
+                    
+                    // 區間點擊儲存
+                    selectedBinLabel: '',
+                    selectedBinBatches: [],
                     
                     // 進度條相關
                     simulatedCount: 0,
@@ -992,7 +1068,9 @@
                     selectedHistoryRecord: null,
                     
                     history: [],
-                    historyFilter: 'all', 
+                    historyFilter: 'all',
+                    filterStartRound: null, // 局數篩選 (起)
+                    filterEndRound: null,   // 局數篩選 (迄)
                     currentRound: 0,
                     
                     // 全域統計資料
@@ -1044,10 +1122,10 @@
                     if (this.selectedVersions.length === 0 || this.selectedRounds.length === 0) return [];
                     return this.csvData.filter(d => this.selectedVersions.includes(d.version) && this.selectedRounds.includes(d.round));
                 },
-                // 動態計算放大版圖表的寬度 (確保不會擠在一起)
+                // 動態計算放大版圖表的寬度 (每個點給足夠的寬度，確保不會擠在一起)
                 expandedChartWidth() {
-                    // 每個批次給 60px 寬度，最少維持 800px 以免太小
-                    return Math.max(800, this.batches.length * 60);
+                    // 每個批次給 80px 寬度，最少維持 800px 以免太小
+                    return Math.max(800, this.batches.length * 80);
                 },
                 // --- 全域 RTP 百分比計算 ---
                 currentRTP() { return this.getBatchRTP(this.stats, 'total'); },
@@ -1088,10 +1166,38 @@
                     } else if (this.historyFilter === 'jp') {
                         result = result.filter(r => r.jpWin > 0);
                     }
+                    
+                    // 套用局數範圍篩選
+                    if (this.filterStartRound !== null && this.filterStartRound !== '') {
+                        result = result.filter(r => r.round >= this.filterStartRound);
+                    }
+                    if (this.filterEndRound !== null && this.filterEndRound !== '') {
+                        result = result.filter(r => r.round <= this.filterEndRound);
+                    }
+                    
                     return result;
                 },
                 displayHistory() {
                     return this.filteredHistory.slice(0, 200);
+                },
+                
+                // --- 分佈圖相關計算 ---
+                minBatchRTP() {
+                    if (this.batches.length === 0) return "0.00";
+                    const min = Math.min(...this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total'))));
+                    return min.toFixed(2);
+                },
+                maxBatchRTP() {
+                    if (this.batches.length === 0) return "0.00";
+                    const max = Math.max(...this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total'))));
+                    return max.toFixed(2);
+                },
+                batchesOver100Count() {
+                    return this.batches.filter(b => parseFloat(this.getBatchRTP(b, 'total')) >= 100).length;
+                },
+                batchesOver100Percent() {
+                    if (this.batches.length === 0) return "0.00";
+                    return ((this.batchesOver100Count / this.batches.length) * 100).toFixed(2);
                 }
             },
             watch: {
@@ -1122,8 +1228,9 @@
                 const savedBatchSize = localStorage.getItem('livemines_batchSize');
                 if (savedBatchSize) this.batchSize = parseInt(savedBatchSize, 10) || 1200;
 
-                // 初始化首頁小折線圖
+                // 初始化圖表
                 this.initChart();
+                this.initDistributionChart();
             },
             methods: {
                 // ================== RTP 折線圖功能 ==================
@@ -1153,6 +1260,21 @@
                         options: {
                             responsive: true,
                             maintainAspectRatio: false,
+                            layout: {
+                                padding: { left: 10, right: 10 }
+                            },
+                            onClick: (event, elements) => {
+                                if (elements.length > 0) {
+                                    const idx = elements[0].index;
+                                    const b = self.batches[idx];
+                                    if (b) {
+                                        self.openBatchModal(b);
+                                    }
+                                }
+                            },
+                            onHover: (event, elements, chart) => {
+                                chart.canvas.style.cursor = elements.length ? 'pointer' : 'default';
+                            },
                             plugins: {
                                 legend: { display: false },
                                 tooltip: {
@@ -1195,7 +1317,7 @@
                                 y: {
                                     ticks: { 
                                         color: '#9ca3af',
-                                        callback: function(value) { return value + '%'; }
+                                        callback: function(value) { return Number(value).toFixed(2) + '%'; }
                                     },
                                     grid: { color: '#374151', borderDash: [5, 5] }
                                 }
@@ -1243,6 +1365,21 @@
                         },
                         options: {
                             ...commonOptions,
+                            layout: {
+                                padding: { left: 5, right: 15 } // 讓右邊有空間不被切到
+                            },
+                            onClick: (event, elements) => {
+                                if (elements.length > 0) {
+                                    const idx = elements[0].index;
+                                    const b = self.batches[idx];
+                                    if (b) {
+                                        self.openBatchModal(b);
+                                    }
+                                }
+                            },
+                            onHover: (event, elements, chart) => {
+                                chart.canvas.style.cursor = elements.length ? 'pointer' : 'default';
+                            },
                             plugins: {
                                 legend: { display: false },
                                 tooltip: {
@@ -1312,6 +1449,9 @@
                         },
                         options: {
                             ...commonOptions,
+                            layout: {
+                                padding: { left: 5, right: 0 } // 避免壓縮到 Y 軸標籤
+                            },
                             plugins: {
                                 legend: { display: false },
                                 tooltip: { enabled: false }
@@ -1324,10 +1464,16 @@
                                     border: { display: false }
                                 },
                                 y: {
+                                    // 使用 afterFit 保證 Y 軸有足夠的渲染空間
+                                    afterFit: function(scale) {
+                                        scale.width = 90; // 強制留出 90px 寬度給 Y 軸文字
+                                    },
                                     ticks: { 
                                         color: '#9ca3af',
                                         font: { size: 12 },
-                                        callback: function(value) { return value + '%'; }
+                                        callback: function(value) { return Number(value).toFixed(2) + '%'; },
+                                        align: 'end',
+                                        crossAlign: 'far'
                                     },
                                     grid: { display: false, drawBorder: false },
                                     border: { display: false }
@@ -1338,6 +1484,104 @@
 
                     this.$options.expandedChartInstance = new Chart(mainCtx, mainConfig);
                     this.$options.expandedYAxisInstance = new Chart(yAxisCtx, yAxisConfig);
+                },
+                
+                // ================== RTP 分佈圖 (長條圖) ==================
+                initDistributionChart() {
+                    const ctx = document.getElementById('rtpDistributionChart').getContext('2d');
+                    const self = this;
+                    const chartConfig = {
+                        type: 'bar',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: '批次數量',
+                                data: [],
+                                backgroundColor: function(context) {
+                                    const index = context.dataIndex;
+                                    const label = context.chart.data.labels[index] || '';
+                                    const binStart = parseInt(label.split('~')[0]);
+                                    if (binStart >= 100) return 'rgba(74, 222, 128, 0.8)'; // 綠色
+                                    return 'rgba(239, 68, 68, 0.8)'; // 紅色
+                                },
+                                borderWidth: 0,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            onClick: (event, elements) => {
+                                if (elements.length > 0) {
+                                    const idx = elements[0].index;
+                                    const label = self.$options.distributionChartInstance.data.labels[idx];
+                                    self.openBinModal(label);
+                                }
+                            },
+                            onHover: (event, elements, chart) => {
+                                chart.canvas.style.cursor = elements.length ? 'pointer' : 'default';
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                                    titleColor: '#fbbf24',
+                                    bodyColor: '#e5e7eb',
+                                    padding: 12,
+                                    displayColors: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `該區間共有 ${context.parsed.y} 個批次`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    ticks: { color: '#9ca3af', font: { size: 11 } },
+                                    grid: { display: false }
+                                },
+                                y: {
+                                    ticks: { color: '#9ca3af', stepSize: 1 },
+                                    grid: { color: '#374151', borderDash: [5, 5] },
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    };
+                    this.$options.distributionChartInstance = new Chart(ctx, chartConfig);
+                },
+
+                calculateDistribution() {
+                    const rtps = this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total')));
+                    if (rtps.length === 0) return { labels: [], data: [] };
+
+                    const minRtp = Math.min(...rtps);
+                    const maxRtp = Math.max(...rtps);
+
+                    // 確保 X 軸始終有 90% ~ 110% 的範圍，使 100% 能置中顯示
+                    const start = Math.min(Math.floor(minRtp / 2) * 2, 90);
+                    const end = Math.max(Math.floor(maxRtp / 2) * 2 + 2, 110);
+
+                    let labels = [];
+                    let counts = {};
+
+                    for (let i = start; i <= end; i += 2) {
+                        const label = `${i}~${i + 2}%`;
+                        labels.push(label);
+                        counts[label] = 0;
+                    }
+
+                    rtps.forEach(rtp => {
+                        let binStart = Math.floor(rtp / 2) * 2;
+                        if (binStart < start) binStart = start;
+                        const label = `${binStart}~${binStart + 2}%`;
+                        if (counts[label] !== undefined) {
+                            counts[label]++;
+                        }
+                    });
+
+                    return { labels, data: labels.map(l => counts[l]) };
                 },
 
                 updateChart() {
@@ -1371,6 +1615,14 @@
                             }
                         }
                     }
+                    
+                    // 更新 RTP 分佈長條圖
+                    if (this.$options.distributionChartInstance) {
+                        const dist = this.calculateDistribution();
+                        this.$options.distributionChartInstance.data.labels = dist.labels;
+                        this.$options.distributionChartInstance.data.datasets[0].data = dist.data;
+                        this.$options.distributionChartInstance.update();
+                    }
                 },
 
                 openChartModal() {
@@ -1394,6 +1646,31 @@
                         this.$options.expandedYAxisInstance.destroy();
                         this.$options.expandedYAxisInstance = null;
                     }
+                },
+
+                openBinModal(label) {
+                    const rtps = this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total')));
+                    if (rtps.length === 0) return;
+                    
+                    const minRtp = Math.min(...rtps);
+                    const start = Math.min(Math.floor(minRtp / 2) * 2, 90);
+
+                    // 過濾出屬於該區間的批次
+                    this.selectedBinBatches = this.batches.filter(b => {
+                        const rtp = parseFloat(this.getBatchRTP(b, 'total'));
+                        let binStart = Math.floor(rtp / 2) * 2;
+                        if (binStart < start) binStart = start;
+                        const bLabel = `${binStart}~${binStart + 2}%`;
+                        return bLabel === label;
+                    }).reverse(); // 最新的排前面
+
+                    this.selectedBinLabel = label;
+                    this.showBinModal = true;
+                },
+
+                closeBinModal() {
+                    this.showBinModal = false;
+                    this.selectedBinBatches = [];
                 },
 
                 // ================== CSV 匯出功能 ==================
@@ -1577,6 +1854,8 @@
                     this.lastResult = null;
                     this.selectedHistoryRecord = null;
                     this.selectedBatch = null;
+                    this.showBinModal = false;
+                    this.selectedBinBatches = [];
                     this.history = [];
                     this.currentRound = 0;
                     this.csvDataIndex = 0; 
@@ -1731,9 +2010,12 @@
                     setTimeout(() => {
                         let newRecord = this.simulateSingleRound(currentCost);
                         this.history.unshift(newRecord);
-                        if (this.history.length > 20000) {
+                        
+                        // 只保留最多 10 萬筆記憶體
+                        if (this.history.length > 100000) {
                             this.history.pop();
                         }
+                        
                         this.applyResultToUI(newRecord);
                         this.isPlaying = false;
                         
@@ -1780,8 +2062,12 @@
                 },
 
                 finishBatchSimulations(newRecordsBuffer) {
-                    this.history = [...newRecordsBuffer.reverse(), ...this.history].slice(0, 20000);
                     if (newRecordsBuffer.length > 0) {
+                        // 使用更有效率的陣列合併方式，並裁切至 100,000 筆上限
+                        this.history = newRecordsBuffer.reverse().concat(this.history);
+                        if (this.history.length > 100000) {
+                            this.history.length = 100000;
+                        }
                         this.applyResultToUI(newRecordsBuffer[0]);
                     }
                     
@@ -2001,7 +2287,9 @@
                         this.currentBatchStats = getEmptyStats(); // 重新起一個新批次
                     }
 
-                    return {
+                    // 【核心優化】使用 Object.freeze 將結果變成唯讀，避免 Vue 為每筆歷史紀錄建立代理
+                    // 這能大幅度節省龐大數據(如 10 萬筆)的記憶體開銷與渲染效能。
+                    return Object.freeze({
                         round: roundNum,
                         cost: currentCost,
                         totalWin: totalWin,
@@ -2015,7 +2303,7 @@
                         bonusResultText: bonusResultText,
                         bonusLevelHistory: bonusLevelHistory, 
                         finalGridsState: localGrids 
-                    };
+                    });
                 },
 
                 applyResultToUI(result) {
