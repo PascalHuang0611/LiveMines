@@ -43,11 +43,11 @@
             <!-- ================= 左側欄：結算與統計 ================= -->
             <div class="w-full xl:w-[350px] flex flex-col gap-6 shrink-0 order-2 xl:order-1">
                 
-                <!-- 帳戶盈虧面板 -->
+                <!-- 帳戶 GGR 面板 -->
                 <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg flex justify-between items-center">
-                    <span class="text-lg font-bold text-gray-300">💰 目前盈虧</span>
-                    <span :class="balance > 0 ? 'text-green-400' : (balance < 0 ? 'text-red-400' : 'text-gray-300')" class="text-2xl font-bold font-mono">
-                        {{ balance > 0 ? '+' : '' }}{{ balance % 1 !== 0 ? balance.toFixed(2) : balance }}
+                    <span class="text-lg font-bold text-gray-300">💰 目前 GGR</span>
+                    <span :class="currentGGR > 0 ? 'text-blue-400' : (currentGGR < 0 ? 'text-purple-400' : 'text-gray-300')" class="text-2xl font-bold font-mono">
+                        {{ currentGGR > 0 ? '+' : '' }}{{ currentGGR % 1 !== 0 ? currentGGR.toFixed(2) : currentGGR }}
                     </span>
                 </div>
 
@@ -359,8 +359,40 @@
                     </div>
                 </div>
 
+                <!-- 操作按鈕與進度條區塊 -->
+                <div class="w-full flex flex-col gap-4 mt-2 mb-6">
+                    <div class="flex flex-col sm:flex-row justify-center gap-4 w-full">
+                        <!-- 縮小單局開獎按鈕 -->
+                        <button @click="runSimulations(1)" :disabled="totalCost === 0 || isPlaying"
+                                class="w-full sm:w-36 sm:flex-none bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-2 rounded-xl text-lg shadow-lg transform transition active:scale-95 whitespace-nowrap">
+                            {{ isPlaying ? '開獎中...' : '單局開獎' }}
+                        </button>
+                        <div class="flex flex-1 gap-3 w-full">
+                            <!-- 放大執行局數輸入框 (flex-1) -->
+                            <div class="relative flex-1">
+                                <span class="absolute top-[-20px] left-1 text-xs text-gray-400">執行局數</span>
+                                <input type="number" v-model.number="simRounds" min="1" :max="appConfig.simulationRuns"
+                                       class="w-full h-full bg-gray-800 border border-purple-500 text-center text-2xl font-bold text-white rounded-xl focus:outline-none focus:border-indigo-400 shadow-inner px-2">
+                            </div>
+                            <!-- 自動開獎按鈕 -->
+                            <button @click="startBatchSimulations" :disabled="totalCost === 0 || isPlaying || simRounds < 1"
+                                    class="w-32 sm:w-48 sm:flex-none bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-2 rounded-xl text-lg sm:text-xl shadow-lg transform transition active:scale-95 whitespace-nowrap">
+                                {{ isPlaying ? '開獎中...' : '自動開獎' }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 進度條 (僅在大量執行時顯示) -->
+                    <div v-if="isPlaying && simRounds > 1" class="w-full bg-gray-800 rounded-full h-6 border border-gray-700 overflow-hidden relative shadow-inner">
+                        <div class="h-full bg-indigo-500 progress-bar-stripes transition-all duration-200" :style="{ width: progressPercent + '%' }"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">
+                            執行中... {{ simulatedCount }} / {{ totalSimToRun }} ({{ progressPercent.toFixed(1) }}%)
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 二級玩法進階設定區塊 -->
-                <div class="bg-gray-800 rounded-xl p-5 mb-6 border border-gray-700 shadow-lg flex flex-col gap-4 w-full">
+                <div class="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg flex flex-col gap-4 w-full">
                     <h3 class="text-lg font-bold text-yellow-400 border-b border-gray-700 pb-2 flex items-center gap-2">
                         <span>🎯 BONUS 闖關設定</span>
                     </h3>
@@ -393,38 +425,6 @@
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 操作按鈕與進度條區塊 -->
-                <div class="w-full flex flex-col gap-4 mt-2 mb-6">
-                    <div class="flex flex-col sm:flex-row justify-center gap-4 w-full">
-                        <!-- 縮小單局開獎按鈕 -->
-                        <button @click="runSimulations(1)" :disabled="totalCost === 0 || isPlaying"
-                                class="w-full sm:w-36 sm:flex-none bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-2 rounded-xl text-lg shadow-lg transform transition active:scale-95 whitespace-nowrap">
-                            {{ isPlaying ? '開獎中...' : '單局開獎' }}
-                        </button>
-                        <div class="flex flex-1 gap-3 w-full">
-                            <!-- 放大執行局數輸入框 (flex-1) -->
-                            <div class="relative flex-1">
-                                <span class="absolute top-[-20px] left-1 text-xs text-gray-400">執行局數</span>
-                                <input type="number" v-model.number="simRounds" min="1" :max="appConfig.simulationRuns"
-                                       class="w-full h-full bg-gray-800 border border-purple-500 text-center text-2xl font-bold text-white rounded-xl focus:outline-none focus:border-indigo-400 shadow-inner px-2">
-                            </div>
-                            <!-- 自動開獎按鈕 -->
-                            <button @click="startBatchSimulations" :disabled="totalCost === 0 || isPlaying || simRounds < 1"
-                                    class="w-32 sm:w-48 sm:flex-none bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-2 rounded-xl text-lg sm:text-xl shadow-lg transform transition active:scale-95 whitespace-nowrap">
-                                {{ isPlaying ? '開獎中...' : '自動開獎' }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 進度條 (僅在大量執行時顯示) -->
-                    <div v-if="isPlaying && simRounds > 1" class="w-full bg-gray-800 rounded-full h-6 border border-gray-700 overflow-hidden relative shadow-inner">
-                        <div class="h-full bg-indigo-500 progress-bar-stripes transition-all duration-200" :style="{ width: progressPercent + '%' }"></div>
-                        <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">
-                            執行中... {{ simulatedCount }} / {{ totalSimToRun }} ({{ progressPercent.toFixed(1) }}%)
                         </div>
                     </div>
                 </div>
@@ -515,10 +515,24 @@
 
                 <!-- ================= RTP 分佈長條圖 ================= -->
                 <div class="bg-gray-800 rounded-xl p-5 mt-6 border border-gray-700 shadow-lg relative">
-                    <h3 class="text-lg font-bold text-yellow-400 mb-3 border-b border-gray-700 pb-2 flex justify-between items-center">
-                        <span>📊 批次 RTP 分佈圖 (2% 區間)</span>
-                        <span class="text-sm font-normal text-gray-400">總計: {{ batches.length }} 個切片</span>
-                    </h3>
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 border-b border-gray-700 pb-2 gap-2">
+                        <div class="flex items-center gap-3">
+                            <h3 class="text-lg font-bold text-yellow-400 flex items-center gap-2">
+                                <span>📊 批次 RTP 分佈圖</span>
+                            </h3>
+                            <div class="flex items-center gap-2 bg-gray-900 px-2 py-1 rounded border border-gray-600">
+                                <span class="text-xs text-gray-400">區間:</span>
+                                <input type="number" v-model.number="distributionBinSize" min="0.1" step="0.1" class="w-16 bg-gray-800 border border-gray-600 rounded px-1 py-0.5 text-white text-xs outline-none focus:border-blue-500 text-center transition">
+                                <span class="text-xs text-gray-400">%</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                            <span class="text-sm font-normal text-gray-400">總計: {{ batches.length }} 個切片</span>
+                            <button @click="openDistributionChartModal" :disabled="displayBatches.length === 0" :class="{'opacity-50 cursor-not-allowed': displayBatches.length === 0}" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-1.5 rounded shadow transition flex items-center gap-1">
+                                <span>🔍</span> <span class="hidden sm:inline">放大圖表</span>
+                            </button>
+                        </div>
+                    </div>
                     <div class="relative w-full h-[250px]">
                         <canvas id="rtpDistributionChart"></canvas>
                     </div>
@@ -676,6 +690,34 @@
                 
                 <div class="text-center mt-3 text-sm text-gray-400">
                     💡 提示：紅線為 100% 理論基準線。若切片數量過多，您可以直接左右滑動圖表來檢視所有波段的轉折點。點擊數據點可查看詳細數據。
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 放大版 RTP 分佈長條圖彈跳視窗 (Modal) ================= -->
+        <div v-show="showDistributionModal" @click.self="closeDistributionChartModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-md animate-fade-in">
+            <div class="bg-gray-800 border border-gray-600 rounded-2xl p-6 w-full max-w-7xl h-[85vh] flex flex-col relative shadow-2xl">
+                <button @click="closeDistributionChartModal" class="absolute top-4 right-4 text-gray-400 hover:text-white text-3xl font-bold leading-none z-10">&times;</button>
+                
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 border-b border-gray-700 pb-2 gap-3">
+                    <h2 class="text-2xl font-bold text-yellow-400 flex items-center gap-3">
+                        <span>📊 批次 RTP 分佈圖 (詳細展開版)</span>
+                    </h2>
+                    <div class="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded border border-gray-600 text-sm">
+                        <span class="text-gray-400">區間大小:</span>
+                        <input type="number" v-model.number="distributionBinSize" min="0.1" step="0.1" class="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-white outline-none focus:border-blue-500 text-center transition">
+                        <span class="text-gray-400">%</span>
+                    </div>
+                </div>
+                
+                <div class="flex-1 flex flex-col overflow-x-auto overflow-y-hidden custom-scrollbar bg-gray-900 rounded-lg border border-gray-700 relative">
+                    <div :style="{ width: expandedDistChartWidth + 'px', minWidth: '100%' }" class="flex-1 p-4">
+                        <canvas id="expandedDistributionChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-3 text-sm text-gray-400">
+                    💡 提示：點擊長條圖可查看該區間的所有批次。可左右滑動檢視完整分佈。
                 </div>
             </div>
         </div>
@@ -1052,9 +1094,13 @@
                     // Modal 相關
                     showConfigModal: false,
                     showChartModal: false,
+                    showDistributionModal: false,
                     showBinModal: false,
                     tempConfigText: "",
                     
+                    // 分佈圖設定
+                    distributionBinSize: 2,
+
                     // 區間點擊儲存
                     selectedBinLabel: '',
                     selectedBinBatches: [],
@@ -1118,6 +1164,9 @@
                     }
                     return baseCost;
                 },
+                currentGGR() {
+                    return -this.balance;
+                },
                 filteredCsvData() {
                     if (this.selectedVersions.length === 0 || this.selectedRounds.length === 0) return [];
                     return this.csvData.filter(d => this.selectedVersions.includes(d.version) && this.selectedRounds.includes(d.round));
@@ -1126,6 +1175,11 @@
                 expandedChartWidth() {
                     // 每個批次給 80px 寬度，最少維持 800px 以免太小
                     return Math.max(800, this.batches.length * 80);
+                },
+                // 動態計算放大版分佈圖寬度
+                expandedDistChartWidth() {
+                    if (!this.distributionData.labels) return 800;
+                    return Math.max(800, this.distributionData.labels.length * 60);
                 },
                 // --- 全域 RTP 百分比計算 ---
                 currentRTP() { return this.getBatchRTP(this.stats, 'total'); },
@@ -1181,7 +1235,47 @@
                     return this.filteredHistory.slice(0, 200);
                 },
                 
-                // --- 分佈圖相關計算 ---
+                // --- 分佈圖資料 ---
+                distributionData() {
+                    const rtps = this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total')));
+                    if (rtps.length === 0) return { labels: [], data: [] };
+
+                    const minRtp = Math.min(...rtps);
+                    const maxRtp = Math.max(...rtps);
+                    const step = parseFloat(this.distributionBinSize) || 2;
+
+                    // 處理浮點數精度，全部乘 100 變整數計算
+                    const mult = 100;
+                    const stepInt = Math.round(step * mult);
+                    
+                    const startInt = Math.min(Math.floor(Math.round(minRtp * mult) / stepInt) * stepInt, Math.floor(90 * mult / stepInt) * stepInt);
+                    const endInt = Math.max(Math.floor(Math.round(maxRtp * mult) / stepInt) * stepInt + stepInt, Math.ceil(110 * mult / stepInt) * stepInt);
+
+                    let labels = [];
+                    let counts = {};
+
+                    for (let i = startInt; i <= endInt; i += stepInt) {
+                        const s = i / mult;
+                        const e = (i + stepInt) / mult;
+                        const label = `${Number(s).toFixed(2)}~${Number(e).toFixed(2)}%`;
+                        labels.push(label);
+                        counts[label] = 0;
+                    }
+
+                    rtps.forEach(rtp => {
+                        let binStartInt = Math.floor(Math.round(rtp * mult) / stepInt) * stepInt;
+                        if (binStartInt < startInt) binStartInt = startInt;
+                        const s = binStartInt / mult;
+                        const e = (binStartInt + stepInt) / mult;
+                        const label = `${Number(s).toFixed(2)}~${Number(e).toFixed(2)}%`;
+                        if (counts[label] !== undefined) {
+                            counts[label]++;
+                        }
+                    });
+
+                    return { labels, data: labels.map(l => counts[l]) };
+                },
+
                 minBatchRTP() {
                     if (this.batches.length === 0) return "0.00";
                     const min = Math.min(...this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total'))));
@@ -1206,6 +1300,11 @@
                 },
                 batchSize(newVal) {
                     localStorage.setItem('livemines_batchSize', newVal);
+                },
+                distributionBinSize(newVal) {
+                    if (newVal <= 0) this.distributionBinSize = 0.1;
+                    localStorage.setItem('livemines_distBinSize', this.distributionBinSize);
+                    this.updateChart();
                 }
             },
             mounted() {
@@ -1227,6 +1326,9 @@
                 
                 const savedBatchSize = localStorage.getItem('livemines_batchSize');
                 if (savedBatchSize) this.batchSize = parseInt(savedBatchSize, 10) || 1200;
+                
+                const savedDistBinSize = localStorage.getItem('livemines_distBinSize');
+                if (savedDistBinSize) this.distributionBinSize = parseFloat(savedDistBinSize) || 2;
 
                 // 初始化圖表
                 this.initChart();
@@ -1500,7 +1602,7 @@
                                 backgroundColor: function(context) {
                                     const index = context.dataIndex;
                                     const label = context.chart.data.labels[index] || '';
-                                    const binStart = parseInt(label.split('~')[0]);
+                                    const binStart = parseFloat(label.split('~')[0]);
                                     if (binStart >= 100) return 'rgba(74, 222, 128, 0.8)'; // 綠色
                                     return 'rgba(239, 68, 68, 0.8)'; // 紅色
                                 },
@@ -1552,36 +1654,71 @@
                     this.$options.distributionChartInstance = new Chart(ctx, chartConfig);
                 },
 
-                calculateDistribution() {
-                    const rtps = this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total')));
-                    if (rtps.length === 0) return { labels: [], data: [] };
-
-                    const minRtp = Math.min(...rtps);
-                    const maxRtp = Math.max(...rtps);
-
-                    // 確保 X 軸始終有 90% ~ 110% 的範圍，使 100% 能置中顯示
-                    const start = Math.min(Math.floor(minRtp / 2) * 2, 90);
-                    const end = Math.max(Math.floor(maxRtp / 2) * 2 + 2, 110);
-
-                    let labels = [];
-                    let counts = {};
-
-                    for (let i = start; i <= end; i += 2) {
-                        const label = `${i}~${i + 2}%`;
-                        labels.push(label);
-                        counts[label] = 0;
-                    }
-
-                    rtps.forEach(rtp => {
-                        let binStart = Math.floor(rtp / 2) * 2;
-                        if (binStart < start) binStart = start;
-                        const label = `${binStart}~${binStart + 2}%`;
-                        if (counts[label] !== undefined) {
-                            counts[label]++;
+                initExpandedDistributionChart() {
+                    const ctx = document.getElementById('expandedDistributionChart').getContext('2d');
+                    const self = this;
+                    const chartConfig = {
+                        type: 'bar',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: '批次數量',
+                                data: [],
+                                backgroundColor: function(context) {
+                                    const index = context.dataIndex;
+                                    const label = context.chart.data.labels[index] || '';
+                                    const binStart = parseFloat(label.split('~')[0]);
+                                    if (binStart >= 100) return 'rgba(74, 222, 128, 0.8)'; 
+                                    return 'rgba(239, 68, 68, 0.8)'; 
+                                },
+                                borderWidth: 0,
+                                borderRadius: 4
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            onClick: (event, elements) => {
+                                if (elements.length > 0) {
+                                    const idx = elements[0].index;
+                                    const label = self.$options.expandedDistributionChartInstance.data.labels[idx];
+                                    self.openBinModal(label);
+                                }
+                            },
+                            onHover: (event, elements, chart) => {
+                                chart.canvas.style.cursor = elements.length ? 'pointer' : 'default';
+                            },
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+                                    titleColor: '#fbbf24',
+                                    bodyColor: '#e5e7eb',
+                                    padding: 12,
+                                    titleFont: { size: 14 },
+                                    bodyFont: { size: 13 },
+                                    displayColors: false,
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `該區間共有 ${context.parsed.y} 個批次`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    ticks: { color: '#9ca3af', font: { size: 12 } },
+                                    grid: { display: false }
+                                },
+                                y: {
+                                    ticks: { color: '#9ca3af', font: { size: 12 }, stepSize: 1 },
+                                    grid: { color: '#374151', borderDash: [5, 5] },
+                                    beginAtZero: true
+                                }
+                            }
                         }
-                    });
-
-                    return { labels, data: labels.map(l => counts[l]) };
+                    };
+                    this.$options.expandedDistributionChartInstance = new Chart(ctx, chartConfig);
                 },
 
                 updateChart() {
@@ -1618,10 +1755,18 @@
                     
                     // 更新 RTP 分佈長條圖
                     if (this.$options.distributionChartInstance) {
-                        const dist = this.calculateDistribution();
+                        const dist = this.distributionData;
                         this.$options.distributionChartInstance.data.labels = dist.labels;
                         this.$options.distributionChartInstance.data.datasets[0].data = dist.data;
                         this.$options.distributionChartInstance.update();
+                    }
+
+                    // 更新 放大版 RTP 分佈長條圖
+                    if (this.showDistributionModal && this.$options.expandedDistributionChartInstance) {
+                        const dist = this.distributionData;
+                        this.$options.expandedDistributionChartInstance.data.labels = dist.labels;
+                        this.$options.expandedDistributionChartInstance.data.datasets[0].data = dist.data;
+                        this.$options.expandedDistributionChartInstance.update();
                     }
                 },
 
@@ -1648,19 +1793,44 @@
                     }
                 },
 
+                openDistributionChartModal() {
+                    if (this.displayBatches.length === 0) return;
+                    this.showDistributionModal = true;
+                    this.$nextTick(() => {
+                        this.initExpandedDistributionChart();
+                        this.updateChart();
+                    });
+                },
+
+                closeDistributionChartModal() {
+                    this.showDistributionModal = false;
+                    if (this.$options.expandedDistributionChartInstance) {
+                        this.$options.expandedDistributionChartInstance.destroy();
+                        this.$options.expandedDistributionChartInstance = null;
+                    }
+                },
+
                 openBinModal(label) {
                     const rtps = this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total')));
                     if (rtps.length === 0) return;
                     
+                    const step = parseFloat(this.distributionBinSize) || 2;
+                    const mult = 100; // 計算精度控制
                     const minRtp = Math.min(...rtps);
-                    const start = Math.min(Math.floor(minRtp / 2) * 2, 90);
+                    const stepInt = Math.round(step * mult);
+                    // 必須與分佈圖的 startInt 計算邏輯一致
+                    const startInt = Math.min(Math.floor(Math.round(minRtp * mult) / stepInt) * stepInt, Math.floor(90 * mult / stepInt) * stepInt);
 
                     // 過濾出屬於該區間的批次
                     this.selectedBinBatches = this.batches.filter(b => {
                         const rtp = parseFloat(this.getBatchRTP(b, 'total'));
-                        let binStart = Math.floor(rtp / 2) * 2;
-                        if (binStart < start) binStart = start;
-                        const bLabel = `${binStart}~${binStart + 2}%`;
+                        let binStartInt = Math.floor(Math.round(rtp * mult) / stepInt) * stepInt;
+                        if (binStartInt < startInt) binStartInt = startInt;
+                        
+                        const s = binStartInt / mult;
+                        const e = (binStartInt + stepInt) / mult;
+                        const bLabel = `${Number(s).toFixed(2)}~${Number(e).toFixed(2)}%`;
+                        
                         return bLabel === label;
                     }).reverse(); // 最新的排前面
 
@@ -1962,6 +2132,47 @@
                 },
                 
                 // ================== 核心模擬邏輯 ==================
+                
+                sampleWeightedWithoutReplacement(items, weights, n) {
+                    let availableItems = [...items];
+                    let availableWeights = [...weights];
+                    let selectedItems = [];
+
+                    for (let i = 0; i < n; i++) {
+                        if (availableItems.length === 0) break;
+                        
+                        let totalWeight = availableWeights.reduce((sum, w) => sum + w, 0);
+                        if (totalWeight <= 0) {
+                            // 若權重異常，退回純隨機
+                            const randomIndex = Math.floor(Math.random() * availableItems.length);
+                            selectedItems.push(availableItems[randomIndex]);
+                            availableItems.splice(randomIndex, 1);
+                            availableWeights.splice(randomIndex, 1);
+                            continue;
+                        }
+
+                        let rand = Math.random() * totalWeight;
+                        let sum = 0;
+                        let selectedIdx = -1;
+
+                        for (let j = 0; j < availableWeights.length; j++) {
+                            sum += availableWeights[j];
+                            if (rand <= sum) {
+                                selectedIdx = j;
+                                break;
+                            }
+                        }
+
+                        if (selectedIdx === -1) selectedIdx = availableWeights.length - 1;
+
+                        selectedItems.push(availableItems[selectedIdx]);
+                        availableItems.splice(selectedIdx, 1);
+                        availableWeights.splice(selectedIdx, 1);
+                    }
+
+                    return selectedItems;
+                },
+
                 sampleWithoutReplacement(arr, n) {
                     let result = [...arr];
                     for (let i = result.length - 1; i > 0; i--) {
@@ -2107,20 +2318,20 @@
                     this.stats.totalJpPool += currentJpContribution;
                     cb.totalJpPool += currentJpContribution;
 
-                    // 1. 分配基礎閃電
+                    // 1. 分配基礎閃電 (套用 config 權重)
                     let numBaseStrikes = this.getWeightedRandom(this.appConfig.lightningFeature.strikes);
-                    const baseStrikeIds = this.sampleWithoutReplacement(allGridIds, numBaseStrikes);
+                    const baseStrikeIds = this.sampleWeightedWithoutReplacement(allGridIds, this.appConfig.lightningFeature.gridWeights, numBaseStrikes);
                     baseStrikeIds.forEach(id => {
                         localGrids[id - 1].baseLightning = this.getWeightedRandom(this.appConfig.lightningFeature.payoutMultipliers);
                         this.stats.lightningHits[id - 1]++; 
                         cb.lightningHits[id - 1]++;
                     });
 
-                    // 2. 分配付費閃電
+                    // 2. 分配付費閃電 (套用 config 權重)
                     let numPurchasedStrikes = 0;
                     if (this.buyExtraLightning) {
                         numPurchasedStrikes = this.getWeightedRandom(this.appConfig.purchasedLightningFeature.strikes);
-                        const purchasedStrikeIds = this.sampleWithoutReplacement(allGridIds, numPurchasedStrikes);
+                        const purchasedStrikeIds = this.sampleWeightedWithoutReplacement(allGridIds, this.appConfig.purchasedLightningFeature.gridWeights, numPurchasedStrikes);
                         purchasedStrikeIds.forEach(id => {
                             localGrids[id - 1].purchasedLightning = this.getWeightedRandom(this.appConfig.purchasedLightningFeature.payoutMultipliers);
                             this.stats.lightningHits[id - 1]++; 
@@ -2195,6 +2406,7 @@
                                 let userPick = this.bonusPositions[lvl]; 
                                 
                                 let allPositions = Array.from({length: totalChoices}, (_, i) => i + 1);
+                                // 注意：BONUS 翻牌本身就是完全隨機，不套用網格閃電權重，所以維持一般 sampleWithoutReplacement
                                 let winningSpots = this.sampleWithoutReplacement(allPositions, winChoices);
                                 
                                 // 紀錄安全位置統計
