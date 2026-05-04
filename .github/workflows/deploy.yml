@@ -37,7 +37,8 @@ jobs:
       - name: Build
         run: npm run build
       - name: Copy existing HTML files
-        run: cp archive/*.html dist/ 2>/dev/null || :
+        run: |
+          cp archive/*.html dist/ 2>/dev/null || true
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
