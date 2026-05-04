@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveMines 遊戲 DEMO (多球決勝版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #1a202c; /* bg-gray-900 */
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .btn-play {
+            background-color: #f6e05e; /* yellow-400 */
+            color: #2d3748; /* gray-800 */
+            font-weight: 700;
+            transition: background-color 0.3s ease;
+        }
+        .btn-play:hover:not(:disabled) {
+            background-color: #ecc94b; /* yellow-500 */
+        }
+        .btn-play:disabled {
+            background-color: #4a5568;
+            cursor: not-allowed;
+        }
+        .btn-cashout {
+            background-color: #68d391; /* green-400 */
+            color: #2d3748; /* gray-800 */
+            font-weight: 700;
+            transition: background-color 0.3s ease;
+        }
+        .btn-cashout:hover:not(:disabled) {
+            background-color: #48bb78; /* green-500 */
+        }
+        .btn-cashout:disabled {
+            background-color: #4a5568;
+            cursor: not-allowed;
+        }
+        .ball {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            transition: left 1s cubic-bezier(0.25, 1, 0.5, 1), 
+                        top 1s cubic-bezier(0.25, 1, 0.5, 1), 
+                        background-color 0.3s ease-in-out,
+                        box-shadow 0.3s ease-in-out;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;
+            font-weight: bold;
+        }
+        .ball-neutral { background: radial-gradient(circle at 30% 30%, #cbd5e0, #718096); }
+        .ball-coin { background: radial-gradient(circle at 30% 30%, #fffbeb, #f6e05e); }
+        .ball-bomb { background: radial-gradient(circle at 30% 30%, #e57373, #c62828); }
+        
+        .glow-coin {
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.8), 0 0 8px 4px rgba(246, 224, 94, 0.5);
+        }
+        .glow-bomb {
+            box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.8), 0 0 8px 4px rgba(245, 101, 101, 0.5);
+        }
+        
+        .payout-item {
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+            background-color: rgba(45, 55, 72, 0.5); /* gray-800 with opacity */
+        }
+        .payout-item-current {
+            background-color: #f6e05e; /* yellow-400 */
+            color: #2d3748; /* gray-800 */
+            transform: scale(1.1);
+            border-color: #ecc94b; /* yellow-500 */
+            z-index: 10;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <div class="container mx-auto p-4 max-w-5xl">
+        
+        <div id="loading-screen" class="flex flex-col items-center justify-center min-h-screen text-center">
+            <header class="mb-8">
+                <h1 class="text-5xl font-bold text-yellow-400">LiveMines 遊戲 DEMO</h1>
+                <p class="text-gray-400 mt-2">多球決勝版</p>
+            </header>
+            <div class="glass-card p-6 rounded-xl w-full max-w-md">
+                <h2 class="text-xl font-bold mb-4">遊戲設定</h2>
+                <label for="config-file-input" class="block mb-3 text-sm font-medium text-gray-300">請上傳您的 config.json 檔案以開始：</label>
+                <input type="file" id="config-file-input" accept=".json" class="w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-yellow-400 file:text-gray-800 hover:file:bg-yellow-500 cursor-pointer"/>
+                <p id="loading-status" class="mt-4 text-gray-400 h-5"></p>
+            </div>
+        </div>
+
+        <main id="game-screen" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-1 space-y-6">
+                <div class="glass-card p-4 rounded-xl">
+                    <h2 class="text-xl font-bold mb-3 border-b border-gray-700 pb-2">遊戲狀態</h2>
+                    <div class="space-y-2 text-lg">
+                        <p>目前餘額: <span id="balance-display" class="font-bold text-green-400">10000</span> 元</p>
+                        <p>本次下注: <span id="bet-display" class="font-bold text-gray-400">100</span> 元</p>
+                        <hr class="border-gray-700 my-2">
+                        <p>目前層數: <span id="current-level" class="font-bold text-yellow-400">0</span></p>
+                        <p>本局獎金: <span id="round-winnings" class="font-bold text-green-400">0.00</span> 元</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 glass-card p-4 rounded-xl flex flex-col items-center justify-center min-h-[400px]">
+                <div id="payout-ladder" class="w-full mb-4"></div>
+                
+                <div id="game-board" class="relative w-full max-w-[400px] aspect-square">
+                    <canvas id="wheel-canvas" class="w-full h-full"></canvas>
+                    <div id="ball-container"></div>
+                </div>
+                <div id="result-display" class="text-center mt-4 h-12">
+                    <p id="result-text" class="text-2xl font-bold"></p>
+                </div>
+                <div id="controls" class="w-full mt-4 space-y-2 md:space-y-0 md:space-x-4 flex flex-col md:flex-row justify-center">
+                    <button id="play-btn" class="py-3 px-8 rounded-lg btn-play text-lg" disabled>開始 / 下一關</button>
+                    <button id="cashout-btn" class="py-3 px-8 rounded-lg btn-cashout text-lg" disabled>提現</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // DOM 元素
+        const loadingScreen = document.getElementById('loading-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const configFileIn = document.getElementById('config-file-input');
+        const loadingStatus = document.getElementById('loading-status');
+        const payoutLadderContainer = document.getElementById('payout-ladder');
+        
+        const playBtn = document.getElementById('play-btn');
+        const cashoutBtn = document.getElementById('cashout-btn');
+        const currentLevelDisplay = document.getElementById('current-level');
+        const roundWinningsDisplay = document.getElementById('round-winnings');
+        const balanceDisplay = document.getElementById('balance-display');
+        const betDisplay = document.getElementById('bet-display');
+        const resultText = document.getElementById('result-text');
+        const canvas = document.getElementById('wheel-canvas');
+        const ctx = canvas.getContext('2d');
+        const ballContainer = document.getElementById('ball-container');
+        const gameBoard = document.getElementById('game-board');
+
+        // 遊戲狀態
+        let gameState = {
+            config: null,
+            balance: 10000,
+            betAmount: 100,
+            currentLevel: 0,
+            roundPayout: 0, 
+            gameInProgress: false,
+        };
+
+        // 繪製圓盤
+        function drawWheel(coins, bombs) {
+            const total = coins + bombs;
+            if (total === 0) return;
+            const coinAngle = (coins / total) * 2 * Math.PI;
+            const radius = canvas.width / 2;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.beginPath();
+            ctx.moveTo(radius, radius);
+            ctx.arc(radius, radius, radius - 5, 0, coinAngle);
+            ctx.closePath();
+            ctx.fillStyle = '#f6e05e';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(radius, radius);
+            ctx.arc(radius, radius, radius - 5, coinAngle, 2 * Math.PI);
+            ctx.closePath();
+            ctx.fillStyle = '#f56565';
+            ctx.fill();
+            
+            const segmentAngle = (2 * Math.PI) / total;
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < total; i++) {
+                const angle = i * segmentAngle;
+                ctx.moveTo(radius, radius);
+                ctx.lineTo(radius + (radius - 5) * Math.cos(angle), radius + (radius - 5) * Math.sin(angle));
+            }
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(radius, radius, 10, 0, 2 * Math.PI);
+            ctx.fillStyle = '#4a5568';
+            ctx.fill();
+        }
+        
+        function populatePayoutLadder() {
+            payoutLadderContainer.innerHTML = '';
+            if (!gameState.config || !gameState.config.levels) return;
+
+            const rows = [
+                document.createElement('div'),
+                document.createElement('div'),
+                document.createElement('div')
+            ];
+            rows.forEach(row => {
+                row.className = 'flex justify-center gap-1 mb-1';
+                payoutLadderContainer.appendChild(row);
+            });
+
+            const maxLevel = gameState.config.levels.length;
+            for (let i = 1; i <= maxLevel; i++) {
+                const levelData = gameState.config.levels[i - 1];
+                const item = document.createElement('div');
+                item.id = `payout-level-${levelData.level}`;
+                item.className = 'payout-item flex-1 text-center p-1 rounded-md text-xs';
+                item.innerHTML = `<span class="block text-gray-400 text-xs">${levelData.level}</span><span class="font-bold">${levelData.cash_out_payout.toFixed(2)}x</span>`;
+                
+                if (levelData.level <= 10) {
+                    rows[0].appendChild(item);
+                } else if (levelData.level <= 20) {
+                    rows[1].appendChild(item);
+                } else {
+                    rows[2].appendChild(item);
+                }
+            }
+        }
+
+
+        function initializeGame(configString) {
+            try {
+                gameState.config = JSON.parse(configString);
+                
+                loadingScreen.classList.add('hidden');
+                gameScreen.classList.remove('hidden');
+                
+                populatePayoutLadder();
+                gameState.balance = 10000;
+                resetRound();
+                playBtn.disabled = false;
+                resultText.textContent = "遊戲已初始化！請點擊開始。";
+                updateUI();
+                resizeCanvas();
+            } catch (e) {
+                loadingStatus.textContent = "錯誤：JSON 檔案格式不正確！";
+                console.error("JSON Parsing Error:", e);
+            }
+        }
+        
+        function resetRound() {
+            gameState.currentLevel = 0;
+            gameState.roundPayout = 0;
+            gameState.gameInProgress = false;
+            playBtn.disabled = false;
+            cashoutBtn.disabled = true;
+            playBtn.textContent = "開始新局 (100元)";
+            updateUI();
+        }
+
+        function updateUI() {
+            balanceDisplay.textContent = `${gameState.balance.toLocaleString()}`;
+            betDisplay.textContent = `${gameState.betAmount}`;
+            currentLevelDisplay.textContent = gameState.currentLevel;
+            const roundWinnings = gameState.betAmount * gameState.roundPayout;
+            roundWinningsDisplay.textContent = `${roundWinnings.toFixed(2)}`;
+
+            document.querySelectorAll('.payout-item').forEach(item => {
+                item.classList.remove('payout-item-current');
+            });
+            if (gameState.currentLevel > 0) {
+                const currentItem = document.getElementById(`payout-level-${gameState.currentLevel}`);
+                if (currentItem) {
+                    currentItem.classList.add('payout-item-current');
+                }
+            }
+        }
+        
+        function handlePlay() {
+            if (gameState.gameInProgress || !gameState.config) return;
+            
+            if (gameState.currentLevel === 0) {
+                if (gameState.balance < gameState.betAmount) {
+                    resultText.textContent = "餘額不足！";
+                    playBtn.disabled = true;
+                    return;
+                }
+                gameState.balance -= gameState.betAmount;
+                gameState.roundPayout = 0;
+            }
+
+            gameState.currentLevel++;
+            const levelData = gameState.config.levels[gameState.currentLevel - 1];
+
+            if (!levelData) {
+                resultText.textContent = `恭喜！您已完成所有 ${gameState.config.levels.length} 關！`;
+                cashOut();
+                return;
+            }
+
+            gameState.gameInProgress = true;
+            playBtn.disabled = true;
+            cashoutBtn.disabled = true;
+            resultText.textContent = `第 ${gameState.currentLevel} 層... 投球中！`;
+            updateUI();
+            
+            drawWheel(levelData.coins, levelData.bombs);
+            animateBalls(levelData);
+        }
+
+        function animateBalls(levelData) {
+            ballContainer.innerHTML = '';
+            const numBalls = gameState.config.simulation_config.num_balls || 5;
+            const boardSize = gameBoard.offsetWidth;
+            const radius = boardSize / 2;
+            
+            let coinHits = 0;
+            
+            const totalSlots = levelData.coins + levelData.bombs;
+            if (totalSlots === 0) {
+                handleResult(0, numBalls);
+                return;
+            }
+            const coinAngleBoundary = (levelData.coins / totalSlots) * 2 * Math.PI;
+
+            for (let i = 0; i < numBalls; i++) {
+                const ball = document.createElement('div');
+                ball.classList.add('ball', 'ball-neutral');
+                ball.textContent = i + 1;
+
+                const startX = Math.random() * boardSize;
+                const startY = -30;
+                ball.style.left = `${startX}px`;
+                ball.style.top = `${startY}px`;
+                
+                ballContainer.appendChild(ball);
+
+                const angle = Math.random() * 2 * Math.PI;
+                const endRadius = Math.random() * (radius - 20) + 10;
+                const endX = radius + Math.cos(angle) * endRadius - 10;
+                const endY = radius + Math.sin(angle) * endRadius - 10;
+
+                const isCoin = angle < coinAngleBoundary;
+                if (isCoin) {
+                    coinHits++;
+                }
+                
+                setTimeout(() => {
+                    requestAnimationFrame(() => {
+                        ball.style.left = `${endX}px`;
+                        ball.style.top = `${endY}px`;
+                    });
+                }, 50 + i * 150);
+
+                setTimeout(() => {
+                    ball.classList.remove('ball-neutral');
+                    ball.classList.add(isCoin ? 'ball-coin' : 'ball-bomb');
+                    ball.classList.add(isCoin ? 'glow-coin' : 'glow-bomb');
+                }, 1050 + i * 150); 
+            }
+            
+            setTimeout(() => {
+                handleResult(coinHits, numBalls);
+            }, 1200 + numBalls * 150);
+        }
+        
+        function handleResult(coinHits, numBalls) {
+            const bombHits = numBalls - coinHits;
+            
+            if (coinHits > bombHits) {
+                const levelData = gameState.config.levels[gameState.currentLevel - 1];
+                gameState.roundPayout = levelData.cash_out_payout;
+                resultText.innerHTML = `通關成功！<span class="text-yellow-400">${coinHits} 金幣</span> / <span class="text-red-500">${bombHits} 炸彈</span>`;
+                
+                gameState.gameInProgress = false;
+                playBtn.disabled = false;
+                cashoutBtn.disabled = false;
+                playBtn.textContent = "下一關";
+            } else {
+                resultText.innerHTML = `爆炸！損失 ${gameState.betAmount} 元`;
+                endRound();
+            }
+            updateUI();
+        }
+        
+        function cashOut() {
+            const winnings = gameState.betAmount * gameState.roundPayout;
+            gameState.balance += winnings;
+            resultText.textContent = `恭喜！您贏得了 ${winnings.toFixed(2)} 元！`;
+            endRound();
+        }
+
+        function endRound() {
+            gameState.currentLevel = 0;
+            gameState.roundPayout = 0;
+            gameState.gameInProgress = false;
+            
+            if (gameState.balance < gameState.betAmount) {
+                 playBtn.textContent = "餘額不足";
+                 playBtn.disabled = true;
+            } else {
+                 playBtn.textContent = `開始新局 (${gameState.betAmount}元)`;
+                 playBtn.disabled = false;
+            }
+
+            cashoutBtn.disabled = true;
+            updateUI();
+        }
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => initializeGame(e.target.result);
+            reader.onerror = () => {
+                loadingStatus.textContent = "讀取檔案時發生錯誤！";
+            }
+            reader.readAsText(file);
+        }
+
+        configFileIn.addEventListener('change', handleFileSelect);
+        playBtn.addEventListener('click', handlePlay);
+        cashoutBtn.addEventListener('click', cashOut);
+
+        function resizeCanvas() {
+            const size = gameBoard.offsetWidth;
+            canvas.width = size;
+            canvas.height = size;
+            if (gameState.config && gameState.currentLevel > 0) {
+                 const levelData = gameState.config.levels[gameState.currentLevel - 1];
+                 if(levelData) drawWheel(levelData.coins, levelData.bombs);
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+    </script>
+</body>
+</html>
