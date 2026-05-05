@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "chart.js": "^4.4.1",
+    "pinia": "^3.0.4",
+    "puppeteer": "^24.42.0",
     "vue": "^3.4.15"
   },
   "devDependencies": {
