@@ -1,0 +1,79 @@
+<template>
+<!-- ================= 右側欄：歷史紀錄 ================= -->
+    <div class="w-full xl:w-[350px] flex flex-col gap-6 shrink-0 order-3 xl:order-3">
+        <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg h-full flex flex-col">
+            <h3 class="text-xl font-bold text-white mb-4 border-b border-gray-600 pb-2">📜 歷史紀錄</h3>
+            
+            <!-- 歷史紀錄篩選器 -->
+            <div class="flex flex-col gap-2 mb-3 bg-gray-900 p-2 rounded-lg">
+                <div class="flex gap-2">
+                    <button @click="$game.historyFilter = 'all'" :class="$game.historyFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">全部</button>
+                    <button @click="$game.historyFilter = 'win'" :class="$game.historyFilter === 'win' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有贏分</button>
+                    <button @click="$game.historyFilter = 'bonus'" :class="$game.historyFilter === 'bonus' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有 BONUS</button>
+                </div>
+                <div class="flex gap-2">
+                    <button @click="$game.historyFilter = 'bonus_pass'" :class="$game.historyFilter === 'bonus_pass' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">BONUS 且有通關</button>
+                    <button @click="$game.historyFilter = 'jp'" :class="$game.historyFilter === 'jp' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有 JP</button>
+                </div>
+                <!-- 新增局數範圍篩選 -->
+                <div class="flex gap-2 items-center mt-1 border-t border-gray-700 pt-2">
+                    <span class="text-gray-400 text-xs whitespace-nowrap">局數:</span>
+                    <input type="number" v-model.number="$game.filterStartRound" placeholder="起" class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 transition">
+                    <span class="text-gray-400 text-xs">-</span>
+                    <input type="number" v-model.number="$game.filterEndRound" placeholder="迄" class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 transition">
+                    <button @click="$game.filterStartRound=null; $game.filterEndRound=null" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs whitespace-nowrap transition">清除</button>
+                </div>
+            </div>
+
+            <!-- 歷史紀錄列表 -->
+            <div class="overflow-y-auto pr-2 space-y-2 font-mono text-sm relative custom-scrollbar" style="height: 2400px;">
+                <!-- 根據篩選結果顯示，最多渲染 200 筆以防卡頓 -->
+                <div v-for="(record, index) in $game.displayHistory" :key="record.round"
+                     @click="$game.openHistoryModal(record)"
+                     class="bg-gray-900 p-3 rounded border-l-4 cursor-pointer hover:bg-gray-700 transition transform hover:scale-[1.01]" 
+                     :class="record.netProfit >= 0 ? 'border-green-500' : 'border-gray-600'">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-gray-300 font-bold">#{{ record.round }}</span>
+                        <div class="flex space-x-2">
+                            <span v-if="record.jpWin > 0" class="text-[10px] bg-pink-600 text-white px-2 py-0.5 rounded shadow-[0_0_8px_rgba(219,39,119,0.6)]">💎 JP WIN</span>
+                            <span v-else-if="record.bonusTriggered && record.bonusSuccess" class="text-[10px] bg-yellow-600 text-white px-2 py-0.5 rounded shadow-[0_0_8px_rgba(202,138,4,0.6)]">BONUS WIN</span>
+                            <span v-if="record.bonusTriggered && !record.bonusSuccess" class="text-[10px] bg-red-800 text-white px-2 py-0.5 rounded border border-red-600">BONUS FAIL</span>
+                        </div>
+                    </div>
+                    <div class="flex justify-between text-gray-400 text-xs">
+                        <span>投入: {{ record.cost }}</span>
+                        <span>派彩: <span :class="record.netProfit >= 0 ? 'text-green-400' : 'text-gray-300'">{{ record.totalWin }}</span></span>
+                        <span>淨利: <span :class="record.netProfit >= 0 ? 'text-green-400 font-bold' : 'text-red-400'">{{ record.netProfit >= 0 ? '+' : '' }}{{ record.netProfit }}</span></span>
+                    </div>
+                    <div class="flex justify-between items-center text-[10px] text-gray-500 mt-1">
+                        <span v-if="record.csvInfo" class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-[9px]" title="版本 / 批次 / 索引">
+                            🗄️ V{{ record.csvInfo.version }} | R{{ record.csvInfo.round }} | Idx: {{ record.csvInfo.index }}
+                        </span>
+                        <span v-else class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-[9px]">
+                            🎲 理論隨機
+                        </span>
+                        <span class="italic ml-auto">點擊查看詳情 👆</span>
+                    </div>
+                </div>
+                
+                <!-- 狀態提示文字 -->
+                <div v-if="$game.filteredHistory.length > 200" class="text-center text-xs text-gray-500 py-3">
+                    ...僅顯示最近 200 筆 (符合條件共 {{ $game.filteredHistory.length }} 筆)...
+                </div>
+                <div v-if="$game.filteredHistory.length === 0 && $game.history.length > 0" class="text-center text-gray-500 py-8">
+                    沒有符合篩選條件的紀錄
+                </div>
+                <div v-if="$game.history.length === 0" class="text-center text-gray-500 py-8">
+                    尚未有任何遊戲紀錄
+                </div>
+            </div>
+        </div>
+    </div>
+</template>
+
+<script>
+export default {
+    name: 'RightSidebar',
+    inject: ['$game']
+}
+</script>
