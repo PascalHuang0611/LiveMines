@@ -5,3 +5,6 @@ dist-ssr
 .env
 .env.*
 .DS_Store
+
+# 分析與 DNA 資料
+agent_analysis/
