@@ -52,7 +52,7 @@
                             <span class="text-gray-300">格子 [{{ detail.grid }}] (中 {{ detail.balls }} 球)</span>
                             <div class="text-right">
                                 <span class="text-gray-400 text-xs block">
-                                    (100 × {{ detail.basePayout }}) × (1 + {{ detail.baseL }} + {{ detail.purchasedL }})
+                                    ({{ detail.betAmount }} × {{ detail.basePayout }}) × (1 + {{ detail.baseL }} + {{ detail.purchasedL }})
                                 </span>
                                 <span class="text-green-400 font-bold">+{{ detail.win }}</span>
                             </div>

@@ -15,14 +15,24 @@
                     </div>
                 </div>
 
-                <!-- 控制面板 (一般押注設定) -->
+                <!-- 控制面板 (押注設定) -->
                 <div class="bg-gray-800 rounded-xl p-5 mb-6 border border-gray-700 shadow-lg">
                     <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div class="space-y-3">
+                        <div class="space-y-3 w-full">
                             <div class="flex flex-wrap items-center gap-3">
-                                <p class="text-gray-300">選擇你想押注的格子，每格基礎押注 <span class="text-yellow-400 font-bold">100</span> 分。</p>
-                                <button @click="$game.toggleAllBets" :disabled="$game.isPlaying" class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded shadow transition">
+                                <!-- 預設單格金額輸入 -->
+                                <div class="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600">
+                                    <span class="text-gray-400 text-sm whitespace-nowrap">預設單格金額:</span>
+                                    <input type="number" v-model.number="$game.defaultBetUnit" min="0" step="100"
+                                           class="w-24 bg-gray-800 border border-yellow-600 rounded px-2 py-1 text-yellow-400 font-bold text-sm outline-none focus:border-yellow-400 transition text-center">
+                                </div>
+                                <button @click="$game.toggleAllBets" :disabled="$game.isPlaying"
+                                        class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded shadow transition">
                                     {{ $game.isAllSelected ? '取消全選' : '全選 9 格' }}
+                                </button>
+                                <button @click="$game.grids.forEach(g => g.betAmount = 0)" :disabled="$game.isPlaying"
+                                        class="bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded shadow transition">
+                                    清空所有
                                 </button>
                             </div>
                             <label class="flex items-center space-x-3 cursor-pointer">
@@ -40,31 +50,40 @@
 
                 <!-- 9宮格遊戲區 -->
                 <div class="grid grid-cols-3 grid-rows-3 gap-2 sm:gap-3 mb-6 aspect-square max-w-md mx-auto w-full">
-                    <div v-for="grid in $game.grids" :key="grid.id" 
-                         @click="$game.toggleBet(grid.id)"
-                         :class="['grid-cell relative overflow-hidden cursor-pointer border-2 border-gray-600 rounded-xl flex flex-col items-center justify-center p-1 sm:p-2', grid.bet ? 'selected' : 'bg-gray-800 hover:bg-gray-700']">
-                        
-                        <!-- 押注指示器 -->
-                        <div v-if="grid.bet" class="absolute top-2 left-2 w-3 h-3 bg-blue-500 rounded-full shadow-[0_0_8px_#3b82f6] z-0"></div>
+                    <div v-for="grid in $game.grids" :key="grid.id"
+                         :class="['grid-cell relative overflow-hidden border-2 rounded-xl flex flex-col items-center justify-center p-1 sm:p-2',
+                                  grid.betAmount > 0 ? 'selected' : 'bg-gray-800 border-gray-600']">
                         
                         <!-- 格子編號 -->
-                        <span class="text-gray-500 font-bold text-xl absolute top-2 right-2 opacity-50 z-0">{{ grid.id }}</span>
+                        <span class="text-gray-500 font-bold text-lg absolute top-1 right-2 opacity-40 z-0">{{ grid.id }}</span>
+
+                        <!-- 押注金額輸入框 -->
+                        <input
+                            type="number" min="0" step="100"
+                            v-model.number="grid.betAmount"
+                            :disabled="$game.isPlaying"
+                            @click.stop
+                            class="w-[82%] text-center font-bold text-sm rounded bg-gray-900 border px-1 py-1 outline-none z-10 transition"
+                            :class="grid.betAmount > 0
+                                ? 'border-yellow-500 text-yellow-300 shadow-[0_0_8px_rgba(234,179,8,0.5)]'
+                                : 'border-gray-600 text-gray-400'"
+                            placeholder="0">
 
                         <!-- 動態開獎結果顯示 -->
-                        <div class="flex flex-col items-center justify-center h-full space-y-1 z-10 w-full">
+                        <div class="flex flex-col items-center justify-center space-y-0.5 z-10 w-full mt-1">
                             <!-- 球 -->
-                            <div v-if="grid.balls > 0" class="ball-badge relative flex items-center justify-center bg-gradient-to-br from-red-400 to-red-600 text-white font-bold rounded-full w-9 h-9 sm:w-10 sm:h-10 shadow-[0_0_10px_rgba(239,68,68,0.8)] border border-red-400 flex-shrink-0">
-                                <div class="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 w-2 h-2 bg-white rounded-full opacity-50 shadow-inner"></div>
-                                <span class="text-sm sm:text-base z-10">x{{ grid.balls }}</span>
+                            <div v-if="grid.balls > 0" class="ball-badge relative flex items-center justify-center bg-gradient-to-br from-red-400 to-red-600 text-white font-bold rounded-full w-8 h-8 sm:w-9 sm:h-9 shadow-[0_0_10px_rgba(239,68,68,0.8)] border border-red-400 flex-shrink-0">
+                                <div class="absolute top-1 left-1.5 w-2 h-2 bg-white rounded-full opacity-50 shadow-inner"></div>
+                                <span class="text-xs sm:text-sm z-10">x{{ grid.balls }}</span>
                             </div>
                             
                             <!-- 基礎閃電 -->
-                            <div v-if="grid.baseLightning > 0" class="text-yellow-400 font-bold text-xs sm:text-sm bg-yellow-900/80 px-1 sm:px-2 py-0.5 rounded border border-yellow-600 w-[95%] text-center truncate shadow-sm">
+                            <div v-if="grid.baseLightning > 0" class="text-yellow-400 font-bold text-[10px] bg-yellow-900/80 px-1 py-0.5 rounded border border-yellow-600 w-[95%] text-center truncate shadow-sm">
                                 ⚡ 免費: +{{ grid.baseLightning }}x
                             </div>
 
                             <!-- 購買閃電 -->
-                            <div v-if="grid.purchasedLightning > 0" class="text-purple-400 font-bold text-xs sm:text-sm bg-purple-900/80 px-1 sm:px-2 py-0.5 rounded border border-purple-600 w-[95%] text-center truncate shadow-sm">
+                            <div v-if="grid.purchasedLightning > 0" class="text-purple-400 font-bold text-[10px] bg-purple-900/80 px-1 py-0.5 rounded border border-purple-600 w-[95%] text-center truncate shadow-sm">
                                 ⚡ 付費: +{{ grid.purchasedLightning }}x
                             </div>
                         </div>
@@ -74,13 +93,13 @@
                 <!-- 操作按鈕與進度條區塊 -->
                 <div class="w-full flex flex-col gap-4 mt-2 mb-6">
                     <div class="flex flex-col sm:flex-row justify-center gap-4 w-full">
-                        <!-- 縮小單局開獎按鈕 -->
+                        <!-- 單局開獎按鈕 -->
                         <button @click="$game.runSimulations(1)" :disabled="$game.totalCost === 0 || $game.isPlaying"
                                 class="w-full sm:w-36 sm:flex-none bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-2 rounded-xl text-lg shadow-lg transform transition active:scale-95 whitespace-nowrap">
                             {{ $game.isPlaying ? '開獎中...' : '單局開獎' }}
                         </button>
                         <div class="flex flex-1 gap-3 w-full">
-                            <!-- 放大執行局數輸入框 (flex-1) -->
+                            <!-- 執行局數輸入框 -->
                             <div class="relative flex-1">
                                 <span class="absolute top-[-20px] left-1 text-xs text-gray-400">執行局數</span>
                                 <input type="number" v-model.number="$game.simRounds" min="1" :max="$game.appConfig.simulationRuns"
@@ -94,7 +113,7 @@
                         </div>
                     </div>
 
-                    <!-- 進度條 (僅在大量執行時顯示) -->
+                    <!-- 進度條 -->
                     <div v-if="$game.isPlaying && $game.simRounds > 1" class="w-full bg-gray-800 rounded-full h-6 border border-gray-700 overflow-hidden relative shadow-inner">
                         <div class="h-full bg-indigo-500 progress-bar-stripes transition-all duration-200" :style="{ width: $game.progressPercent + '%' }"></div>
                         <div class="absolute inset-0 flex items-center justify-center text-xs font-bold text-white drop-shadow-md">

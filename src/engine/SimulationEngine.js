@@ -83,7 +83,8 @@ export function simulateRound(payload) {
 
     let localGrids = Array.from({length: 9}, (_, i) => ({
         id: i + 1,
-        bet: grids[i].bet,
+        betAmount: grids[i].betAmount || 0, // 每格各自獨立的押注金額
+        bet: (grids[i].betAmount || 0) > 0, // 與原來相容
         balls: 0,
         baseLightning: 0,
         purchasedLightning: 0
@@ -156,7 +157,7 @@ export function simulateRound(payload) {
         if (g.balls === 2) hasTwoSame = true;
 
         // Bonus Game Logic
-        if (g.bet && g.balls === 3) {
+        if (g.betAmount > 0 && g.balls === 3) {
             bonusTriggered = true;
             bonusLevelHistory = [];
             
@@ -198,7 +199,7 @@ export function simulateRound(payload) {
             if (alive) {
                 bonusSuccess = true;
                 let payoutMult = config.bonusGame.levelSettings.payouts[targetLevel - 1];
-                bonusWin = baseBetUnit * payoutMult;
+                bonusWin = g.betAmount * payoutMult; // 用觸發格的押注金額
                 bonusResultText = `成功通關第 ${targetLevel} 層！獲得 ${payoutMult} 倍`;
                 
                 if (targetLevel === config.bonusGame.endLevel) {
@@ -216,11 +217,11 @@ export function simulateRound(payload) {
         }
 
         // Base Game Payouts
-        if (g.bet && g.balls > 0) {
+        if (g.betAmount > 0 && g.balls > 0) {
             let payoutIndex = Math.min(g.balls - 1, config.mainGame.singleAreaBasePayouts.length - 1);
             let payout = config.mainGame.singleAreaBasePayouts[payoutIndex];
             
-            let baseWinPart = baseBetUnit * payout;
+            let baseWinPart = g.betAmount * payout;
             let lightningWinPart = baseWinPart * (g.baseLightning + g.purchasedLightning);
             let cellTotalWin = baseWinPart + lightningWinPart;
             
@@ -231,6 +232,7 @@ export function simulateRound(payload) {
             details.push({
                 grid: g.id,
                 balls: g.balls,
+                betAmount: g.betAmount, // 該格實際押注金額
                 basePayout: payout,
                 baseL: g.baseLightning,
                 purchasedL: g.purchasedLightning,

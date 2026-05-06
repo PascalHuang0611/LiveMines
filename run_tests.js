@@ -26,12 +26,17 @@ import puppeteer from 'puppeteer';
     console.log("✅ App loaded successfully.");
 
     // Grid selector
-    console.log("Testing grid selection...");
+    console.log("Testing grid selection (setting betAmount via input)...");
     await page.evaluate(() => {
-      const grids = document.querySelectorAll('.grid-cell');
-      if (grids.length > 0) grids[0].click(); 
+      // 找到第一個格子的 number input，把它填成 100
+      const inputs = document.querySelectorAll('.grid-cell input[type="number"]');
+      if (inputs.length > 0) {
+        const nativeInputSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+        nativeInputSetter.call(inputs[0], '100');
+        inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+      }
     });
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 300));
 
     // Single Simulation
     console.log("Testing Single Simulation...");

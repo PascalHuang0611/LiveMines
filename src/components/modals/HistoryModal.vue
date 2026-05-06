@@ -18,15 +18,19 @@
                 <!-- 該局的 9 宮格還原 -->
                 <div class="grid grid-cols-3 grid-rows-3 gap-2 mb-6 aspect-square max-w-xs mx-auto w-full">
                     <div v-for="grid in $game.selectedHistoryRecord.finalGridsState" :key="grid.id" 
-                         :class="['grid-cell relative overflow-hidden border-2 border-gray-600 rounded-xl flex flex-col items-center justify-center p-1', grid.bet ? 'selected' : 'bg-gray-800']">
+                         :class="['grid-cell relative overflow-hidden border-2 border-gray-600 rounded-xl flex flex-col items-center justify-center p-1', grid.betAmount > 0 ? 'selected' : 'bg-gray-800']">
                         
-                        <div v-if="grid.bet" class="absolute top-1 left-1 w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_#3b82f6] z-0"></div>
+                        <div v-if="grid.betAmount > 0" class="absolute top-1 left-1 w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_#3b82f6] z-0"></div>
                         <span class="text-gray-500 font-bold text-lg absolute top-1 right-2 opacity-50 z-0">{{ grid.id }}</span>
 
                         <div class="flex flex-col items-center justify-center h-full space-y-1 z-10 w-full">
-                            <div v-if="grid.balls > 0" class="ball-badge relative flex items-center justify-center bg-gradient-to-br from-red-400 to-red-600 text-white font-bold rounded-full w-8 h-8 shadow-[0_0_10px_rgba(239,68,68,0.8)] border border-red-400 flex-shrink-0">
-                                <div class="absolute top-1.5 left-1.5 w-1.5 h-1.5 bg-white rounded-full opacity-50 shadow-inner"></div>
-                                <span class="text-sm z-10">x{{ grid.balls }}</span>
+                            <!-- 押注金額 -->
+                            <div v-if="grid.betAmount > 0" class="text-yellow-300 font-bold text-[10px] bg-gray-800/80 px-1.5 py-0.5 rounded border border-yellow-700 text-center w-[90%] truncate">
+                                💰 {{ grid.betAmount }}
+                            </div>
+                            <div v-if="grid.balls > 0" class="ball-badge relative flex items-center justify-center bg-gradient-to-br from-red-400 to-red-600 text-white font-bold rounded-full w-6 h-6 shadow-[0_0_8px_rgba(239,68,68,0.8)] border border-red-400 flex-shrink-0">
+                                <div class="absolute top-1 left-1 w-1 h-1 bg-white rounded-full opacity-50 shadow-inner"></div>
+                                <span class="text-[10px] z-10">x{{ grid.balls }}</span>
                             </div>
                             <div v-if="grid.baseLightning > 0" class="text-yellow-400 font-bold text-[10px] sm:text-xs bg-yellow-900/80 px-1 py-0.5 rounded border border-yellow-600 w-[95%] text-center truncate shadow-sm">
                                 ⚡ 免費: +{{ grid.baseLightning }}x
@@ -74,7 +78,7 @@
                         <span class="text-gray-300">格子 [{{ detail.grid }}] (中 {{ detail.balls }} 球)</span>
                         <div class="text-right">
                             <span class="text-gray-400 text-xs block">
-                                (100 × {{ detail.basePayout }}) × (1 + {{ detail.baseL }} + {{ detail.purchasedL }})
+                                ({{ detail.betAmount }} × {{ detail.basePayout }}) × (1 + {{ detail.baseL }} + {{ detail.purchasedL }})
                             </span>
                             <span class="text-green-400 font-bold">+{{ detail.win }}</span>
                         </div>

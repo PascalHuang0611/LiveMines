@@ -81,13 +81,13 @@ export const useGameStore = defineStore('game', {
         currentBatchStats: getEmptyStats(), // 當前進行中的批次
         selectedBatch: null, // 用於 Batch Modal 顯示
         
-        // 基礎押注額 (前端固定 UI)
-        baseBetUnit: 100,
+        // 預設單格押注金額 (用於「全選」快速填入)
+        defaultBetUnit: 100,
 
-        // 初始化 9 宮格 UI 狀態
+        // 初始化 9 宮格 UI 狀態 (betAmount=0 表示不押注)
         grids: Array.from({length: 9}, (_, i) => ({
             id: i + 1,
-            bet: false,
+            betAmount: 0,   // 每格可獨立輸入金額，0 = 不押
             balls: 0,
             baseLightning: 0,
             purchasedLightning: 0
@@ -106,7 +106,7 @@ export const useGameStore = defineStore('game', {
     
     getters: {
         selectedCount() {
-            return this.grids.filter(g => g.bet).length;
+            return this.grids.filter(g => g.betAmount > 0).length;
         },
         isAllSelected() {
             return this.selectedCount === 9;
@@ -118,7 +118,7 @@ export const useGameStore = defineStore('game', {
             return this.availableRounds.length > 0 && this.selectedRounds.length === this.availableRounds.length;
         },
         totalCost() {
-            let baseCost = this.selectedCount * this.baseBetUnit;
+            let baseCost = this.grids.reduce((sum, g) => sum + (g.betAmount || 0), 0);
             if (this.buyExtraLightning) {
                 return baseCost + (baseCost * this.appConfig.mainGame.extraPurchaseCostPercent);
             }
@@ -854,15 +854,16 @@ export const useGameStore = defineStore('game', {
         },
 
         toggleBet(id) {
+            // 快速切換：0 -> defaultBetUnit -> 0
             if (this.isPlaying) return;
             const grid = this.grids.find(g => g.id === id);
-            if (grid) grid.bet = !grid.bet;
+            if (grid) grid.betAmount = grid.betAmount > 0 ? 0 : this.defaultBetUnit;
         },
         
         toggleAllBets() {
             if (this.isPlaying) return;
             const currentAllSelected = this.isAllSelected;
-            this.grids.forEach(g => g.bet = !currentAllSelected);
+            this.grids.forEach(g => g.betAmount = currentAllSelected ? 0 : this.defaultBetUnit);
         },
 
         toggleAllVersions() {
@@ -1043,7 +1044,7 @@ export const useGameStore = defineStore('game', {
             const payload = {
                 roundNum: this.currentRound,
                 currentCost: currentCost,
-                baseBetUnit: this.baseBetUnit,
+                baseBetUnit: null, // 已由各格 betAmount 取代
                 config: this.appConfig,
                 grids: this.grids,
                 buyExtraLightning: this.buyExtraLightning,
