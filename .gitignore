@@ -8,3 +8,5 @@ dist-ssr
 
 # 分析與 DNA 資料
 agent_analysis/
+20260415_LKDB.csv
+*.csv
