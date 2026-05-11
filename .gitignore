@@ -10,7 +10,6 @@ dist-ssr
 agent_analysis/data/
 agent_analysis/*.csv
 agent_analysis/*.json
-20260415_LKDB.csv
 
 # 企劃與開發文件 (現在改為推版)
 # live_mines_agent_traffic_sandbox_ai_agent_spec.md
