@@ -1201,7 +1201,7 @@ export const useGameStore = defineStore('game', {
 
         async fetchDefaultAgents() {
             try {
-                const response = await fetch('/agents.json');
+                const response = await fetch(`${import.meta.env.BASE_URL}agents.json`);
                 if (!response.ok) throw new Error('找不到預設 agents.json');
                 
                 const rawData = await response.json();
