@@ -61,43 +61,51 @@
                                     <span class="text-[9px] text-blue-500 animate-pulse">💡 移入看詳情</span>
                                 </div>
                                 
-                                <div v-for="(count, personaKey) in $game.trafficPersonaStats" :key="personaKey" 
+                                <div v-for="(data, personaKey) in $game.trafficPersonaStats" :key="personaKey" 
                                      class="group relative flex justify-between text-xs py-1.5 hover:bg-gray-700/50 rounded px-2 transition-all cursor-help border border-transparent hover:border-gray-600">
                                     
                                     <span class="text-gray-400 font-bold flex items-center gap-2">
-                                        <div class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: getPersonaData(personaKey).color }"></div>
-                                        {{ getPersonaName(personaKey) }}
+                                        <div class="w-1.5 h-1.5 rounded-full" :style="{ backgroundColor: data.color }"></div>
+                                        {{ data.personaNameZH }}
                                     </span>
-                                    <span class="text-gray-300 font-mono">{{ count }}</span>
+                                    <span class="text-gray-300 font-mono">{{ data.count }}</span>
 
                                     <!-- 🏮 浮動詳情面板 (Tooltip) 🏮 -->
-                                    <div class="absolute left-full ml-4 top-0 w-72 bg-gray-900/95 backdrop-blur-xl border border-gray-600 p-4 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none translate-x-2 group-hover:translate-x-0">
+                                    <div class="absolute left-full ml-4 top-0 w-[22rem] bg-gray-900/95 backdrop-blur-xl border border-gray-600 p-4 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] z-[100] invisible group-hover:visible opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none translate-x-2 group-hover:translate-x-0">
                                         <div class="flex items-center gap-2 mb-2 border-b border-gray-700 pb-2">
-                                            <div class="w-2.5 h-2.5 rounded-full shadow-[0_0_8px]" :style="{ backgroundColor: getPersonaData(personaKey).color, boxShadow: `0 0 10px ${getPersonaData(personaKey).color}` }"></div>
-                                            <div class="font-bold text-sm text-white">{{ getPersonaName(personaKey) }}</div>
+                                            <div class="w-2.5 h-2.5 rounded-full shadow-[0_0_8px]" :style="{ backgroundColor: data.color, boxShadow: `0 0 10px ${data.color}` }"></div>
+                                            <div class="font-bold text-sm text-white">{{ data.personaNameZH }} <span class="text-xs text-gray-500 ml-1 font-normal">{{ data.personaNameEN }}</span></div>
                                         </div>
                                         
                                         <div class="text-[11px] text-gray-300 mb-4 leading-relaxed italic">
-                                            "{{ getPersonaData(personaKey).desc }}"
+                                            "{{ data.desc }}"
                                         </div>
 
                                         <div class="space-y-2">
                                             <div class="flex justify-between items-center bg-black/30 p-2 rounded">
-                                                <span class="text-[9px] text-gray-500 uppercase font-bold">平均投注範圍</span>
-                                                <span class="text-[11px] text-blue-400 font-mono font-bold">{{ getPersonaData(personaKey).avgBet }}</span>
-                                            </div>
-                                            <div class="flex justify-between items-center bg-black/30 p-2 rounded">
-                                                <span class="text-[9px] text-gray-500 uppercase font-bold">偏好涵蓋格數</span>
-                                                <span class="text-[11px] text-green-400 font-mono font-bold">{{ getPersonaData(personaKey).grids }}</span>
+                                                <span class="text-[9px] text-gray-500 uppercase font-bold">平均投注規模</span>
+                                                <span class="text-[11px] text-blue-400 font-mono font-bold">{{ data.avgBet }}</span>
                                             </div>
                                             <div class="flex justify-between items-center bg-black/30 p-2 rounded">
                                                 <span class="text-[9px] text-gray-500 uppercase font-bold">追輸翻倍意願</span>
-                                                <span class="text-[11px] text-yellow-400 font-mono font-bold">{{ getPersonaData(personaKey).martingale }}</span>
+                                                <span class="text-[11px] text-yellow-400 font-mono font-bold">{{ data.avgMartingale }}x</span>
+                                            </div>
+                                            <div class="flex justify-between items-center bg-black/30 p-2 rounded">
+                                                <span class="text-[9px] text-gray-500 uppercase font-bold">贏後加減注 (<1為收, >1為衝)</span>
+                                                <span class="text-[11px] text-green-400 font-mono font-bold">{{ data.avgRetrench }}x</span>
+                                            </div>
+                                            <div class="flex justify-between items-center bg-black/30 p-2 rounded">
+                                                <span class="text-[9px] text-gray-500 uppercase font-bold">單次遊玩長度</span>
+                                                <span class="text-[11px] text-purple-400 font-mono font-bold">{{ data.avgSessionLen }} 局</span>
+                                            </div>
+                                            <div class="flex justify-between items-center bg-black/30 p-2 rounded">
+                                                <span class="text-[9px] text-gray-500 uppercase font-bold">預設停利 / 停損</span>
+                                                <span class="text-[11px] text-pink-400 font-mono font-bold">{{ data.avgTakeProfit }}x / {{ data.avgStopLoss }}x</span>
                                             </div>
                                         </div>
                                         
                                         <div class="mt-3 text-[9px] text-gray-500 text-right italic">
-                                            * 數據基於真實歷史日誌萃取
+                                            * 數據由載入之 DNA 動態彙整
                                         </div>
                                     </div>
                                 </div>
@@ -349,23 +357,8 @@
 </template>
 
 <script>
-import { PERSONA_METADATA } from '../../engine/AgentDataLoader';
-
 export default {
     name: 'LeftSidebar',
-    inject: ['$game'],
-    data() {
-        return {
-            personaMetadata: PERSONA_METADATA
-        };
-    },
-    methods: {
-        getPersonaName(key) {
-            return this.personaMetadata[key]?.name || key;
-        },
-        getPersonaData(key) {
-            return this.personaMetadata[key] || {};
-        }
-    }
+    inject: ['$game']
 }
 </script>

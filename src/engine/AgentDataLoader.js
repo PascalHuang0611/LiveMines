@@ -1,39 +1,44 @@
 // src/engine/AgentDataLoader.js
 
-export const PERSONA_METADATA = {
-    'Behavior_Type_0': {
-        name: '🟢 穩健小資族',
-        desc: '遊戲中的大眾，投注額小且穩定，追求長期穩定的遊戲體驗。',
-        avgBet: '100 - 500',
-        grids: '3 - 5 格',
-        martingale: '1.0x (幾乎不翻倍)',
-        color: '#4ade80'
-    },
-    'Behavior_Type_1': {
-        name: '🔵 高勝率農夫',
-        desc: '喜歡「包格」策略，透過高覆蓋率換取頻繁的中獎感。',
-        avgBet: '1000 - 5000',
-        grids: '6 - 9 格',
-        martingale: '1.1x (輕微加注)',
-        color: '#60a5fa'
-    },
-    'Behavior_Type_2': {
-        name: '🔴 孤注一擲大戶',
-        desc: '高額注碼的狙擊手，只押極少數格子，追求高賠率的一擊必殺。',
-        avgBet: '50,000+',
-        grids: '1 - 2 格',
-        martingale: '1.0x (不翻倍)',
-        color: '#f87171'
-    },
-    'Behavior_Type_3': {
-        name: '💀 瘋狂賭徒',
-        desc: '極端風險追求者，大額投注且瘋狂翻倍追輸，對 RTP 波動影響極大。',
-        avgBet: '100,000+',
-        grids: '9 格全包',
-        martingale: '2.5x+ (強烈翻倍)',
-        color: '#fbbf24'
+
+
+/**
+ * 輔助函數：解析可能為字串型態的陣列，並確保長度及做正規化
+ */
+function parseStringArray(input, expectedLength, fallbackValue = 0, normalize = false) {
+    let arr = [];
+    if (typeof input === 'string') {
+        try {
+            const cleanStr = input.replace(/[\[\]]/g, '');
+            arr = cleanStr.split(',').map(v => {
+                const num = parseFloat(v.trim());
+                return (isNaN(num) || num < 0) ? 0 : num;
+            });
+        } catch (e) {
+            arr = [];
+        }
+    } else if (Array.isArray(input)) {
+        arr = input.map(v => {
+            const num = parseFloat(v);
+            return (isNaN(num) || num < 0) ? 0 : num;
+        });
     }
-};
+
+    if (expectedLength && arr.length !== expectedLength) {
+        arr = Array(expectedLength).fill(fallbackValue);
+    }
+
+    if (normalize) {
+        const sum = arr.reduce((a, b) => a + b, 0);
+        if (sum > 0) {
+            arr = arr.map(v => v / sum);
+        } else if (expectedLength) {
+            arr = Array(expectedLength).fill(1 / expectedLength); // Fallback to uniform distribution
+        }
+    }
+
+    return arr;
+}
 
 /**
  * 解析 Agent DNA JSON 資料並進行標準化
@@ -46,64 +51,111 @@ export function processAgentData(rawAgents) {
     return rawAgents.map(agent => {
         // 取得語意化名稱
         const personaKey = agent.Player_Persona || 'Unknown';
-        const semanticName = PERSONA_METADATA[personaKey]?.name || personaKey;
+        const semanticName = agent.Persona_Name_ZH || personaKey;
 
-        // 1. 處理 Grid_Preferences (從字串 "[0.1, 0.2...]" 轉為 Array)
-        let gridPrefs = [];
-        if (typeof agent.Grid_Preferences === 'string') {
-            try {
-                // 移除可能的方括號並分割
-                const cleanStr = agent.Grid_Preferences.replace(/[\[\]]/g, '');
-                gridPrefs = cleanStr.split(',').map(v => parseFloat(v.trim()));
-            } catch (e) {
-                console.error(`解析 Agent ${agent.Account} 的 Grid_Preferences 失敗`, e);
-                gridPrefs = Array(9).fill(1/9); // 失敗則平均分配
-            }
-        } else if (Array.isArray(agent.Grid_Preferences)) {
-            gridPrefs = agent.Grid_Preferences;
-        } else {
-            gridPrefs = Array(9).fill(1/9);
-        }
+        // 1. 陣列型欄位解析
+        const gridPrefs = parseStringArray(agent.Grid_Preferences, 9, 1/9, true);
+        const hourlyActivity = parseStringArray(agent.Hourly_Activity_Vector, 24, 0, true);
+        const chipWeights = parseStringArray(agent.Chip_Denomination_Weights, 7, 0, true);
+        const priorChipWeights = parseStringArray(agent.Prior_Chip_Denomination_Weights, 7, 0, true);
+        const availableDenoms = parseStringArray(agent.Available_Bet_Denominations, 7, 0, false);
+        const finalDenoms = availableDenoms.every(v => v === 0) ? [1, 5, 10, 50, 100, 500, 1000] : availableDenoms;
 
-        // 確保長度為 9 並進行正規化 (Normalization)
-        if (gridPrefs.length !== 9) {
-            gridPrefs = Array(9).fill(1/9);
-        }
-        const sum = gridPrefs.reduce((a, b) => a + b, 0);
-        if (sum > 0) {
-            gridPrefs = gridPrefs.map(v => v / sum);
-        }
+        // 2. 封裝處理後的對象與 Clamping
+        let cashoutLevel = Number(agent.Cashout_Stop_Level) || 3;
+        cashoutLevel = Math.max(1, Math.min(5, Math.round(cashoutLevel)));
 
-        // 2. 封裝處理後的對象
         return {
             ...agent,
             Grid_Preferences: gridPrefs,
-            // 確保關鍵數值為 Number
+            Hourly_Activity_Vector: hourlyActivity,
+            Chip_Denomination_Weights: chipWeights,
+            Prior_Chip_Denomination_Weights: priorChipWeights,
+            Available_Bet_Denominations: finalDenoms,
+            
+            // 數值型欄位 (Clamped / Normalized)
+            Cashout_Stop_Level: cashoutLevel,
+            Cashout_Propensity: Number(agent.Cashout_Propensity) || 0.5,
+            Buy_Lightning_Prob: Number(agent.Buy_Lightning_Prob) || 0.1,
+
+            // 原有數值欄位
             Avg_Bet_Amount: Number(agent.Avg_Bet_Amount) || 100,
             Bet_Amount_Std: Number(agent.Bet_Amount_Std) || 0,
             Martingale_Multiplier: Number(agent.Martingale_Multiplier) || 1.0,
             Win_Retrench_Ratio: Number(agent.Win_Retrench_Ratio) || 1.0,
-            Buy_Lightning_Prob: Number(agent.Buy_Lightning_Prob) || 0.1,
             Session_Stop_Loss_Multi: Number(agent.Session_Stop_Loss_Multi) || 20,
             Session_Take_Profit_Multi: Number(agent.Session_Take_Profit_Multi) || 30,
             LiveMines_Bonus_Risk_Prob: Number(agent.LiveMines_Bonus_Risk_Prob) || 0.5,
-            Micro_Session_Length: Number(agent.Micro_Session_Length) || 20,
+            
+            // 時間型欄位
             Primary_Play_Hour: Number(agent.Primary_Play_Hour) || 20,
-            Wakeup_Minute: Number(agent.Wakeup_Minute) || 0
+            Wakeup_Minute: Number(agent.Wakeup_Minute) || 0,
+            Daily_Login_Probability: Number(agent.Daily_Login_Probability) || 1.0,
+            Sessions_Per_Active_Day: Number(agent.Sessions_Per_Active_Day) || 1.0,
+            Daily_Session_Length: Number(agent.Daily_Session_Length) || 20,
+            Micro_Session_Length: Number(agent.Micro_Session_Length) || 20,
+            Break_Duration_Minutes: Number(agent.Break_Duration_Minutes) || 0,
+
+            // 其他欄位
+            Preferred_Chip_Count: Number(agent.Preferred_Chip_Count) || 1,
+            Prior_Preferred_Chip_Count: Number(agent.Prior_Preferred_Chip_Count) || 1,
+            Chip_DNA_Source: agent.Chip_DNA_Source || 'unknown',
+            Bet_Denomination_Mode: agent.Bet_Denomination_Mode || 'balanced',
+            Prior_Bet_Denomination_Mode: agent.Prior_Bet_Denomination_Mode || 'balanced',
         };
     });
 }
 
 /**
- * 計算 Persona 分佈統計
+ * 計算 Persona 動態分佈與特徵統計
  * @param {Array} agents 
- * @returns {Object} { PersonaName: Count }
+ * @returns {Object} 包含各 Persona 的數量與各項行為特徵平均值
  */
 export function calculatePersonaStats(agents) {
     const stats = {};
     agents.forEach(a => {
         const p = a.Player_Persona || 'Unknown';
-        stats[p] = (stats[p] || 0) + 1;
+        if (!stats[p]) {
+            // 自動分配一組顏色
+            const colors = ['#4ade80', '#60a5fa', '#f87171', '#fbbf24', '#a78bfa', '#34d399', '#f472b6'];
+            const colorIdx = p.length % colors.length;
+            
+            stats[p] = {
+                count: 0,
+                personaNameZH: a.Persona_Name_ZH || p,
+                personaNameEN: a.Persona_Name_EN || p,
+                desc: a.Persona_Description || '缺乏描述',
+                color: colors[colorIdx],
+                sumBet: 0,
+                sumMartingale: 0,
+                sumRetrench: 0,
+                sumSessionLen: 0,
+                sumStopLoss: 0,
+                sumTakeProfit: 0,
+            };
+        }
+        
+        stats[p].count += 1;
+        stats[p].sumBet += (Number(a.Avg_Bet_Amount) || 0);
+        stats[p].sumMartingale += (Number(a.Martingale_Multiplier) || 1.0);
+        stats[p].sumRetrench += (Number(a.Win_Retrench_Ratio) || 1.0);
+        stats[p].sumSessionLen += (Number(a.Micro_Session_Length) || 20);
+        stats[p].sumStopLoss += (Number(a.Session_Stop_Loss_Multi) || 20);
+        stats[p].sumTakeProfit += (Number(a.Session_Take_Profit_Multi) || 30);
     });
+
+    // 計算群體平均值
+    for (const key in stats) {
+        const s = stats[key];
+        if (s.count > 0) {
+            s.avgBet = (s.sumBet / s.count).toFixed(0);
+            s.avgMartingale = (s.sumMartingale / s.count).toFixed(2);
+            s.avgRetrench = (s.sumRetrench / s.count).toFixed(2);
+            s.avgSessionLen = (s.sumSessionLen / s.count).toFixed(0);
+            s.avgStopLoss = (s.sumStopLoss / s.count).toFixed(0);
+            s.avgTakeProfit = (s.sumTakeProfit / s.count).toFixed(0);
+        }
+    }
+    
     return stats;
 }

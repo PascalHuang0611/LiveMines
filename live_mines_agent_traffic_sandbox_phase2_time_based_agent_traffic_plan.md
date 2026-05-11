@@ -1,8 +1,10 @@
-# LiveMines V3 Agent Traffic Layer Integration Plan
+# LiveMines V3 Time-Based Agent Traffic Layer Integration Plan
 
-> Revision: Updated after Milestone 2 to align with `LiveMines_Agent_DNA_v2_5levels_lightning_chipprior` / frontend spec DNA.
-> Key changes: semantic persona fields, hourly activity vector, daily login probability, EXBET -> Lightning, Cashout 1~5, and chip denomination prior fields.
+> Revision: Latest Phase 2 plan with **time-based Agent Traffic**, manual QA execution mode, and plan-change protocol.
+> Key changes: agent pool is not simultaneous online population; each round only activates agents whose planned sessions overlap current time.
+> DNA version: `LiveMines_Agent_DNA_v2_5levels_lightning_chipprior` / frontend spec DNA.
 > Execution model: AI Agent implements only the requested milestone; user performs manual QA.
+> Phase 3 LLM interactive agents are explicitly out of scope for this document.
 
 
 
@@ -36,16 +38,93 @@ AI Agent 不要主動做以下事情，除非使用者明確要求：
 
 ---
 
+## 0.2 Plan Change Protocol：規格變更流程
+
+本 plan 允許在開發過程中持續演進。
+
+若使用者在開發中新增、修正或改變任何規則，AI Agent 必須視為 **plan change**。AI Agent 不得在未更新 plan 的情況下，默默把新規則直接寫進 code。
+
+當新規則會影響目前或未來 Milestone 時，AI Agent 應該：
+
+```text
+1. 摘要使用者提出的變更。
+2. 指出受影響的 sections / milestones。
+3. 先更新 plan 文字。
+4. 再依更新後的 plan，只實作目前被指定的 milestone。
+5. 完成後停止，等待使用者手動驗證。
+```
+
+除非使用者明確要求，不要自動進入下一個 milestone。
+
+若新規則與舊 plan 衝突，以最新使用者指令為準，但必須同步反映到 plan。
+
+```text
+Plan 是協作與規格來源。
+V3 codebase 仍是遊戲規則真相來源。
+最新使用者指令 > 本 plan 舊文字。
+但任何新指令都應被寫回 plan，避免 code 與文件分裂。
+```
+
+建議使用者在追加規格時使用這種格式：
+
+```text
+規格變更：<一句話描述新規則>
+請先更新 plan 中所有相關 section，然後只修改目前 milestone 的實作，不要進下一個 milestone。
+```
+
+範例：
+
+```text
+規格變更：Cashout_Stop_Level 只能是 1~5。
+請更新 DNA spec、decision section、manual QA checklist，然後只修改目前 milestone 的實作。
+```
+
+---
+
+## 0.3 Phase Scope：本文件只處理 Phase 2
+
+本文件只處理 **Phase 2：Real Bet Slip → Time-Based Agent Traffic Layer**。
+
+```text
+Phase 1：V3 LiveMines 遊戲規則與既有模擬器（已存在）
+Phase 2：真實注單 → Agent DNA → 時間型人流 → 多人同場模擬（本文件範圍）
+Phase 3：LLM Interactive Agents，讓部分 Agent 會輸出決策理由並受使用者互動影響（不在本文件範圍）
+```
+
+AI Agent 不要在本文件的 Milestone 中主動實作 LLM、prompt、Agent 思考文字、對話記憶、或 PM 互動影響決策。
+
+若使用者未來要求 Phase 3，請另開獨立 spec，不要混入目前 Phase 2 的里程碑。
+
+---
+
+## 0.4 核心人流原則：Agent Pool 不是同時在線人數
+
+Agent 人流模式不是 3000 人同時在線模式。
+
+```text
+Agent Pool = 從真實注單萃取出的玩家 DNA 母體
+Day Active Agents = 今天根據 Daily_Login_Probability / session plan 會出現的玩家
+Current Active Agents = 當前 1~1.5 分鐘這一局真的在線、會下注的玩家
+```
+
+每局只能對 **Current Active Agents** 做下注決策與結算。
+
+Inactive agents 不應該在每局產生下注、不應該進入 settlement，也不應該被當成本局同場玩家。
+
+AI Agent 實作時請避免「每局讓全部 agentPool 都下注」的錯誤。agentPool 可包含數千位玩家，但每局 active 人數應由時間模型與 session 模型決定。
+
+---
+
 ## 0. One-line Mission for AI Agent
 
-在既有 LiveMines V3 專案上新增一個「Agent 人流模式 / Agent Traffic Layer」。
+在既有 LiveMines V3 專案上新增一個「基於真實注單時間分布的 Agent 人流模式 / Time-Based Agent Traffic Layer」。
 
 不要重寫 LiveMines 遊戲規則，不要重構掉既有 V3 的核心邏輯，不要破壞手動模式、物理資料模式、理論隨機模式、歷史紀錄與既有統計。
 
 本任務只新增一層：
 
 ```text
-時間軸 → active agents → Agent 下注決策 → 多人同場套用同一局既有賽果 → Round / Day / Persona / Agent 統計
+真實注單 DNA pool → day/session planning → current active agents → Agent 下注決策 → 多人同場套用同一局既有賽果 → Round / Day / Persona / Agent 統計
 ```
 
 ---
@@ -88,12 +167,13 @@ JP pool 累積
 
 ```text
 1. 根據第幾局換算當天時間
-2. 根據 Agent DNA 判斷哪些 Agent 在線
-3. 根據 Agent DNA 產生下注決策
-4. 將多個 Agent 套用到同一局既有 V3 賽果
-5. 逐 Agent 結算
-6. 聚合 Round / Day / Persona / Agent 統計
-7. 在 UI 顯示人流模式結果
+2. 根據真實注單萃取出的時間 / session DNA 生成 day plan
+3. 根據 day plan 判斷本局 current active agents
+4. 僅對 current active agents 產生下注決策
+5. 將多個 active agents 套用到同一局既有 V3 賽果
+6. 逐 Agent 結算
+7. 聚合 Round / Day / Persona / Agent 統計
+8. 在 UI 顯示人流模式結果
 ```
 
 ## 1.3 單人 → 多人同場的必要調整
@@ -185,17 +265,27 @@ V3 需要保留原模式，並新增 Agent 人流模式。
 
 ## 4.2 Agent 人流模式
 
-新增：
+新增的是 **時間型人流模式**，不是全 agent 同時在線模式。
 
 ```text
 一個切片代表一天
 預設 roundsPerDay = 1200
 每局換算成當天時間
-根據 Agent DNA 判斷 active agents
+agentPool 代表真實玩家 DNA 母體
+day planning 決定今天哪些 agents 會出現、各自 session 起訖時間
+每局只取出 current active agents
 每個 active agent 自動下注
 所有 active agents 共用同一局 public result
-逐 Agent 結算
-聚合人流統計
+逐 active agent 結算
+聚合 Round / Day / Persona / Agent 統計
+```
+
+重要限制：
+
+```text
+不要讓 agentPool 全員每局下注。
+不要把 agent count 當成本局在線人數。
+本局在線人數只能來自 planned sessions 與 current round time 的交集。
 ```
 
 ---
@@ -465,11 +555,13 @@ trafficHistory
 trafficDaySummaries
 trafficPersonaStats
 trafficAgentStats
+trafficDayPlanSummary
+currentActiveAgentCount
 ```
 
 > **效能原則：`agentPool` 與 `agentRuntimeMap` 不可進入 Vue reactive 系統。**
 >
-> 3000 個 Agent 若以 `ref()` / `reactive()` 儲存，每局更新都會觸發 Vue 的深層 diff，嚴重影響 UI 效能。
+> agentPool 可能有數千位 Agent，但每局只應對 current active agents 執行 decision / settlement。3000 個 Agent 若以 `ref()` / `reactive()` 儲存，每局更新都會觸發 Vue 的深層 diff，嚴重影響 UI 效能。
 >
 > 建議使用 `markRaw()` 包裝，或存放在 store 外的 module-level 變數（例如 `AgentTrafficEngine.js` 的模組作用域），只把 summary 數字（如 `trafficCurrentDay`、`trafficDaySummaries` 等）放入 reactive state。
 >
@@ -482,6 +574,7 @@ loadAgentPool()
 setSimulationMode()
 setTrafficScenario()
 initializeAgentTrafficDay()
+planAgentTrafficDay()
 simulateTrafficRound()
 startTrafficSimulation()
 resetTrafficSimulation()
@@ -526,7 +619,7 @@ function getTimeOfDay(roundIndexInDay, roundsPerDay) {
 
 ---
 
-# 11. Session 模型 MVP
+# 11. Day Planning 與 Session 模型
 
 新版 DNA 已提供更完整的時間欄位：
 
@@ -541,7 +634,17 @@ Daily_Session_Length
 Break_Duration_Minutes
 ```
 
-## 11.1 Milestone 3 MVP 行為
+本階段的目標是把真實注單的上下線節奏轉成新遊戲的人流，而不是讓全部 Agent 同時在線。
+
+## 11.1 名詞定義
+
+```text
+agentPool：所有載入的 DNA 玩家母體。
+dayPlan：某一天每個 Agent 是否出現、何時上線、何時下線的計畫。
+currentActiveAgents：當前 roundIndexInDay 落在 session 起訖範圍內的 agents。
+```
+
+## 11.2 Milestone 3：Day Planning MVP
 
 Milestone 3 先使用最穩定且最容易驗證的欄位：
 
@@ -551,15 +654,43 @@ Wakeup_Minute
 Micro_Session_Length
 ```
 
+MVP 行為：
+
 ```text
+每位 Agent 每天預設會出現一次。
 Agent 從 Primary_Play_Hour + Wakeup_Minute 對應的 round 開始上線。
 連續玩 Micro_Session_Length 局。
 然後離線。
 ```
 
-## 11.2 Milestone 3.5 / 4 建議升級：Hourly_Activity_Vector + Daily_Login_Probability
+MVP 的輸出不應該直接是 active agents，而應該是 dayPlan，例如：
 
-若 Milestone 3 MVP 完成且效能可接受，建議下一步改用新版 DNA 的時間分佈：
+```javascript
+const plannedSession = {
+  agentId: agentDNA.Account,
+  persona: agentDNA.Player_Persona,
+  startRound,
+  endRound: startRound + agentDNA.Micro_Session_Length,
+  plannedRounds: agentDNA.Micro_Session_Length
+};
+```
+
+## 11.3 Milestone 4：Active Agents Runtime
+
+Milestone 4 根據 dayPlan 判斷每一局的 current active agents。
+
+```text
+若 roundIndexInDay >= session.startRound
+且 roundIndexInDay < session.endRound
+且 agent 尚未因停損 / 停利 / session end 離線
+則該 agent 本局 active。
+```
+
+每局只對 current active agents 產生下注決策與結算。
+
+## 11.4 Milestone 4.5：時間分布升級（可選）
+
+若 MVP 完成且使用者要求升級，才加入新版 DNA 的時間分佈：
 
 ```text
 1. 每天先用 Daily_Login_Probability 判斷 Agent 今天是否出現。
@@ -570,7 +701,7 @@ Agent 從 Primary_Play_Hour + Wakeup_Minute 對應的 round 開始上線。
 
 這樣可避免所有 Agent 都集中在 `Primary_Play_Hour` 的同一個尖峰。
 
-## 11.3 多段 Session 第二版
+## 11.5 多段 Session 第二版
 
 第二版使用：
 
@@ -589,11 +720,14 @@ Break_Duration_Minutes
 直到累積局數接近 Daily_Session_Length，或達到 Sessions_Per_Active_Day。
 ```
 
-## 11.4 公共賽果一致性補充
+## 11.6 公共賽果一致性補充
 
 不論賽果來源是理論隨機還是物理 CSV，該局產生的所有內容（球位、免費閃電、購買閃電結果、Bonus 答案）在該局內必須是**唯一且全場 Agent 共用**。
 
 若物理資料（如 CSV）缺失部分資訊（例如只有球位沒有閃電），系統自動補生的閃電結果也必須全場共用。
+
+---
+
 # 12. Agent Runtime State
 
 ```javascript
@@ -646,6 +780,8 @@ function createAgentRuntime(agentDNA, dayIndex, roundsPerDay) {
 ```
 # 13. Active Agent 判斷
 
+MVP 先用 Primary_Play_Hour + Wakeup_Minute 產生 session start round。
+
 ```javascript
 function getAgentStartRound(agentDNA, roundsPerDay) {
   const startMinute = agentDNA.Primary_Play_Hour * 60 + agentDNA.Wakeup_Minute;
@@ -654,10 +790,30 @@ function getAgentStartRound(agentDNA, roundsPerDay) {
 }
 ```
 
+Day planning 階段應先產生 planned sessions：
+
+```javascript
+function createAgentPlannedSession(agentDNA, roundsPerDay) {
+  const startRound = getAgentStartRound(agentDNA, roundsPerDay);
+  const plannedRounds = Math.max(1, Number(agentDNA.Micro_Session_Length) || 1);
+
+  return {
+    agentId: agentDNA.Account,
+    startRound,
+    endRound: startRound + plannedRounds,
+    plannedRounds
+  };
+}
+```
+
+Active 判斷只讀取 planned session，不要讓 inactive agents 產生下注決策。
+
 ```javascript
 function isAgentActiveAtRound(agentState, roundIndexInDay) {
-  if (roundIndexInDay < agentState.startRound) return false;
-  if (roundIndexInDay >= agentState.plannedEndRound) return false;
+  const session = agentState.currentPlannedSession;
+  if (!session) return false;
+  if (roundIndexInDay < session.startRound) return false;
+  if (roundIndexInDay >= session.endRound) return false;
   if (shouldEndSession(agentState)) return false;
   return true;
 }
@@ -671,11 +827,21 @@ function getActiveAgentsForRound(agentRuntimeMap, roundIndexInDay) {
     if (isAgentActiveAtRound(agentState, roundIndexInDay)) {
       agentState.isActive = true;
       activeAgents.push(agentState);
+    } else {
+      agentState.isActive = false;
     }
   }
 
   return activeAgents;
 }
+```
+
+效能提醒：
+
+```text
+MVP 可以每局掃過 agentRuntimeMap 判斷 active。
+若 agentPool 變大或 UI 卡頓，後續可改成 session index / round bucket，讓每局只查詢該時間段附近的 agents。
+但無論採用哪種資料結構，每局都只能讓 current active agents 下注。
 ```
 
 ---
@@ -1263,7 +1429,9 @@ chipModeOverride 僅影響下注金額如何轉成合法面額組合，不得改
 一天局數 roundsPerDay
 模擬天數
 載入 Agent JSON
-Agent 數量
+Agent Pool 數量
+Day Active Agents 數量
+Current Active Agents 數量
 Persona 分佈
 
 押格行為：保守 / 基準 / 積極
@@ -1279,9 +1447,11 @@ Cashout 行為：保守 / 基準 / 積極
 ```text
 當前 Day
 當前時間
-本局下注人數
+Agent Pool 數量
+今日預計出現人數
+本局 Current Active Agents / 下注人數
 今日下注人次
-平均每局人數
+平均每局 active 人數
 總投注
 總派彩
 GGR
@@ -1410,291 +1580,266 @@ chipPriorSourceCounts
 
 ## 27.0 Milestone 執行規則
 
-AI Agent 每次只執行使用者明確指定的 Milestone。
+AI Agent 每次只做使用者指定的 Milestone。完成後停止，不要自動進入下一個 Milestone。
 
-完成後停止並回報，不要自動進入下一個 Milestone，不要自動跑完整驗證，不要主動建立測試框架。
-
-每個 Milestone 的回報格式：
+完成回報格式：
 
 ```text
 完成項目
 修改檔案
 已知限制 / 風險
-建議手動檢查項目
+建議使用者手動 QA 的項目
 ```
+
+不要因看到後續 Milestone 就提前實作。
 
 ## Milestone 1：保護 V3 原功能 / Agent Mode 開關
 
-範圍：只建立 Agent Mode 的開關與模式隔離。
-
+- 先保留 V3 原有模式。
 - 新增 Agent Mode 開關。
-- Agent Mode 關閉時，不得影響手動模式、單局、批次、歷史紀錄、圖表。
-- 不要實作 Agent 行為。
-- 不要修改遊戲規則。
-
-完成後停止，等待使用者手動驗證。
+- Agent Mode 關閉時不得影響任何原功能。
+- 不實作人流、不實作下注、不實作 settlement。
 
 ## Milestone 2：AgentDataLoader 基礎版（目前已做到）
 
-範圍：載入 Agent JSON 並顯示基本資訊。
-
 - 載入 Agent JSON。
-- normalize 基本欄位。
+- normalize 基礎欄位。
 - parse `Grid_Preferences`。
 - 顯示 agent count / persona count。
 
-完成後停止，等待使用者手動驗證。
+## Milestone 2.5：新版 DNA Parser 補強（目前已做到）
 
-## Milestone 2.5：新版 DNA Parser 補強
+- 支援新版 frontend spec 欄位。
+- parse `Hourly_Activity_Vector`。
+- parse `Grid_Preferences`。
+- parse `Chip_Denomination_Weights`。
+- clamp `Cashout_Stop_Level` 到 `1~5`。
+- 保留 `Buy_Lightning_Prob` 與 `Cashout_Propensity`，不得混用。
+- 保留 `Chip_DNA_Source`。
+- **[新增] 捨棄靜態 `PERSONA_METADATA`，改由載入之 DNA 動態計算 Persona 行為特徵 (AvgBet, Martingale, Retrench, SessionLen, StopLoss, TakeProfit) 並顯示於 UI Tooltip。**
 
-範圍：只補強新版 DNA 欄位，不做 active / decision。
+## Milestone 3：Day Planning MVP
 
-- parse `Hourly_Activity_Vector`，長度 24，normalize sum ~= 1。
-- parse `Available_Bet_Denominations`，預設 `[1,5,10,50,100,500,1000]`。
-- parse `Chip_Denomination_Weights` / `Prior_Chip_Denomination_Weights`，長度 7，normalize sum ~= 1。
-- validate `Cashout_Stop_Level` 一律 clamp 到 `1~5`。
-- validate `Buy_Lightning_Prob` 與 `Cashout_Propensity` 是不同欄位，不可互相覆蓋。
-- 保留 `Chip_DNA_Source`，供 UI 顯示可信度。
-- 保留 persona semantic 欄位：`Persona_Name_ZH` / `Persona_Name_EN` / `Persona_Description`。
-
-完成後停止，等待使用者手動驗證。
-
-## Milestone 3：時間軸基礎版
-
-範圍：建立 roundIndex <-> timeOfDay，不判斷 active agents。
+目標：把 agentPool 轉成某一天的 planned sessions。
 
 - `roundsPerDay = 1200`。
-- `roundIndexInDay` 轉換為 `hour/minute/display`。
-- 顯示當前 Day / Round / TimeOfDay。
+- roundIndex 轉時間。
+- 先用 `Primary_Play_Hour + Wakeup_Minute + Micro_Session_Length`。
+- 每位 Agent 產生一段 planned session。
+- 只建立 dayPlan，不做下注、不做 settlement。
+- UI 顯示：agentPool count、planned day active count、預估尖峰 active count。
 
-完成後停止，等待使用者手動驗證。
+## Milestone 4：Active Agents Runtime MVP
 
-## Milestone 4：Active Agents MVP
+目標：根據 dayPlan，在每一局找出 current active agents。
 
-範圍：只做最簡單可驗證的 active 判斷。
+- 讀取 Milestone 3 的 planned sessions。
+- 每局計算 current active agents。
+- inactive agents 不下注、不結算。
+- UI 顯示當前時間與本局 active agent count。
+- 不做 Agent decision、不做 settlement。
 
-- 根據 `Primary_Play_Hour + Wakeup_Minute` 計算 startRound。
-- 根據 `Micro_Session_Length` 計算 plannedEndRound。
-- 產生 activeAgents count。
-- 暫時不要使用 `Daily_Login_Probability` / `Hourly_Activity_Vector` 參與 active 判斷。
+## Milestone 4.5：時間分布升級（可選）
 
-完成後停止，等待使用者手動驗證。
+只有使用者要求時才做。
 
-## Milestone 4.5：Active Agents 升級版（可選）
-
-範圍：使用新版時間 DNA 讓人流更自然。
-
-- 使用 `Daily_Login_Probability` 決定某 Agent 今日是否出現。
-- 使用 `Hourly_Activity_Vector` 分散上線時段。
-- 保留 fallback：若欄位缺失，回到 Milestone 4 MVP 行為。
-
-此 Milestone 可選。若使用者未指定，AI Agent 不要主動實作。
-
-完成後停止，等待使用者手動驗證。
+- 用 `Daily_Login_Probability` 決定今天是否出現。
+- 用 `Hourly_Activity_Vector` 抽樣 session 起始 hour。
+- 用 `Sessions_Per_Active_Day / Daily_Session_Length / Break_Duration_Minutes` 支援多段 session。
+- 不影響已完成的 MVP dayPlan 介面。
 
 ## Milestone 5：Agent Decision - 格子與 raw bet
 
-範圍：只產生 Agent 的基本下注決策，不接 V3 settlement。
-
-- 押幾格：`LiveMines_Target_Grids`。
-- 押哪些格：`Grid_Preferences` weighted sample。
-- 本局總下注額：`Avg_Bet_Amount` / `Bet_Amount_Std` / scenario multiplier。
-- rawBetMap：依 `Bet_Distribution_Type` / `Anchor_Bet_Ratio` 分配到每格。
-- 暫時不要做 Lightning / Cashout / chip legalize。
-
-完成後停止，等待使用者手動驗證。
+- 只對 current active agents 產生 decision。
+- 押幾格。
+- 押哪些格。
+- raw total bet amount。
+- raw betMap。
+- 不做面額合法化。
+- 不做 Lightning / Cashout。
+- 不做 settlement。
 
 ## Milestone 6：Agent Decision - Lightning / Cashout / Chip Legalize
 
-範圍：補齊新版 DNA 決策欄位。
-
-- `buyLightning` 使用 `Buy_Lightning_Prob`。
-- `cashoutPropensity` 使用 `Cashout_Propensity`。
-- `bonusTargetLevel` / `cashoutStopLevel` 使用 `Cashout_Stop_Level`，範圍 `1~5`。
-- 將 rawBetMap 轉成合法面額組合：`[1,5,10,50,100,500,1000]`。
+- `Buy_Lightning_Prob` 決定是否購買 Lightning。
+- `Cashout_Propensity` / `Cashout_Stop_Level` 決定二級玩法 Cashout 策略。
+- `Cashout_Stop_Level` 必須限制在 `1~5`。
+- raw betMap 轉成合法面額組合 `[1,5,10,50,100,500,1000]`。
 - 產生 `chipMap`。
-- settlement / detail 保留 `Chip_DNA_Source`。
-
-完成後停止，等待使用者手動驗證。
+- 保留 `Chip_DNA_Source`，標示 chip 行為為 prior / synthetic。
+- 不做 settlement。
 
 ## Milestone 7：Public Result 共用
 
-範圍：只把 V3 既有 public result 取出並給多 Agent 共用。
-
 - 使用 V3 既有邏輯取得同一局 public result。
-- 多 Agent 共用同一組 balls / lightning / bonus public answer。
-- 不改寫 V3 遊戲規則。
-- 不做多人 settlement 聚合，除非已經是既有接口自然支援。
-
-完成後停止，等待使用者手動驗證。
+- 多個 current active agents 共用該 public result。
+- 不為每位 Agent 重抽球、閃電或 Bonus 答案。
+- 可先只確認 public result 被正確傳入 Agent Traffic Layer。
 
 ## Milestone 8：多人 Settlement + Round Summary
 
-範圍：每個 Agent 對同一 public result 結算，並聚合單局 summary。
-
-- 每個 Agent 對同一 public result 結算。
-- settlement 保留：`rawBetMap`、`betMap`、`chipMap`、`buyLightning`、`cashoutPropensity`、`cashoutStopLevel`、`chipDnaSource`。
+- 每個 current active agent 對同一 public result 結算。
 - 聚合 Round Summary。
-- Agent 明細放非 reactive 純 JS 儲存，不塞入 Vue reactive state。
-
-完成後停止，等待使用者手動驗證。
+- 產生本局 totalBet / totalCost / totalWin / ggr / rtp。
+- 更新 agent runtime PnL、lossStreak、winStreak。
+- 本 Milestone 可先不做 JP candidate share，除非 V3 settlement 已自然支援。
 
 ## Milestone 9：JP Candidate Share
 
-範圍：只做 JP 候選份額預分配與保留規則。
-
-- 進入 Bonus / JP candidate 時先分配 `jpCandidateShare`。
-- 只有通關五層者領取自己的 share。
+- 進入 Bonus 時先分配 JP candidate share。
+- 通關五層才領取自己的 share。
 - 未通關 share 保留在 JP pool。
-- 不把未通關者份額轉給其他通關者。
-
-完成後停止，等待使用者手動驗證。
+- 不改寫 V3 既有非 Agent 模式 JP 規則。
 
 ## Milestone 10：History / Day / Persona UI
 
-範圍：把已經算好的 summary 顯示出來。
-
-- 人流歷史紀錄。
-- Day summary。
-- Persona summary。
-- 顯示 Cashout / Lightning / chip prior 指標。
-- 當 `Chip_DNA_Source = synthetic_prior_from_amount_only` 時，UI 顯示「面額組合為模擬先驗」提示。
-
-完成後停止，等待使用者手動驗證。
+- 人流 Round History。
+- Day Summary。
+- Persona Summary。
+- 顯示 agentPool count、day active count、current active count。
+- Agent detail 使用非響應式資料，點開某局才讀取。
 
 ## Milestone 11：DNA vs Actual 驗證面板（可選）
 
-範圍：可選，不預設執行。
+只有使用者明確要求時才做。
 
-- DNA vs Actual。
-- chip prior source 分佈。
-- Cashout 1~5 實際分佈。
-- Lightning rate 實際分佈。
-
-只有使用者明確指定此 Milestone 時才實作。
+- 平均押格數：DNA vs Actual。
+- 購買閃電率：DNA vs Actual。
+- 平均下注額：DNA vs Actual。
+- Cashout stop level：DNA vs Actual。
+- Persona 分佈：DNA vs Actual。
+- 不作為前面 Milestone 的自動驗證條件。
 
 ## Milestone 12：Export（可選）
 
-範圍：可選，不預設執行。
+只有使用者明確要求時才做。
 
 - Round Summary CSV。
 - Day Summary CSV。
 - Persona Summary CSV。
 - Agent Summary CSV。
-- Agent Detail JSONL（可選）。
 
-只有使用者明確指定此 Milestone 時才實作。
+---
 
 # 28. Manual QA Checklist（使用者手動驗證）
 
-以下清單是給使用者手動驗證用，不是要求 AI Agent 自動執行的測試任務。
-
-AI Agent 完成 Milestone 後，只需在回報中列出相關手動檢查項目。不要主動建立測試框架，不要自動跑完整 validation。
+以下是使用者手動驗證清單。AI Agent 不要自動建立測試框架，也不要把本清單當成必須自動跑完的 validation。
 
 ## QA 1：Agent Mode 關閉時完全不影響 V3
 
 Given Agent Mode = false  
-When 使用者手動執行原本單局與批次  
-Then 結果應與修改前一致
+When 執行原本單局與批次  
+Then 結果與修改前一致
 
-## QA 2：Grid_Preferences 字串解析
+## QA 2：新版 DNA Parser
 
-Given `Grid_Preferences` 是字串 array  
-Then normalize 後應為長度 9、sum ~= 1 的 number array
+Given frontend spec JSON  
+Then `Grid_Preferences` / `Hourly_Activity_Vector` / `Chip_Denomination_Weights` 都被 parse 成 number array  
+And `Cashout_Stop_Level` 被限制在 `1~5`  
+And `Buy_Lightning_Prob` 與 `Cashout_Propensity` 同時存在且沒有互相覆蓋
 
-## QA 3：Hourly_Activity_Vector 字串解析
+## QA 3：Agent Pool 不是同時在線人數
 
-Given `Hourly_Activity_Vector` 是字串 array  
-Then normalize 後應為長度 24、sum ~= 1 的 number array
+Given agentPool 有 3000 位 Agent  
+When 模擬某一局  
+Then 本局下注人數應等於 current active agents  
+And 不應等於 3000，除非 dayPlan 剛好讓 3000 人同時 active
 
-## QA 4：Chip_Denomination_Weights 字串解析
+## QA 4：Day Planning MVP
 
-Given `Chip_Denomination_Weights` 是字串 array  
-Then normalize 後應為長度 7、sum ~= 1 的 number array  
-And `Available_Bet_Denominations = [1,5,10,50,100,500,1000]`
+Given Agent Primary_Play_Hour = 22, Wakeup_Minute = 11, Micro_Session_Length = 17  
+When 建立 dayPlan  
+Then 該 Agent 應有一段 22:11 附近開始、長度約 17 局的 planned session
 
-## QA 5：Cashout_Stop_Level 範圍
+## QA 5：Active Agents Runtime
 
-Given Agent DNA `Cashout_Stop_Level = 8`  
-When AgentDataLoader normalize  
-Then `Cashout_Stop_Level = 5`
-
-Given Agent DNA `Cashout_Stop_Level = 0`  
-When AgentDataLoader normalize  
-Then `Cashout_Stop_Level = 1`
+Given 某 Agent 的 planned session 是 startRound = 100, endRound = 117  
+When roundIndexInDay = 99  
+Then 該 Agent inactive  
+When roundIndexInDay = 100  
+Then 該 Agent active  
+When roundIndexInDay = 117  
+Then 該 Agent inactive
 
 ## QA 6：時間換算
 
-Given `roundsPerDay = 1200`  
-When `roundIndexInDay = 600`  
-Then `timeOfDay` 約為 `12:00`
+Given roundsPerDay = 1200  
+When roundIndexInDay = 600  
+Then timeOfDay 約 12:00
 
-## QA 7：Active Agent MVP
+## QA 7：Agent Decision 只對 active agents 執行
 
-Given Agent `Primary_Play_Hour = 22`, `Wakeup_Minute = 11`, `Micro_Session_Length = 17`  
-Then 該 Agent 應在 22:11 附近 active，持續約 17 局
+Given 本局 current active agents = 43  
+When 產生 Agent decisions  
+Then decisions length 應為 43  
+And inactive agents 不應產生 betMap
 
 ## QA 8：Public Result 共用
 
-Given 某局有 50 active agents  
-Then 50 位 Agent 應使用同一組 balls / lightning / bonus public result
+Given 某局有 50 current active agents  
+Then 50 位 Agent 使用同一組 balls / lightning / bonus public result
 
 ## QA 9：購買閃電
 
 Given public purchased lightning exists  
-And Agent A `buyLightning = true`  
+And Agent A buyLightning = true  
 Then Agent A 套用 purchased lightning  
-And Agent B `buyLightning = false`  
+And Agent B buyLightning = false  
 Then Agent B 不套用 purchased lightning
 
-## QA 10：Buy_Lightning 與 Cashout 不可混用
+## QA 10：Buy Lightning 與 Cashout 不可混用
 
-Given `Buy_Lightning_Prob = 0.1`  
-And `Cashout_Propensity = 0.8`  
-When buildAgentRoundDecision  
-Then `buyLightning` 使用 `Buy_Lightning_Prob`  
-And cashout / bonus behavior 使用 `Cashout_Stop_Level` / `Cashout_Propensity`
+Given `Buy_Lightning_Prob = 0.9`  
+And `Cashout_Propensity = 0.1`  
+Then Lightning 決策應高機率 true  
+And Cashout 傾向仍應低  
+And 不得用 Cashout_Propensity 覆蓋 Buy_Lightning_Prob
 
 ## QA 11：下注面額合法化
 
-Given raw grid amount = 106  
+Given raw amount = 106  
 And denominations = `[1,5,10,50,100,500,1000]`  
 Then chip combo 可以為 `[100,5,1]`  
-And finalAmount = 106
+And final amount = 106
 
 ## QA 12：Chip DNA Source
 
 Given `Chip_DNA_Source = synthetic_prior_from_amount_only`  
-When settlement generated  
-Then settlement / detail 應保留同一來源  
-And UI 顯示「面額組合為模擬先驗」提示
+Then UI / detail 應提示面額組合是 simulation prior，不是真實籌碼點擊紀錄
 
-## QA 13：JP 候選份額
+## QA 13：Cashout_Stop_Level 範圍
+
+Given Agent DNA 的 Cashout_Stop_Level 超出範圍  
+Then loader / decision 需 clamp 到 1~5
+
+## QA 14：JP 候選份額
 
 Given JP pool = 1,000,000  
 And candidates trigger-grid bets = 100, 200, 300, 400  
 Then candidate shares = 100,000 / 200,000 / 300,000 / 400,000
 
-## QA 14：JP 未通關保留
+## QA 15：JP 未通關保留
 
 Given 只有下注 200 的 candidate 通關五層  
-Then 該 Agent `jpWin = 200,000`  
-And `jpRetainedAmount = 800,000`
+Then 該 Agent jpWin = 200,000  
+And jpRetainedAmount = 800,000
 
-## QA 15：物理資料模式
+## QA 16：物理資料模式
 
 Given V3 使用物理資料模式  
 When Agent Mode 啟用  
 Then Agent 只控制下注  
 And 不重新生成物理資料已提供的 public result
 
+---
+
 # 29. Final Reminder for AI Agent
 
 這不是 LiveMines 規則重寫任務。
 
-這是 V3 的 Agent Traffic Layer 新增任務。
+這是 V3 的 **Phase 2 Time-Based Agent Traffic Layer** 新增任務。
 
-請把 V3 現有程式碼視為遊戲規則真相來源。Agent 人流模式只在外層新增：時間、人流、Agent 下注、多玩家結算聚合與統計展示。
+請把 V3 現有程式碼視為遊戲規則真相來源。Agent 人流模式只在外層新增：真實注單時間分布、day/session planning、current active agents、Agent 下注、多玩家結算聚合與統計展示。
 
 若不確定某個遊戲規則，請沿用 V3 既有實作，不要自行根據本計劃重寫。
 
@@ -1707,4 +1852,55 @@ AI Agent 只實作使用者指定的 Milestone。
 不要自動跑完整 validation。
 不要自動建立測試框架。
 不要自動進入下一個 Milestone。
+若使用者追加規則，先更新 plan，再實作 code。
 ```
+
+
+---
+
+# 30. Phase 3 Reminder（不屬於本文件）
+
+未來 Phase 3 可以新增 LLM Interactive Agents：
+
+```text
+少數 featured active agents 使用 LLM 產生 structured decision + decision rationale。
+大多數 agents 仍使用 Phase 2 behavior engine。
+LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine clamp / validation。
+```
+
+但 Phase 3 不屬於本文件。AI Agent 不要在 Phase 2 Milestone 中主動實作 LLM、prompt、思考輸出或互動記憶。
+
+
+---
+
+# 31. Change Log
+
+## v2.1
+- Clarified that Agent Traffic Mode is time-based, not 3000 agents online simultaneously.
+- Added Agent Pool vs Day Active Agents vs Current Active Agents distinction.
+
+## v2.2
+- Updated DNA spec to frontend spec format from `LiveMines_Agent_DNA_v2_5levels_lightning_chipprior`.
+- Added `Hourly_Activity_Vector`, `Daily_Login_Probability`, `Sessions_Per_Active_Day`, persona display fields, and chip prior fields.
+
+## v2.3
+- Separated EXBET → Lightning purchase behavior from secondary-game Cashout behavior.
+- Added `Buy_Lightning_Prob` alongside `Cashout_Propensity` and `Cashout_Stop_Level`.
+
+## v2.4
+- Changed `Cashout_Stop_Level` range to `1~5` to match current new-game design.
+
+## v2.5
+- Marked chip denomination behavior as simulation prior, not observed chip-click behavior.
+- Added `Chip_DNA_Source = synthetic_prior_from_amount_only`.
+
+## v2.6
+- Added execution rule: AI Agent implements, user performs manual QA.
+- Reframed validation cases as Manual QA Checklist, not automated tests.
+
+## v2.7
+- Added Plan Change Protocol.
+- New or corrected rules must be written back into this plan before implementation.
+
+## v2.8
+- Updated Milestone 2.5: Replaced hardcoded `PERSONA_METADATA` with dynamic calculation of persona stats based on K-Means clustering traits (Martingale, Win Retrench, etc.) directly from loaded DNA JSON.
