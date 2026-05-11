@@ -6,9 +6,11 @@ dist-ssr
 .env.*
 .DS_Store
 
-# 分析與 DNA 資料
-agent_analysis/
+# 分析與 DNA 資料 (忽略大體積資料，保留程式碼)
+agent_analysis/data/
+agent_analysis/*.csv
+agent_analysis/*.json
 20260415_LKDB.csv
 
-# 本地企劃文件（不推版）
-live_mines_agent_traffic_sandbox_ai_agent_spec.md
+# 企劃與開發文件 (現在改為推版)
+# live_mines_agent_traffic_sandbox_ai_agent_spec.md
