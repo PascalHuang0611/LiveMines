@@ -1,6 +1,30 @@
 <template>
 <!-- ================= 右側欄：歷史紀錄 ================= -->
     <div class="w-full xl:w-[350px] flex flex-col gap-6 shrink-0 order-3 xl:order-3">
+        <!-- Milestone 4: Agent 人流狀態 -->
+        <div v-if="$game.simulationMode === 'agentTraffic'" class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg border-t-4 border-t-blue-500 flex flex-col animate-fade-in">
+            <h3 class="text-lg font-bold text-white mb-4 border-b border-gray-600 pb-2 flex justify-between items-center">
+                <span>⏱️ 當前時鐘 (Runtime)</span>
+                <span class="text-sm font-mono text-blue-400 font-bold">Day {{ $game.trafficCurrentDay }}</span>
+            </h3>
+            
+            <div class="flex items-center justify-between bg-gray-900 p-4 rounded-lg mb-4 shadow-inner border border-gray-700">
+                <span class="text-gray-400 font-bold text-sm">目前時間</span>
+                <span class="text-3xl font-mono font-bold text-white tracking-widest" style="text-shadow: 0 0 10px rgba(59,130,246,0.8);">{{ $game.trafficTimeOfDay }}</span>
+            </div>
+
+            <div class="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-gray-700/50">
+                <span class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">本局 Active Agents</span>
+                <span class="text-lg font-mono font-bold" :class="$game.currentActiveAgents.length > 0 ? 'text-green-400' : 'text-gray-500'">
+                    {{ $game.currentActiveAgents.length }} <span class="text-[10px] text-gray-600 font-normal">人在線</span>
+                </span>
+            </div>
+            
+            <div class="mt-3 text-[10px] text-gray-500 text-center italic">
+                * 請按左下方「開始跑 N 局」推進時間 *
+            </div>
+        </div>
+
         <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg h-full flex flex-col">
             <h3 class="text-xl font-bold text-white mb-4 border-b border-gray-600 pb-2">📜 歷史紀錄</h3>
             

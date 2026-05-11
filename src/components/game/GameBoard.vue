@@ -94,7 +94,7 @@
                 <div class="w-full flex flex-col gap-4 mt-2 mb-6">
                     <div class="flex flex-col sm:flex-row justify-center gap-4 w-full">
                         <!-- 單局開獎按鈕 -->
-                        <button @click="$game.runSimulations(1)" :disabled="$game.totalCost === 0 || $game.isPlaying"
+                        <button @click="$game.runSimulations(1)" :disabled="($game.totalCost === 0 && $game.simulationMode === 'manual') || $game.isPlaying"
                                 class="w-full sm:w-36 sm:flex-none bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-2 rounded-xl text-lg shadow-lg transform transition active:scale-95 whitespace-nowrap">
                             {{ $game.isPlaying ? '開獎中...' : '單局開獎' }}
                         </button>
@@ -106,7 +106,7 @@
                                        class="w-full h-full bg-gray-800 border border-purple-500 text-center text-2xl font-bold text-white rounded-xl focus:outline-none focus:border-indigo-400 shadow-inner px-2">
                             </div>
                             <!-- 自動開獎按鈕 -->
-                            <button @click="$game.startBatchSimulations" :disabled="$game.totalCost === 0 || $game.isPlaying || $game.simRounds < 1"
+                            <button @click="$game.startBatchSimulations" :disabled="($game.totalCost === 0 && $game.simulationMode === 'manual') || $game.isPlaying || $game.simRounds < 1"
                                     class="w-32 sm:w-48 sm:flex-none bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-4 px-2 rounded-xl text-lg sm:text-xl shadow-lg transform transition active:scale-95 whitespace-nowrap">
                                 {{ $game.isPlaying ? '開獎中...' : '自動開獎' }}
                             </button>

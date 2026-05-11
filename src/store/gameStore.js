@@ -130,6 +130,41 @@ export const useGameStore = defineStore('game', {
     }),
     
     getters: {
+        // --- Milestone 4: Runtime Getters ---
+        trafficCurrentDay() {
+            const rpd = this.trafficScenario.roundsPerDay || 1200;
+            return Math.floor(this.currentRound / rpd) + 1;
+        },
+        trafficRoundIndexInDay() {
+            const rpd = this.trafficScenario.roundsPerDay || 1200;
+            return this.currentRound % rpd;
+        },
+        trafficTimeOfDay() {
+            const totalSeconds = (this.trafficRoundIndexInDay / (this.trafficScenario.roundsPerDay || 1200)) * 86400;
+            const h = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((totalSeconds % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        },
+        currentActiveAgents() {
+            if (!this.agentRuntimeMap || this.simulationMode !== 'agentTraffic') return [];
+            const r = this.trafficRoundIndexInDay;
+            const roundsPerDay = this.trafficScenario.roundsPerDay || 1200;
+            return this.agentPool.filter(agent => {
+                const rt = this.agentRuntimeMap[agent.Account];
+                if (!rt) return false;
+                
+                if (rt.endRound <= roundsPerDay) {
+                    return r >= rt.startRound && r < rt.endRound;
+                } else {
+                    // 跨日處理
+                    const wrappedEnd = rt.endRound % roundsPerDay;
+                    return r >= rt.startRound || r < wrappedEnd;
+                }
+            });
+        },
+        // ------------------------------------
+
         selectedCount() {
             return this.grids.filter(g => g.betAmount > 0).length;
         },
