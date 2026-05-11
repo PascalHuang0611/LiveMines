@@ -56,6 +56,8 @@ export const useGameStore = defineStore('game', {
         trafficAgentStats: {},
         agentPool: [],
         agentRuntimeMap: null, 
+        plannedDayActiveCount: 0,
+        estimatedPeakActiveCount: 0,
         // ----------------------------------------
         
         // 數據來源模式切換
@@ -1145,6 +1147,7 @@ export const useGameStore = defineStore('game', {
                 const processedAgents = processAgentData(rawData);
                 this.agentPool = markRaw(processedAgents);
                 this.trafficPersonaStats = calculatePersonaStats(processedAgents);
+                this.generateDayPlan();
                 console.log("🤖 已自動載入預設 Agent 資料");
             } catch (e) {
                 console.log("ℹ️ 無法自動載入預設 Agent (正常現象，可手動上傳)", e.message);
@@ -1177,6 +1180,9 @@ export const useGameStore = defineStore('game', {
                 // 3. 計算並更新 Persona 統計
                 this.trafficPersonaStats = calculatePersonaStats(processedAgents);
                 
+                // 4. Milestone 3: 產生 Day Plan
+                this.generateDayPlan();
+                
                 console.log(`✅ 成功載入 ${processedAgents.length} 位 Agent`);
                 console.log('📊 Persona 分佈:', this.trafficPersonaStats);
                 
@@ -1185,6 +1191,47 @@ export const useGameStore = defineStore('game', {
                 console.error("載入 Agent 資料失敗", e);
                 alert("❌ 載入失敗，請確認檔案格式是否為正確的 Agent DNA JSON。");
             }
+        },
+
+        generateDayPlan() {
+            if (!this.agentPool || this.agentPool.length === 0) return;
+            
+            const roundsPerDay = this.trafficScenario.roundsPerDay || 1200;
+            const runtimeMap = {};
+            let dayActiveCount = 0;
+            const roundActiveCounts = new Array(roundsPerDay).fill(0);
+
+            this.agentPool.forEach(agent => {
+                // 時間換算：(時 * 60) + 分
+                const primaryHour = Number(agent.Primary_Play_Hour) || 0;
+                const wakeupMinute = Number(agent.Wakeup_Minute) || 0;
+                const sessionLength = Number(agent.Micro_Session_Length) || 20;
+                
+                const startMinute = (primaryHour * 60) + wakeupMinute;
+                
+                // 換算為對應的 startRound
+                const startRound = Math.floor((startMinute / 1440) * roundsPerDay);
+                const endRound = startRound + sessionLength;
+
+                runtimeMap[agent.Account] = {
+                    startRound,
+                    endRound
+                };
+                
+                dayActiveCount++;
+                
+                // 估算每局人數
+                for (let r = startRound; r < endRound; r++) {
+                    const wrappedR = r % roundsPerDay;
+                    roundActiveCounts[wrappedR]++;
+                }
+            });
+
+            this.agentRuntimeMap = markRaw(runtimeMap);
+            this.plannedDayActiveCount = dayActiveCount;
+            this.estimatedPeakActiveCount = Math.max(...roundActiveCounts, 0);
+            
+            console.log(`📅 Day Plan 產生完畢: 今日預計活躍人數 ${dayActiveCount}, 預估尖峰在線人數 ${this.estimatedPeakActiveCount}`);
         }
     }
 });

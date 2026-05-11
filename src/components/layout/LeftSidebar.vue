@@ -32,7 +32,7 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1">
                                 <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">一天局數</label>
-                                <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
+                                <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" @change="$game.generateDayPlan()" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">模擬天數</label>
@@ -50,9 +50,19 @@
 
                         <!-- 載入後的數據摘要 -->
                         <div v-if="$game.agentPool && $game.agentPool.length > 0" class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700 animate-fade-in">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-xs text-gray-400">已載入 Agent 總數</span>
-                                <span class="text-sm font-bold text-blue-400">{{ $game.agentPool.length }}</span>
+                            <div class="flex flex-col gap-1 mb-3">
+                                <div class="flex justify-between items-center bg-black/20 p-1.5 rounded">
+                                    <span class="text-[11px] text-gray-400">已載入 Agent 總數</span>
+                                    <span class="text-xs font-bold text-blue-400">{{ $game.agentPool.length }}</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-black/20 p-1.5 rounded" title="今日排程將會上線的 Agent 數量">
+                                    <span class="text-[11px] text-gray-400">今日預估活躍人數</span>
+                                    <span class="text-xs font-bold text-green-400">{{ $game.plannedDayActiveCount }}</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-black/20 p-1.5 rounded" title="根據排程估算，同時在線人數的最高峰">
+                                    <span class="text-[11px] text-gray-400">預估尖峰在線人數</span>
+                                    <span class="text-xs font-bold text-yellow-400">{{ $game.estimatedPeakActiveCount }}</span>
+                                </div>
                             </div>
                             
                             <div class="space-y-1.5">
