@@ -13,10 +13,12 @@
                 <span class="text-3xl font-mono font-bold text-white tracking-widest" style="text-shadow: 0 0 10px rgba(59,130,246,0.8);">{{ $game.trafficTimeOfDay }}</span>
             </div>
 
-            <div class="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-gray-700/50">
-                <span class="text-[11px] text-gray-400 uppercase tracking-wider font-bold">本局 Active Agents</span>
+            <div @click="$game.openActiveAgentsModal()"
+                 class="flex items-center justify-between bg-black/40 p-3 rounded-lg border border-gray-700/50 cursor-pointer hover:bg-gray-700 transition transform hover:scale-[1.02] group">
+                <span class="text-[11px] text-gray-400 uppercase tracking-wider font-bold group-hover:text-white transition">本局 Active Agents</span>
                 <span class="text-lg font-mono font-bold" :class="$game.currentActiveAgents.length > 0 ? 'text-green-400' : 'text-gray-500'">
                     {{ $game.currentActiveAgents.length }} <span class="text-[10px] text-gray-600 font-normal">人在線</span>
+                    <span v-if="$game.currentActiveAgents.length > 0" class="inline-block ml-1 text-blue-400 text-xs">🔍</span>
                 </span>
             </div>
             

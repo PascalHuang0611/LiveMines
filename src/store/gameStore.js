@@ -74,6 +74,7 @@ export const useGameStore = defineStore('game', {
         showChartModal: false,
         showDistributionModal: false,
         showBinModal: false,
+        showActiveAgentsModal: false,
         tempConfigText: "",
         
         // 分佈圖設定
@@ -151,16 +152,20 @@ export const useGameStore = defineStore('game', {
             const r = this.trafficRoundIndexInDay;
             const roundsPerDay = this.trafficScenario.roundsPerDay || 1200;
             return this.agentPool.filter(agent => {
-                const rt = this.agentRuntimeMap[agent.Account];
-                if (!rt) return false;
+                const sessions = this.agentRuntimeMap[agent.Account];
+                if (!sessions || sessions.length === 0) return false;
                 
-                if (rt.endRound <= roundsPerDay) {
-                    return r >= rt.startRound && r < rt.endRound;
-                } else {
-                    // 跨日處理
-                    const wrappedEnd = rt.endRound % roundsPerDay;
-                    return r >= rt.startRound || r < wrappedEnd;
-                }
+                return sessions.some(rt => {
+                    if (rt.endRound - rt.startRound >= roundsPerDay) return true;
+                    
+                    if (rt.endRound <= roundsPerDay) {
+                        return r >= rt.startRound && r < rt.endRound;
+                    } else {
+                        // 跨日處理
+                        const wrappedEnd = rt.endRound % roundsPerDay;
+                        return r >= rt.startRound || r < wrappedEnd;
+                    }
+                });
             });
         },
         // ------------------------------------
@@ -952,6 +957,18 @@ export const useGameStore = defineStore('game', {
             this.showConfigModal = true;
         },
         closeConfigModal() { this.showConfigModal = false; },
+
+        // Active Agents Modal 控制
+        openActiveAgentsModal() {
+            if (this.currentActiveAgents.length > 0) {
+                this.showActiveAgentsModal = true;
+            } else {
+                alert("目前沒有在線的 Agent！");
+            }
+        },
+        closeActiveAgentsModal() { 
+            this.showActiveAgentsModal = false; 
+        },
         
         saveConfig() {
             try {
@@ -1090,6 +1107,15 @@ export const useGameStore = defineStore('game', {
         },
 
         simulateSingleRound(currentCost) {
+            // 如果剛好換日，重新產生 Day Plan
+            if (this.simulationMode === 'agentTraffic' && this.currentRound > 0) {
+                const rpd = this.trafficScenario.roundsPerDay || 1200;
+                if (this.currentRound % rpd === 0) {
+                    console.log(`🌅 換日了！第 ${Math.floor(this.currentRound/rpd) + 1} 天開始，重新計算 Agent 作息...`);
+                    this.generateDayPlan();
+                }
+            }
+
             this.currentRound++;
             
             let forcedDrops = null;
@@ -1236,37 +1262,72 @@ export const useGameStore = defineStore('game', {
             let dayActiveCount = 0;
             const roundActiveCounts = new Array(roundsPerDay).fill(0);
 
-            this.agentPool.forEach(agent => {
-                // 時間換算：(時 * 60) + 分
-                const primaryHour = Number(agent.Primary_Play_Hour) || 0;
-                const wakeupMinute = Number(agent.Wakeup_Minute) || 0;
-                const sessionLength = Number(agent.Micro_Session_Length) || 20;
-                
-                const startMinute = (primaryHour * 60) + wakeupMinute;
-                
-                // 換算為對應的 startRound
-                const startRound = Math.floor((startMinute / 1440) * roundsPerDay);
-                const endRound = startRound + sessionLength;
+            // 輔助函數：加權隨機抽樣
+            const weightedRandomSample = (weights) => {
+                const totalWeight = weights.reduce((sum, w) => sum + w, 0);
+                if (totalWeight <= 0) return Math.floor(Math.random() * weights.length);
+                let random = Math.random() * totalWeight;
+                for (let i = 0; i < weights.length; i++) {
+                    if (random < weights[i]) return i;
+                    random -= weights[i];
+                }
+                return weights.length - 1;
+            };
 
-                runtimeMap[agent.Account] = {
-                    startRound,
-                    endRound
-                };
+            this.agentPool.forEach(agent => {
+                runtimeMap[agent.Account] = [];
+
+                // 1. 隨機請假：如果未命中 Daily_Login_Probability，則跳過
+                const loginProb = agent.Daily_Login_Probability !== undefined ? Number(agent.Daily_Login_Probability) : 1;
+                if (Math.random() > loginProb) return;
+
+                // 2. 作息抽樣：抽出主要活躍小時
+                let primaryHour = Number(agent.Primary_Play_Hour) || 0;
+                if (Array.isArray(agent.Hourly_Activity_Vector) && agent.Hourly_Activity_Vector.length === 24) {
+                    primaryHour = weightedRandomSample(agent.Hourly_Activity_Vector);
+                }
+                
+                // 3. 多段遊玩設定
+                const wakeupMinute = Number(agent.Wakeup_Minute) || 0;
+                let startMinute = (primaryHour * 60) + wakeupMinute;
+                
+                const sessionsPerDay = Math.max(1, Math.round(Number(agent.Sessions_Per_Active_Day) || 1));
+                const sessionLength = Number(agent.Micro_Session_Length) || 20; 
+                const breakDuration = Number(agent.Break_Duration_Minutes) || 60; 
+                
+                const activeThisAgent = new Array(roundsPerDay).fill(false);
+
+                for (let s = 0; s < sessionsPerDay; s++) {
+                    const rawStartRound = Math.floor((startMinute / 1440) * roundsPerDay);
+                    const normalizedStartRound = rawStartRound % roundsPerDay;
+                    const normalizedEndRound = normalizedStartRound + sessionLength;
+
+                    runtimeMap[agent.Account].push({
+                        startRound: normalizedStartRound,
+                        endRound: normalizedEndRound
+                    });
+                    
+                    for (let r = normalizedStartRound; r < normalizedEndRound; r++) {
+                        activeThisAgent[r % roundsPerDay] = true;
+                    }
+
+                    // 準備下一段 session 的時間 (休息時間過後)
+                    const sessionMinutes = (sessionLength / roundsPerDay) * 1440;
+                    startMinute += sessionMinutes + breakDuration; 
+                }
+                
+                for (let r = 0; r < roundsPerDay; r++) {
+                    if (activeThisAgent[r]) roundActiveCounts[r]++;
+                }
                 
                 dayActiveCount++;
-                
-                // 估算每局人數
-                for (let r = startRound; r < endRound; r++) {
-                    const wrappedR = r % roundsPerDay;
-                    roundActiveCounts[wrappedR]++;
-                }
             });
 
             this.agentRuntimeMap = markRaw(runtimeMap);
             this.plannedDayActiveCount = dayActiveCount;
             this.estimatedPeakActiveCount = Math.max(...roundActiveCounts, 0);
             
-            console.log(`📅 Day Plan 產生完畢: 今日預計活躍人數 ${dayActiveCount}, 預估尖峰在線人數 ${this.estimatedPeakActiveCount}`);
+            console.log(`📅 Day Plan (v4.5) 產生完畢: 今日預計活躍人數 ${dayActiveCount}, 預估尖峰在線人數 ${this.estimatedPeakActiveCount}`);
         }
     }
 });

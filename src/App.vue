@@ -14,6 +14,7 @@
         <BinModal />
         <BatchModal />
         <HistoryModal />
+        <ActiveAgentsModal />
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
@@ -32,6 +33,7 @@ import DistributionModal from './components/modals/DistributionModal.vue';
 import BinModal from './components/modals/BinModal.vue';
 import BatchModal from './components/modals/BatchModal.vue';
 import HistoryModal from './components/modals/HistoryModal.vue';
+import ActiveAgentsModal from './components/game/ActiveAgentsModal.vue';
 import { useGameStore } from './store/gameStore';
 
 export default {
@@ -44,7 +46,8 @@ export default {
         DistributionModal,
         BinModal,
         BatchModal,
-        HistoryModal
+        HistoryModal,
+        ActiveAgentsModal
     },
     setup() {
         const game = useGameStore();
