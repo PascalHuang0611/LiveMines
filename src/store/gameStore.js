@@ -3,6 +3,7 @@ import { nextTick, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
 import { DEFAULT_CONFIG, getEmptyStats } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
+import { processAgentData, calculatePersonaStats } from '../engine/AgentDataLoader';
 
 Chart.register(...registerables);
 
@@ -1125,9 +1126,29 @@ export const useGameStore = defineStore('game', {
         },
 
         // --- Agent Traffic Actions ---
-        setSimulationMode(mode) {
+        async setSimulationMode(mode) {
             this.simulationMode = mode;
             this.agentTrafficEnabled = (mode === 'agentTraffic');
+            
+            // 如果切換到人流模式且目前沒有 Agent 資料，則嘗試自動載入
+            if (mode === 'agentTraffic' && (!this.agentPool || this.agentPool.length === 0)) {
+                await this.fetchDefaultAgents();
+            }
+        },
+
+        async fetchDefaultAgents() {
+            try {
+                const response = await fetch('/agents.json');
+                if (!response.ok) throw new Error('找不到預設 agents.json');
+                
+                const rawData = await response.json();
+                const processedAgents = processAgentData(rawData);
+                this.agentPool = markRaw(processedAgents);
+                this.trafficPersonaStats = calculatePersonaStats(processedAgents);
+                console.log("🤖 已自動載入預設 Agent 資料");
+            } catch (e) {
+                console.log("ℹ️ 無法自動載入預設 Agent (正常現象，可手動上傳)", e.message);
+            }
         },
 
         resetAgentTrafficSimulation() {
@@ -1137,6 +1158,33 @@ export const useGameStore = defineStore('game', {
             this.trafficDaySummaries = [];
             this.trafficPersonaStats = {};
             this.trafficAgentStats = {};
+        },
+
+        async loadAgentPool(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const rawData = JSON.parse(text);
+                
+                // 1. 處理與標準化 DNA 資料
+                const processedAgents = processAgentData(rawData);
+                
+                // 2. 存入 Store (使用 markRaw 避免效能問題)
+                this.agentPool = markRaw(processedAgents);
+                
+                // 3. 計算並更新 Persona 統計
+                this.trafficPersonaStats = calculatePersonaStats(processedAgents);
+                
+                console.log(`✅ 成功載入 ${processedAgents.length} 位 Agent`);
+                console.log('📊 Persona 分佈:', this.trafficPersonaStats);
+                
+                alert(`✅ 成功載入 ${processedAgents.length} 位 Agent！`);
+            } catch (e) {
+                console.error("載入 Agent 資料失敗", e);
+                alert("❌ 載入失敗，請確認檔案格式是否為正確的 Agent DNA JSON。");
+            }
         }
     }
 });
