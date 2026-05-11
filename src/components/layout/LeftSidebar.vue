@@ -10,6 +10,42 @@
                     </span>
                 </div>
 
+                <!-- 🧬 Agent 人流模式控制區 (Milestone 1) -->
+                <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg border-l-4 border-l-blue-500 mb-6">
+                    <h3 class="text-xl font-bold text-white mb-4 flex justify-between items-center">
+                        <span>🧬 模擬模式</span>
+                        <div class="flex bg-gray-900 p-1 rounded-lg border border-gray-700">
+                            <button @click="$game.setSimulationMode('manual')" 
+                                    :class="$game.simulationMode === 'manual' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'"
+                                    class="px-3 py-1 rounded-md text-xs font-bold transition-all duration-200">
+                                手動
+                            </button>
+                            <button @click="$game.setSimulationMode('agentTraffic')" 
+                                    :class="$game.simulationMode === 'agentTraffic' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-gray-300'"
+                                    class="px-3 py-1 rounded-md text-xs font-bold transition-all duration-200">
+                                人流
+                            </button>
+                        </div>
+                    </h3>
+
+                    <div v-if="$game.simulationMode === 'agentTraffic'" class="space-y-4 animate-fade-in">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">一天局數</label>
+                                <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">模擬天數</label>
+                                <input type="number" v-model.number="$game.trafficScenario.daysToSimulate" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
+                            </div>
+                        </div>
+                        <p class="text-xs text-blue-400 italic">模式已切換，後續將實作 Agent 載入與運行邏輯。</p>
+                    </div>
+                    <div v-else class="text-xs text-gray-500 italic">
+                        目前為「手動固定策略模式」，適合單一配置的壓力測試。
+                    </div>
+                </div>
+
                 <!-- 結算面板 -->
                 <div v-if="$game.lastResult" class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg animate-fade-in">
                     <h3 class="text-xl font-bold text-white mb-4 border-b border-gray-600 pb-2 flex justify-between">

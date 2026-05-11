@@ -34,6 +34,28 @@ export const useGameStore = defineStore('game', {
         simRounds: 120000,     
         bonusPositions: [1, 1, 1, 1, 1], 
         isPlaying: false,
+
+        // --- Milestone 1: Agent Traffic Mode ---
+        simulationMode: 'manual', // 'manual' | 'agentTraffic'
+        agentTrafficEnabled: false,
+        trafficScenario: {
+            roundsPerDay: 1200,
+            daysToSimulate: 1,
+            gridBehavior: 'base',      // conservative | base | aggressive
+            bonusRisk: 'base',         // conservative | base | aggressive
+            lightningPriceSensitivity: 0,
+            betAmountMultiplier: 1.0,
+            maxAgentBetAmount: 100000
+        },
+        trafficCurrentDay: 0,
+        trafficCurrentRoundInDay: 0,
+        trafficHistory: [],
+        trafficDaySummaries: [],
+        trafficPersonaStats: {},
+        trafficAgentStats: {},
+        agentPool: [],
+        agentRuntimeMap: null, 
+        // ----------------------------------------
         
         // 數據來源模式切換
         dataSourceMode: 'theoretical',
@@ -935,7 +957,8 @@ export const useGameStore = defineStore('game', {
         },
         
         checkExecutionCondition() {
-            if (this.totalCost === 0) {
+            // 人流模式下，下注由 Agent 決定，不檢查手動下注
+            if (this.simulationMode !== 'agentTraffic' && this.totalCost === 0) {
                 alert("請先至少選擇一個格子進行押注！");
                 return false;
             }
@@ -1099,6 +1122,21 @@ export const useGameStore = defineStore('game', {
                 this.grids[i].baseLightning = result.finalGridsState[i].baseLightning;
                 this.grids[i].purchasedLightning = result.finalGridsState[i].purchasedLightning;
             }
+        },
+
+        // --- Agent Traffic Actions ---
+        setSimulationMode(mode) {
+            this.simulationMode = mode;
+            this.agentTrafficEnabled = (mode === 'agentTraffic');
+        },
+
+        resetAgentTrafficSimulation() {
+            this.trafficCurrentDay = 0;
+            this.trafficCurrentRoundInDay = 0;
+            this.trafficHistory = [];
+            this.trafficDaySummaries = [];
+            this.trafficPersonaStats = {};
+            this.trafficAgentStats = {};
         }
     }
 });
