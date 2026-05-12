@@ -34,7 +34,7 @@
             <div class="flex flex-col gap-2 mb-3 bg-gray-900 p-2 rounded-lg">
                 <div class="flex gap-2">
                     <button @click="$game.historyFilter = 'all'" :class="$game.historyFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">全部</button>
-                    <button @click="$game.historyFilter = 'win'" :class="$game.historyFilter === 'win' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有贏分</button>
+                    <button @click="$game.historyFilter = 'win'" :class="$game.historyFilter === 'win' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">{{ $game.simulationMode === 'agentTraffic' ? '玩家有淨利' : '有贏分' }}</button>
                     <button @click="$game.historyFilter = 'bonus'" :class="$game.historyFilter === 'bonus' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有 BONUS</button>
                 </div>
                 <div class="flex gap-2">

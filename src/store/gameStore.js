@@ -232,7 +232,11 @@ export const useGameStore = defineStore('game', {
         filteredHistory() {
             let result = this.history;
             if (this.historyFilter === 'win') {
-                result = result.filter(r => r.totalWin > 0);
+                if (this.simulationMode === 'agentTraffic') {
+                    result = result.filter(r => r.netProfit > 0);
+                } else {
+                    result = result.filter(r => r.totalWin > 0);
+                }
             } else if (this.historyFilter === 'bonus') {
                 result = result.filter(r => r.bonusTriggered);
             } else if (this.historyFilter === 'bonus_pass') {
