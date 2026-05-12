@@ -1936,3 +1936,6 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 ## v2.14
 - Implemented Milestone 5 (Agent Decision MVP). Created `AgentDecisionEngine.js` to process agent decisions: target grid counts, weighted grid sampling based on DNA preferences, total bet amounts, and raw bet map distribution.
 - Pre-Milestone 8 UI/Simulation Integration: Aggregated all active agents' `rawBetMap` directly into the UI `grids` during simulation. Disabled manual betting and bonus setting UI in Agent Mode. This allows the existing engine to calculate correct round-level gross `totalCost` and `totalWin` visually and mathematically before individual settlement is built.
+
+## v2.15
+- Performance Optimization (Round Bucket): Resolved severe UI/Simulation lag during batch agent traffic processing. Refactored `currentActiveAgents` in `gameStore.js` from an $O(N)$ real-time array filter (looping through all 10,000+ agents per round) to an $O(1)$ pre-computed Round Bucket lookup. `activeAgentsBucket` is now built instantaneously during `generateDayPlan` using `markRaw` to eliminate Vue Reactivity overhead. Batch processing 600 rounds was reduced from ~5 seconds to <0.1 seconds.

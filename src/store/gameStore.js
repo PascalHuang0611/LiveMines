@@ -57,6 +57,7 @@ export const useGameStore = defineStore('game', {
         trafficAgentStats: {},
         agentPool: [],
         agentRuntimeMap: null, 
+        activeAgentsBucket: null, // [ [agent1, agent2], [agent2, agent3]... ] length = roundsPerDay
         plannedDayActiveCount: 0,
         estimatedPeakActiveCount: 0,
         // ----------------------------------------
@@ -148,26 +149,14 @@ export const useGameStore = defineStore('game', {
             const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
             return `${h}:${m}:${s}`;
         },
-        currentActiveAgents() {
-            if (!this.agentRuntimeMap || this.simulationMode !== 'agentTraffic') return [];
-            const r = this.trafficRoundIndexInDay;
-            const roundsPerDay = this.trafficScenario.roundsPerDay || 1200;
-            return this.agentPool.filter(agent => {
-                const sessions = this.agentRuntimeMap[agent.Account];
-                if (!sessions || sessions.length === 0) return false;
-                
-                return sessions.some(rt => {
-                    if (rt.endRound - rt.startRound >= roundsPerDay) return true;
-                    
-                    if (rt.endRound <= roundsPerDay) {
-                        return r >= rt.startRound && r < rt.endRound;
-                    } else {
-                        // 跨日處理
-                        const wrappedEnd = rt.endRound % roundsPerDay;
-                        return r >= rt.startRound || r < wrappedEnd;
-                    }
-                });
-            });
+        currentActiveAgents(state) {
+            if (state.simulationMode !== 'agentTraffic' || !state.activeAgentsBucket) return [];
+            
+            const roundIndexInDay = state.trafficRoundIndexInDay;
+            if (roundIndexInDay >= 0 && roundIndexInDay < state.activeAgentsBucket.length) {
+                return state.activeAgentsBucket[roundIndexInDay];
+            }
+            return [];
         },
         // ------------------------------------
 
@@ -1276,10 +1265,14 @@ export const useGameStore = defineStore('game', {
         },
 
         generateDayPlan() {
-            if (!this.agentPool || this.agentPool.length === 0) return;
+            if (this.simulationMode !== 'agentTraffic' || !this.agentPool || this.agentPool.length === 0) return;
             
             const roundsPerDay = this.trafficScenario.roundsPerDay || 1200;
             const runtimeMap = {};
+            
+            // 建立時間桶子：長度為 roundsPerDay 的陣列，每個元素都是一個裝著該局上線 agent 的陣列
+            const buckets = Array.from({ length: roundsPerDay }, () => []);
+            
             let dayActiveCount = 0;
             const roundActiveCounts = new Array(roundsPerDay).fill(0);
 
@@ -1329,7 +1322,10 @@ export const useGameStore = defineStore('game', {
                     });
                     
                     for (let r = normalizedStartRound; r < normalizedEndRound; r++) {
-                        activeThisAgent[r % roundsPerDay] = true;
+                        const roundIdx = r % roundsPerDay;
+                        activeThisAgent[roundIdx] = true;
+                        // 把 Agent 丟進對應局數的桶子裡
+                        buckets[roundIdx].push(agent);
                     }
 
                     // 準備下一段 session 的時間 (休息時間過後)
@@ -1345,6 +1341,7 @@ export const useGameStore = defineStore('game', {
             });
 
             this.agentRuntimeMap = markRaw(runtimeMap);
+            this.activeAgentsBucket = markRaw(buckets);
             this.plannedDayActiveCount = dayActiveCount;
             this.estimatedPeakActiveCount = Math.max(...roundActiveCounts, 0);
             
