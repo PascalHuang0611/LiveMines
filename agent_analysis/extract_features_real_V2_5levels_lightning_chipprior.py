@@ -731,10 +731,16 @@ def derive_prior_cashout(user_agg):
        新遊戲上線後,應該用真實 cashout 行為重新校準權重,或直接用觀察值覆寫。
     """
     def z_norm(s):
-        std = s.std()
+        # ⚠️ 必須排除觀光客，只用活躍玩家來計算 mean 與 std，否則會被 3 萬個預設值嚴重稀釋
+        active_mask = user_agg['is_active_for_clustering'] == True
+        active_s = s[active_mask]
+        
+        mean = active_s.mean()
+        std = active_s.std()
+        
         if std == 0 or pd.isna(std):
             return pd.Series(0, index=s.index)
-        return (s - s.mean()) / std
+        return (s - mean) / std
 
     z_martin = z_norm(user_agg['trait_martingale_multiplier'])
     z_retrench = z_norm(user_agg['trait_win_retrench_ratio'])
@@ -759,6 +765,11 @@ def derive_prior_cashout(user_agg):
 
     # 停車關卡:傾向越低代表越撐,假設線性對映到 1 ~ 5 關
     stop_level = np.round(1 + (1 - propensity) * 4).astype(int).clip(1, 5)
+
+    # 針對觀光客，打散到 1~3 層 (因為觀光客通常不會撐太久，且需要隨機性避免過度集中)
+    casual_mask = user_agg['is_active_for_clustering'] == False
+    rng = np.random.default_rng(42)  # 使用固定 seed 確保每次執行結果一致
+    stop_level.loc[casual_mask] = rng.integers(1, 4, size=casual_mask.sum())
 
     return propensity.round(4), stop_level
 
