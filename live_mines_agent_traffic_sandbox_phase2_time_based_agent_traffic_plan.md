@@ -56,6 +56,9 @@ AI Agent 不要主動做以下事情，除非使用者明確要求：
 
 除非使用者明確要求，不要自動進入下一個 milestone。
 
+⚠️ **GitHub 上傳協議 (GitHub Upload Protocol)**：
+- **所有的程式碼與更新，必須在使用者明確表示「確認沒問題」之後，才能執行 Git Commit 與 Push 到 GitHub。** 不要在未經使用者確認的情況下自動上傳程式碼。
+
 若新規則與舊 plan 衝突，以最新使用者指令為準，但必須同步反映到 plan。
 
 ```text

@@ -23,9 +23,15 @@
                         <div v-for="agent in filteredAgents" :key="agent.Account"
                              @click="selectAgent(agent)"
                              class="p-3 rounded-lg cursor-pointer transition border"
-                             :class="selectedAgent?.Account === agent.Account ? 'bg-blue-900/50 border-blue-500 shadow-md' : 'bg-gray-800 border-transparent hover:bg-gray-700'">
+                             :class="[
+                                 selectedAgent?.Account === agent.Account ? 'border-blue-500 shadow-md ring-1 ring-blue-500' : 'border-transparent hover:border-gray-500',
+                                 agent.Player_Persona === 'persona_casual_tourist' ? (selectedAgent?.Account === agent.Account ? 'bg-gray-800' : 'bg-gray-900/50 opacity-60 hover:opacity-100') : (selectedAgent?.Account === agent.Account ? 'bg-blue-900/50' : 'bg-gray-800 hover:bg-gray-700')
+                             ]">
                             <div class="font-mono text-sm font-bold text-white truncate">{{ agent.Account }}</div>
-                            <div class="text-xs text-gray-400 mt-1 truncate">{{ agent.Persona_Name_ZH || agent.Player_Persona || 'Unknown' }}</div>
+                            <div class="text-xs mt-1 truncate font-bold"
+                                 :class="agent.Player_Persona === 'persona_casual_tourist' ? 'text-gray-500' : 'text-blue-400'">
+                                {{ agent.Persona_Name_ZH || agent.Player_Persona || 'Unknown' }}
+                            </div>
                         </div>
                         <div v-if="filteredAgents.length === 0" class="text-center text-gray-500 text-sm mt-10">
                             找不到符合的 Agent
@@ -151,7 +157,17 @@ export default {
             return useGameStore();
         },
         filteredAgents() {
-            const activeAgents = this.$game.currentActiveAgents || [];
+            const activeAgents = [...(this.$game.currentActiveAgents || [])];
+            
+            // 排序：有分群的在上面，觀光客在下面
+            activeAgents.sort((a, b) => {
+                const isACasual = a.Player_Persona === 'persona_casual_tourist';
+                const isBCasual = b.Player_Persona === 'persona_casual_tourist';
+                if (isACasual && !isBCasual) return 1;
+                if (!isACasual && isBCasual) return -1;
+                return 0; // 如果都是觀光客或都不是觀光客，保持原樣
+            });
+
             if (!this.searchQuery) return activeAgents;
             
             const q = this.searchQuery.toLowerCase();
