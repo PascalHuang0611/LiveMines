@@ -1929,3 +1929,6 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 
 ## v2.12
 - Implemented Milestone 4.75 (Casual Tourist Traffic Restoration). Updated Python extraction script (`extract_features_real_V2_5levels_lightning_chipprior.py`) to retain all players regardless of bet count. Protected K-Means clustering by restricting it to active players (>= 30 bets). Assigned the remaining 32,000+ players the `persona_casual_tourist` tag to simulate long-tail, low-frequency traffic without distorting core behavioral metrics.
+
+## v2.13
+- Hotfix for Casual Tourist `Cashout_Stop_Level`: Updated Python extraction script to explicitly isolate casual tourists during `Cashout_Stop_Level` standardization, preventing them from skewing the mean and all defaulting to level 3. Applied random scattering to distribute casual tourists evenly across stop levels 1 to 3.
