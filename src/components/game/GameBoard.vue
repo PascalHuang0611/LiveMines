@@ -24,20 +24,21 @@
                                 <div class="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600">
                                     <span class="text-gray-400 text-sm whitespace-nowrap">預設單格金額:</span>
                                     <input type="number" v-model.number="$game.defaultBetUnit" min="0" step="100"
-                                           class="w-24 bg-gray-800 border border-yellow-600 rounded px-2 py-1 text-yellow-400 font-bold text-sm outline-none focus:border-yellow-400 transition text-center">
+                                           :disabled="$game.simulationMode === 'agentTraffic'"
+                                           class="w-24 bg-gray-800 border border-yellow-600 rounded px-2 py-1 text-yellow-400 font-bold text-sm outline-none focus:border-yellow-400 transition text-center disabled:opacity-50">
                                 </div>
-                                <button @click="$game.toggleAllBets" :disabled="$game.isPlaying"
+                                <button @click="$game.toggleAllBets" :disabled="$game.isPlaying || $game.simulationMode === 'agentTraffic'"
                                         class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded shadow transition">
                                     {{ $game.isAllSelected ? '取消全選' : '全選 9 格' }}
                                 </button>
-                                <button @click="$game.grids.forEach(g => g.betAmount = 0)" :disabled="$game.isPlaying"
+                                <button @click="$game.grids.forEach(g => g.betAmount = 0)" :disabled="$game.isPlaying || $game.simulationMode === 'agentTraffic'"
                                         class="bg-gray-600 hover:bg-gray-500 disabled:opacity-50 text-white text-xs font-bold px-3 py-1.5 rounded shadow transition">
                                     清空所有
                                 </button>
                             </div>
                             <label class="flex items-center space-x-3 cursor-pointer">
-                                <input type="checkbox" v-model="$game.buyExtraLightning" class="form-checkbox h-5 w-5 text-blue-600 rounded">
-                                <span class="text-white font-medium text-lg">購買額外閃電 (加收 {{ ($game.appConfig.mainGame.extraPurchaseCostPercent * 100) }}% 總押注)</span>
+                                <input type="checkbox" v-model="$game.buyExtraLightning" :disabled="$game.simulationMode === 'agentTraffic'" class="form-checkbox h-5 w-5 text-blue-600 rounded disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span class="text-white font-medium text-lg" :class="{ 'opacity-50': $game.simulationMode === 'agentTraffic' }">購買額外閃電 (加收 {{ ($game.appConfig.mainGame.extraPurchaseCostPercent * 100) }}% 總押注)</span>
                             </label>
                         </div>
                         
@@ -61,7 +62,7 @@
                         <input
                             type="number" min="0" step="100"
                             v-model.number="grid.betAmount"
-                            :disabled="$game.isPlaying"
+                            :disabled="$game.isPlaying || $game.simulationMode === 'agentTraffic'"
                             @click.stop
                             class="w-[82%] text-center font-bold text-sm rounded bg-gray-900 border px-1 py-1 outline-none z-10 transition"
                             :class="grid.betAmount > 0
@@ -129,12 +130,12 @@
                     </h3>
 
                     <!-- 二級玩法目標選擇 -->
-                    <div class="flex flex-col sm:flex-row items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-700">
+                    <div class="flex flex-col sm:flex-row items-center justify-between bg-gray-900 p-3 rounded-lg border border-gray-700" :class="{ 'opacity-50': $game.simulationMode === 'agentTraffic' }">
                         <div class="text-gray-300 font-medium mb-2 sm:mb-0">
                             二級玩法目標 (收手層數):
                             <p class="text-xs text-gray-500 mt-1">若觸發 BONUS，系統將模擬闖關至此層級。</p>
                         </div>
-                        <select v-model="$game.bonusTargetLevel" class="bg-gray-800 text-yellow-400 border border-gray-600 rounded-lg px-4 py-2 font-bold cursor-pointer hover:bg-gray-700 outline-none focus:border-yellow-500">
+                        <select v-model="$game.bonusTargetLevel" :disabled="$game.simulationMode === 'agentTraffic'" class="bg-gray-800 text-yellow-400 border border-gray-600 rounded-lg px-4 py-2 font-bold cursor-pointer hover:bg-gray-700 outline-none focus:border-yellow-500 disabled:cursor-not-allowed">
                             <option v-for="(payout, idx) in $game.appConfig.bonusGame.levelSettings.payouts" :key="idx" :value="idx + 1">
                                 第 {{ idx + 1 }} 層 ({{ payout }}倍)
                             </option>
@@ -149,9 +150,10 @@
                                 <span class="text-sm text-gray-400 font-bold w-16">第 {{ level }} 層</span>
                                 <div class="flex space-x-2">
                                     <button v-for="pos in $game.appConfig.bonusGame.levelSettings.totalChoices[level-1]" :key="pos"
-                                            @click="$game.bonusPositions[level-1] = pos"
+                                            @click="if($game.simulationMode !== 'agentTraffic') $game.bonusPositions[level-1] = pos"
+                                            :disabled="$game.simulationMode === 'agentTraffic'"
                                             :class="$game.bonusPositions[level-1] === pos ? 'bg-yellow-500 text-black shadow-[0_0_8px_rgba(234,179,8,0.6)] scale-110' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
-                                            class="w-10 h-10 rounded-lg font-bold text-lg transition-all border border-gray-600">
+                                            class="w-10 h-10 rounded-lg font-bold text-lg transition-all border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
                                         {{ pos }}
                                     </button>
                                 </div>

@@ -4,6 +4,7 @@ import { Chart, registerables } from 'chart.js';
 import { DEFAULT_CONFIG, getEmptyStats } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
 import { processAgentData, calculatePersonaStats } from '../engine/AgentDataLoader';
+import { buildAgentRoundDecision } from '../engine/AgentDecisionEngine';
 
 Chart.register(...registerables);
 
@@ -1116,6 +1117,11 @@ export const useGameStore = defineStore('game', {
                 }
             }
 
+            // Milestone 5: 在人流模式下，單局模擬時印出目前的 Agent Decisions
+            if (this.simulationMode === 'agentTraffic') {
+                this.generateCurrentAgentDecisions();
+            }
+
             this.currentRound++;
             
             let forcedDrops = null;
@@ -1328,6 +1334,51 @@ export const useGameStore = defineStore('game', {
             this.estimatedPeakActiveCount = Math.max(...roundActiveCounts, 0);
             
             console.log(`📅 Day Plan (v4.5) 產生完畢: 今日預計活躍人數 ${dayActiveCount}, 預估尖峰在線人數 ${this.estimatedPeakActiveCount}`);
+        },
+
+        generateCurrentAgentDecisions() {
+            if (this.simulationMode !== 'agentTraffic') return [];
+            
+            const activeAgents = this.currentActiveAgents;
+            if (!activeAgents || activeAgents.length === 0) {
+                this.grids.forEach(g => g.betAmount = 0);
+                return [];
+            }
+
+            const decisions = [];
+            const scenario = this.trafficScenario;
+            const appConfig = this.appConfig;
+            
+            // 初始化 Aggregate Bet Map
+            const aggregateBetMap = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 };
+
+            activeAgents.forEach(agentDNA => {
+                const tempAgentState = {
+                    agentId: agentDNA.Account,
+                    persona: agentDNA.Player_Persona,
+                    dna: agentDNA,
+                    currentBetAmount: Number(agentDNA.Avg_Bet_Amount) || 1,
+                    lastRoundNetProfit: 0
+                };
+
+                const decision = buildAgentRoundDecision(tempAgentState, scenario, appConfig);
+                decisions.push(decision);
+                
+                // 累加 Raw Bet
+                if (decision.rawBetMap) {
+                    Object.entries(decision.rawBetMap).forEach(([gridId, amount]) => {
+                        aggregateBetMap[gridId] += amount;
+                    });
+                }
+            });
+            
+            // 將加總結果反饋到 UI 的 this.grids，讓模擬引擎與畫面能直接吃到 Agent 的群體下注
+            this.grids.forEach(g => {
+                g.betAmount = Math.round(aggregateBetMap[g.id] || 0);
+            });
+
+            console.log(`🧠 已產生 ${decisions.length} 筆 Agent Decision (Raw Bet)`, decisions);
+            return decisions;
         }
     }
 });
