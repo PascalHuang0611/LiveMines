@@ -36,10 +36,16 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
             const gridId = parseInt(gridIdStr);
             const gridResult = publicResult.details.find(d => d.grid === gridId);
 
+            let winBase = 0;
+            let winLightning = 0;
+            let winBonus = 0;
+            let isBonus = false;
+            let cashoutLevel = decision.plannedCashoutLevel || 1;
+
             if (gridResult && gridResult.balls > 0) {
                 // Base Win 計算
                 let basePayoutMult = gridResult.basePayout; // 從 publicResult 中取得該格基礎倍率
-                let winBase = betAmount * basePayoutMult;
+                winBase = betAmount * basePayoutMult;
                 agentBaseWin += winBase;
 
                 // Lightning Win 計算 (有買閃電才能拿 purchasedLightning 乘數)
@@ -47,19 +53,12 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                 if (decision.buyLightning) {
                     lightningMult += gridResult.purchasedL;
                 }
-                let winLightning = winBase * lightningMult;
+                winLightning = winBase * lightningMult;
                 agentLightningWin += winLightning;
-
-                // 紀錄明細
-                agentWinDetails.push({
-                    gridId, betAmount, winBase, winLightning, isBonus: false
-                });
 
                 // Bonus Win (Second Level Play) 計算
                 if (publicResult.bonusTriggered && gridId === triggerGridId) {
                     bonusEntrantsCount++; // 紀錄有參與 Bonus 的人數 (計算 JP Share 分母)
-                    
-                    let cashoutLevel = decision.plannedCashoutLevel || 1;
                     
                     // 檢查公共結果的通關歷史，看是否有成功存活到 cashoutLevel
                     let survived = true;
@@ -73,11 +72,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
 
                     if (survived) {
                         let bonusPayoutMult = config.bonusGame.levelSettings.payouts[cashoutLevel - 1];
-                        let winBonus = betAmount * bonusPayoutMult;
+                        winBonus = betAmount * bonusPayoutMult;
                         agentBonusWin += winBonus;
-                        agentWinDetails.push({
-                            gridId, betAmount, winBonus, isBonus: true, cashoutLevel
-                        });
+                        isBonus = true;
 
                         // 如果通關 L5，則擁有分配 JP 的資格
                         if (cashoutLevel === config.bonusGame.endLevel) {
@@ -86,6 +83,11 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                     }
                 }
             }
+
+            // 紀錄明細 (不管有沒有中獎都要紀錄，才能在 UI 點擊格子時顯示投資名單)
+            agentWinDetails.push({
+                gridId, betAmount, winBase, winLightning, winBonus, isBonus, cashoutLevel
+            });
         });
 
         batchBaseWin += agentBaseWin;
@@ -102,7 +104,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
             agentId: decision.agentId,
             persona: decision.persona,
             vipGroup: decision.vipGroup,
+            dna: decision.dna,
             buyLightning: decision.buyLightning,
+            plannedCashoutLevel: decision.plannedCashoutLevel, // ADDED for the modal
             cost: totalCost,
             baseWin: agentBaseWin,
             lightningWin: agentLightningWin,

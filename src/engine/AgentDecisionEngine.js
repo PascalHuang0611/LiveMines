@@ -242,6 +242,8 @@ export function buildAgentRoundDecision(agentState, scenario, appConfig) {
     return {
         agentId: agentState.agentId,
         persona: agentState.persona,
+        vipGroup: agentState.dna.VIP_Group,
+        dna: agentState.dna,
         selectedGrids,
         rawBetMap,
         totalBetAmountRaw,

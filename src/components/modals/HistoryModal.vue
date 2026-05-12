@@ -128,7 +128,8 @@
                         
                         <div class="bg-gray-900 rounded-lg p-2 overflow-y-auto space-y-2 custom-scrollbar flex-1">
                             <div v-for="(agent, idx) in sortedAgentDetails" :key="agent.agentId" 
-                                 class="flex flex-col xl:flex-row justify-between xl:items-center p-2.5 rounded border-l-4 bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                                 @click="$game.openAgentInfoModal(agent)"
+                                 class="flex flex-col xl:flex-row justify-between xl:items-center p-2.5 rounded border-l-4 bg-gray-800/50 hover:bg-gray-700 cursor-pointer transition-colors hover:scale-[1.01]"
                                  :class="agent.netProfit > 0 ? 'border-green-500' : (agent.netProfit < 0 ? 'border-red-500' : 'border-gray-500')">
                                 
                                 <div class="flex items-center gap-2 mb-1.5 xl:mb-0">

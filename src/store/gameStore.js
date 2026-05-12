@@ -98,6 +98,7 @@ export const useGameStore = defineStore('game', {
 
         lastResult: null,
         selectedHistoryRecord: null,
+        selectedAgentInfo: null,
         
         history: [],
         historyFilter: 'all',
@@ -957,6 +958,9 @@ export const useGameStore = defineStore('game', {
 
         openHistoryModal(record) { this.selectedHistoryRecord = record; },
         closeHistoryModal() { this.selectedHistoryRecord = null; },
+        
+        openAgentInfoModal(agent) { this.selectedAgentInfo = agent; },
+        closeAgentInfoModal() { this.selectedAgentInfo = null; },
         
         openConfigModal() {
             this.tempConfigText = JSON.stringify(this.appConfig, null, 4);

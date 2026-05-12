@@ -16,10 +16,11 @@
         <HistoryModal />
         <ActiveAgentsModal />
         <GridDetailsModal />
+        <AgentInfoModal />
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.22 (History Grid)
+            v2.23 (Agent DNA)
         </div>
     </div>
 </template>
@@ -36,6 +37,7 @@ import BatchModal from './components/modals/BatchModal.vue';
 import HistoryModal from './components/modals/HistoryModal.vue';
 import ActiveAgentsModal from './components/game/ActiveAgentsModal.vue';
 import GridDetailsModal from './components/game/GridDetailsModal.vue';
+import AgentInfoModal from './components/modals/AgentInfoModal.vue';
 import { useGameStore } from './store/gameStore';
 
 export default {
@@ -50,7 +52,8 @@ export default {
         BatchModal,
         HistoryModal,
         ActiveAgentsModal,
-        GridDetailsModal
+        GridDetailsModal,
+        AgentInfoModal
     },
     setup() {
         const game = useGameStore();

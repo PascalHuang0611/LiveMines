@@ -1986,3 +1986,7 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 
 ## v2.22
 - **[UI Overhaul] History Modal**: Redesigned the History Modal with a wide 2-column layout (max-w-5xl). The Agent Leaderboard is now prominently displayed in the right column. The 3x3 grids in the history log are now fully interactive in Agent Traffic mode; clicking them dynamically switches the right column to show a detailed breakdown of all agents who bet on that specific grid during that historical round.
+
+## v2.23
+- **[Milestone 10.5] Agent Info Modal**: Implemented a new Agent Info Modal. Clicking any agent in the History Leaderboard now displays a detailed 'DNA Resume' modal. This modal reveals the agent's core traits (Cashout Propensity, Lightning Probability, etc.) visually with a radar-like progress bar design, and exposes their hidden intentions for that specific round (e.g. their planned cashout level and whether they bought lightning).
+- **Bug Fix**: Restored the VIP badge propagation to ensure VIP groups are displayed correctly in the History Leaderboard.
