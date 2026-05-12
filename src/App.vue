@@ -18,7 +18,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v3.0.0 (Refactored)
+            v2.18 (Milestone 6)
         </div>
     </div>
 </template>

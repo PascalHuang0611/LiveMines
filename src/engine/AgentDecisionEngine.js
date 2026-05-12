@@ -124,6 +124,85 @@ export function distributeBetAmountRaw(agentState, selectedGrids, totalBetAmount
     return result;
 }
 
+
+/**
+ * 決定是否購買 Lightning
+ */
+export function decideLightning(agentState) {
+    const prob = Number(agentState.dna.Buy_Lightning_Prob) || 0;
+    return Math.random() < prob;
+}
+
+/**
+ * 決定 Cashout 策略
+ * @returns {Number|null} 1~5 代表預計在該階段停扣，null 代表不提早 Cashout
+ */
+export function decideCashoutStrategy(agentState) {
+    const propensity = Number(agentState.dna.Cashout_Propensity) || 0;
+    if (Math.random() < propensity) {
+        let stopLevel = Number(agentState.dna.Cashout_Stop_Level) || 3;
+        // 強制限制在 1~5 之間
+        return Math.max(1, Math.min(5, Math.round(stopLevel)));
+    }
+    return null;
+}
+
+/**
+ * 將 rawAmount 依據 DNA 籌碼偏好權重 (Weighted) 分配成合法的實體面額籌碼
+ * @param {Number} rawAmount 
+ * @param {Array} dnaWeights - 長度 7 的權重陣列 [w5, w10, w50, w100, w500, w1k, w10k]
+ */
+export function legalizeChips(rawAmount, dnaWeights) {
+    const denoms = [5, 10, 50, 100, 500, 1000, 10000];
+    
+    // 如果權重無效或長度不符，給予預設均勻權重
+    let weights = Array.isArray(dnaWeights) && dnaWeights.length === 7 ? [...dnaWeights] : [1,1,1,1,1,1,1];
+    
+    // 1. 強制對齊最小面額 (5)
+    // 這樣做可以保證後續的 while 迴圈一定能完美除盡，不會產生找不開的餘數
+    let remaining = Math.round(rawAmount / 5) * 5;
+    if (remaining <= 0) remaining = 5; // 至少下注 5 元
+    
+    const chipMap = { 5: 0, 10: 0, 50: 0, 100: 0, 500: 0, 1000: 0, 10000: 0 };
+    let legalTotal = 0;
+
+    // 將面額與權重組合並依照面額降冪排序 (大到小)，方便過濾
+    const denomObjects = denoms.map((d, i) => ({ denom: d, weight: weights[i] })).sort((a, b) => b.denom - a.denom);
+
+    while (remaining > 0) {
+        // 過濾出不大於剩餘金額的面額
+        const validOptions = denomObjects.filter(opt => opt.denom <= remaining);
+        if (validOptions.length === 0) break; // 理論上不會發生，因為最小面額是 5 且 remaining 是 5 的倍數
+
+        // 檢查 validOptions 的權重總和
+        const totalWeight = validOptions.reduce((sum, opt) => sum + opt.weight, 0);
+        
+        let selectedDenom;
+        if (totalWeight <= 0) {
+            // 如果所有合法選項的權重都是 0，退化成 Greedy (直接選最大的合法面額)
+            selectedDenom = validOptions[0].denom;
+        } else {
+            // 根據權重隨機挑選一個面額
+            let random = Math.random() * totalWeight;
+            selectedDenom = validOptions[validOptions.length - 1].denom; // fallback
+            for (const opt of validOptions) {
+                if (random < opt.weight) {
+                    selectedDenom = opt.denom;
+                    break;
+                }
+                random -= opt.weight;
+            }
+        }
+
+        // 丟入一顆籌碼
+        chipMap[selectedDenom]++;
+        legalTotal += selectedDenom;
+        remaining -= selectedDenom;
+    }
+
+    return { chipMap, legalTotal };
+}
+
 /**
  * 整合：產生單一 Agent 的本局決策物件 (Milestone 5 MVP)
  */
@@ -133,12 +212,43 @@ export function buildAgentRoundDecision(agentState, scenario, appConfig) {
     const totalBetAmountRaw = decideTotalBetAmount(agentState, scenario);
     const rawBetMap = distributeBetAmountRaw(agentState, selectedGrids, totalBetAmountRaw);
 
+    const buyLightning = decideLightning(agentState);
+    const plannedCashoutLevel = decideCashoutStrategy(agentState);
+
+    // 把 rawBetMap 轉成 legalBetMap 與 chipMap
+    const legalBetMap = {};
+    const fullChipMap = {};
+    let legalTotalBetAmount = 0;
+
+    // DNA 中提供的可能是字串，需要解析成陣列
+    let dnaWeights = [];
+    try {
+        if (typeof agentState.dna.Chip_Denomination_Weights === 'string') {
+            dnaWeights = JSON.parse(agentState.dna.Chip_Denomination_Weights);
+        } else if (Array.isArray(agentState.dna.Chip_Denomination_Weights)) {
+            dnaWeights = agentState.dna.Chip_Denomination_Weights;
+        }
+    } catch(e) {
+        dnaWeights = [];
+    }
+
+    Object.entries(rawBetMap).forEach(([gridId, rawAmt]) => {
+        const { chipMap, legalTotal } = legalizeChips(rawAmt, dnaWeights);
+        legalBetMap[gridId] = legalTotal;
+        fullChipMap[gridId] = chipMap;
+        legalTotalBetAmount += legalTotal;
+    });
+
     return {
         agentId: agentState.agentId,
         persona: agentState.persona,
         selectedGrids,
         rawBetMap,
         totalBetAmountRaw,
-        // Milestone 6 才實作：合法面額 chipMap、Lightning、Cashout 等
+        legalBetMap,
+        fullChipMap,
+        legalTotalBetAmount,
+        buyLightning,
+        plannedCashoutLevel
     };
 }

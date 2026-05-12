@@ -173,6 +173,9 @@ export const useGameStore = defineStore('game', {
             return this.availableRounds.length > 0 && this.selectedRounds.length === this.availableRounds.length;
         },
         totalCost() {
+            if (this.simulationMode === 'agentTraffic') {
+                return this.currentTotalAgentCost || 0;
+            }
             let baseCost = this.grids.reduce((sum, g) => sum + (g.betAmount || 0), 0);
             if (this.buyExtraLightning) {
                 return baseCost + (baseCost * this.appConfig.mainGame.extraPurchaseCostPercent);
@@ -1115,15 +1118,11 @@ export const useGameStore = defineStore('game', {
             
             // Milestone 5: 在人流模式下，單局模擬時算出目前的 Agent Decisions
             if (this.simulationMode === 'agentTraffic') {
-                const { virtualGrids } = this.generateCurrentAgentDecisions(isBatch);
+                const { virtualGrids, totalAgentCost } = this.generateCurrentAgentDecisions(isBatch);
                 currentGrids = virtualGrids;
                 
-                // 重新計算由 Agent 下注後產生的實際 currentCost
-                let base = currentGrids.reduce((sum, g) => sum + (g.betAmount || 0), 0);
-                if (this.buyExtraLightning) {
-                    base += base * (this.appConfig.mainGame.extraPurchaseCostPercent || 0);
-                }
-                currentCost = base;
+                // Milestone 6: 由 Agent Decision 獨立計算總成本 (包含他們各自的 Lightning)
+                currentCost = totalAgentCost || 0;
             }
 
             this.currentRound++;
@@ -1362,8 +1361,9 @@ export const useGameStore = defineStore('game', {
             const scenario = this.trafficScenario;
             const appConfig = this.appConfig;
             
-            // 初始化 Aggregate Bet Map
+            // 初始化 Aggregate Legal Bet Map
             const aggregateBetMap = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0 };
+            let totalAgentCost = 0;
 
             activeAgents.forEach(agentDNA => {
                 const tempAgentState = {
@@ -1377,26 +1377,35 @@ export const useGameStore = defineStore('game', {
                 const decision = buildAgentRoundDecision(tempAgentState, scenario, appConfig);
                 decisions.push(decision);
                 
-                // 累加 Raw Bet
-                if (decision.rawBetMap) {
-                    Object.entries(decision.rawBetMap).forEach(([gridId, amount]) => {
+                // 累加 Legal Bet (Milestone 6)
+                if (decision.legalBetMap) {
+                    Object.entries(decision.legalBetMap).forEach(([gridId, amount]) => {
                         aggregateBetMap[gridId] += amount;
                     });
                 }
+                
+                // 計算該名 Agent 的總成本 (包含 Lightning)，處理小數點第二位
+                let agentCost = decision.legalTotalBetAmount || 0;
+                if (decision.buyLightning) {
+                    agentCost += agentCost * (appConfig.mainGame.extraPurchaseCostPercent || 0.5);
+                }
+                // 四捨五入到小數點第二位
+                totalAgentCost += Math.round(agentCost * 100) / 100;
             });
             
             // 建立供本局模擬使用的虛擬 grids 陣列，避免在 batch 時觸發 Vue Reactivity
-            const virtualGrids = this.grids.map(g => ({ ...g, betAmount: Math.round(aggregateBetMap[g.id] || 0) }));
+            const virtualGrids = this.grids.map(g => ({ ...g, betAmount: aggregateBetMap[g.id] || 0 }));
 
             // 如果不是批次跑，才即時更新 UI 綁定的 this.grids
             if (!isBatch) {
                 this.grids.forEach(g => {
-                    g.betAmount = Math.round(aggregateBetMap[g.id] || 0);
+                    g.betAmount = aggregateBetMap[g.id] || 0;
                 });
-                console.log(`🧠 已產生 ${decisions.length} 筆 Agent Decision (Raw Bet)`, decisions);
+                this.currentTotalAgentCost = totalAgentCost;
+                console.log(`🧠 已產生 ${decisions.length} 筆 Agent Decision (Legal Bet)`, decisions);
             }
 
-            return { decisions, virtualGrids };
+            return { decisions, virtualGrids, totalAgentCost };
         }
     }
 });
