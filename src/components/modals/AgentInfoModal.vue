@@ -78,8 +78,8 @@
                     </div>
 
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Base_bet_Amount (基礎注碼)</span>
-                        <span class="text-green-400 font-bold">{{ agent.dna.Base_bet_Amount || 10 }}</span>
+                        <span class="text-gray-400">Avg_Bet_Amount (平均注碼)</span>
+                        <span class="text-green-400 font-bold">{{ agent.dna.Avg_Bet_Amount || 10 }}</span>
                     </div>
 
                     <div class="flex justify-between items-center">

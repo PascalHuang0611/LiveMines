@@ -95,7 +95,7 @@
                                 <ul class="space-y-3 text-gray-300 text-sm leading-relaxed">
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
-                                        <span>他平常喜歡下注 <strong class="text-white">{{ selectedAgent.Base_bet_Amount || 10 }} 元</strong> 左右。</span>
+                                        <span>他平常喜歡下注 <strong class="text-white">{{ selectedAgent.Avg_Bet_Amount || 10 }} 元</strong> 左右。</span>
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
