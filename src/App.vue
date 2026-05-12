@@ -19,7 +19,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.19 (Grid Details)
+            v2.20 (Settlement)
         </div>
     </div>
 </template>

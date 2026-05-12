@@ -29,7 +29,7 @@
                         <div class="flex items-center justify-between">
                             <div class="flex items-center gap-2">
                                 <span class="font-mono text-sm text-gray-300 max-w-[280px] truncate" :title="agent.agentId">{{ agent.agentId }}</span>
-                                <span v-if="agent.vipGroup && agent.vipGroup !== 'V0' && agent.vipGroup !== 'V1'" 
+                                <span v-if="agent.vipGroup" 
                                       class="px-1.5 py-0.5 rounded text-[10px] font-bold"
                                       :class="getVipClass(agent.vipGroup)">
                                     {{ agent.vipGroup }}

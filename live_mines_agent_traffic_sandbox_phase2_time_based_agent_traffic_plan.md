@@ -1974,3 +1974,9 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 - Integrated dynamic Persona translations and VIP labels in the GridDetailsModal.
 - Updated grid bet amounts in the UI to accurately include the 50% lightning cost markup for agents who purchased it.
 - Widened the Account ID display in the details list to show up to 30 characters.
+
+## v2.20
+- **[Milestone 7 & 8] Agent Settlement Engine**: Separated the 'Public Result' generation from 'Individual Agent Settlement'. Built AgentSettlementEngine.js to precisely calculate Base Win, Lightning Win, and Bonus Win for each agent based on their plannedCashoutLevel.
+- **[Milestone 9] JP Candidate Share**: Implemented precise JP sharing mechanics. When multiple agents enter the Bonus game, the JP is split into shares. Only agents who survive until L5 and cash out can claim their share. The shares of agents who crash or cash out early are forfeited and rolled over to the next round's JP pool.
+- **Bug Fix**: Fixed a bug where bonus survival checks were incorrectly evaluating objects, causing 0% bonus win rates.
+- **UI Update**: Unhid VIP labels V0 and V1 in the Grid Details Modal.

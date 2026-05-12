@@ -162,7 +162,7 @@ export function simulateRound(payload) {
             bonusLevelHistory = [];
             
             let currentLevel = 0;
-            let targetLevel = bonusTargetLevel;
+            let targetLevel = bonusTargetLevel === 'all' ? config.bonusGame.endLevel : bonusTargetLevel;
             let alive = true;
 
             for (let lvl = 0; lvl < targetLevel; lvl++) {

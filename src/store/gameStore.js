@@ -3,6 +3,7 @@ import { nextTick, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
 import { DEFAULT_CONFIG, getEmptyStats } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
+import { calculateBatchSettlement } from '../engine/AgentSettlementEngine';
 import { processAgentData, calculatePersonaStats } from '../engine/AgentDataLoader';
 import { buildAgentRoundDecision } from '../engine/AgentDecisionEngine';
 
@@ -1127,10 +1128,12 @@ export const useGameStore = defineStore('game', {
             }
 
             let currentGrids = this.grids;
+            let currentDecisions = [];
             
             // Milestone 5: 在人流模式下，單局模擬時算出目前的 Agent Decisions
             if (this.simulationMode === 'agentTraffic') {
-                const { virtualGrids, totalAgentCost } = this.generateCurrentAgentDecisions(isBatch);
+                const { decisions, virtualGrids, totalAgentCost } = this.generateCurrentAgentDecisions(isBatch);
+                currentDecisions = decisions;
                 currentGrids = virtualGrids;
                 
                 // Milestone 6: 由 Agent Decision 獨立計算總成本 (包含他們各自的 Lightning)
@@ -1156,13 +1159,31 @@ export const useGameStore = defineStore('game', {
                 config: this.appConfig,
                 grids: currentGrids,
                 buyExtraLightning: this.simulationMode === 'agentTraffic' ? true : this.buyExtraLightning,
-                bonusTargetLevel: this.bonusTargetLevel,
+                bonusTargetLevel: this.simulationMode === 'agentTraffic' ? 'all' : this.bonusTargetLevel,
                 bonusPositions: this.bonusPositions,
                 forcedDrops: forcedDrops,
                 currentJpPool: this.stats.totalJpPool
             };
 
-            const result = simulateRound(payload);
+            let result = simulateRound(payload);
+
+            // Milestone 7 & 8: Agent Traffic 模式下，使用獨立結算引擎重新計算獎金
+            if (this.simulationMode === 'agentTraffic') {
+                const settlement = calculateBatchSettlement(result, currentDecisions, this.appConfig);
+                
+                // 替換 result 裡面的派彩數據 (保留 gridHits 等歷史紀錄數據)
+                result = {
+                    ...result,
+                    totalWin: settlement.totalWin,
+                    baseWin: settlement.baseWin,
+                    lightningWin: settlement.lightningWin,
+                    bonusWin: settlement.bonusWin,
+                    jpWin: settlement.jpWin,
+                    newJpPool: settlement.newJpPool,
+                    netProfit: settlement.totalWin - result.cost,
+                    agentDetails: settlement.agentDetails
+                };
+            }
 
             // 準備更新批次數據
             let cb = this.currentBatchStats;
