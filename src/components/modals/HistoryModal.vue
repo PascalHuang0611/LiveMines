@@ -74,18 +74,62 @@
                         </div>
                     </div>
 
-                    <div v-for="detail in $game.selectedHistoryRecord.details" :key="detail.grid" class="flex justify-between items-center bg-gray-900 p-2 rounded">
-                        <span class="text-gray-300">格子 [{{ detail.grid }}] (中 {{ detail.balls }} 球)</span>
-                        <div class="text-right">
-                            <span class="text-gray-400 text-xs block">
-                                ({{ detail.betAmount }} × {{ detail.basePayout }}) × (1 + {{ detail.baseL }} + {{ detail.purchasedL }})
-                            </span>
-                            <span class="text-green-400 font-bold">+{{ detail.win }}</span>
+                    <!-- 手動模式：顯示各別格子的總結算明細 -->
+                    <template v-if="!$game.selectedHistoryRecord.agentDetails">
+                        <div v-for="detail in $game.selectedHistoryRecord.details" :key="detail.grid" class="flex justify-between items-center bg-gray-900 p-2 rounded">
+                            <span class="text-gray-300">格子 [{{ detail.grid }}] (中 {{ detail.balls }} 球)</span>
+                            <div class="text-right">
+                                <span class="text-gray-400 text-xs block">
+                                    ({{ detail.betAmount }} × {{ detail.basePayout }}) × (1 + {{ detail.baseL }} + {{ detail.purchasedL }})
+                                </span>
+                                <span class="text-green-400 font-bold">+{{ detail.win }}</span>
+                            </div>
                         </div>
-                    </div>
-                    <div v-if="$game.selectedHistoryRecord.details.length === 0 && !$game.selectedHistoryRecord.bonusTriggered" class="text-center text-gray-500 py-2">
-                        本局沒有押中任何獎項...
-                    </div>
+                        <div v-if="$game.selectedHistoryRecord.details.length === 0 && !$game.selectedHistoryRecord.bonusTriggered" class="text-center text-gray-500 py-2">
+                            本局沒有押中任何獎項...
+                        </div>
+                    </template>
+
+                    <!-- Agent Traffic 模式：玩家盈虧排行榜 (Milestone 10) -->
+                    <template v-else>
+                        <div class="mt-6 mb-2 flex items-center justify-between border-b border-gray-700 pb-2">
+                            <h3 class="text-lg font-bold text-gray-200">🏆 本局玩家盈虧排行榜</h3>
+                            <span class="text-xs text-gray-500">共 {{ $game.selectedHistoryRecord.agentDetails.length }} 名玩家</span>
+                        </div>
+                        
+                        <div class="bg-gray-900 rounded-lg p-2 max-h-[30vh] overflow-y-auto space-y-2 custom-scrollbar">
+                            <div v-for="(agent, idx) in sortedAgentDetails" :key="agent.agentId" 
+                                 class="flex flex-col sm:flex-row justify-between sm:items-center p-2 rounded border-l-4 bg-gray-800/50"
+                                 :class="agent.netProfit > 0 ? 'border-green-500' : (agent.netProfit < 0 ? 'border-red-500' : 'border-gray-500')">
+                                
+                                <div class="flex items-center gap-2 mb-1 sm:mb-0">
+                                    <span class="text-xs text-gray-500 w-5 text-right font-bold">#{{ idx + 1 }}</span>
+                                    <span class="font-mono text-sm text-gray-300 w-24 truncate" :title="agent.agentId">{{ agent.agentId }}</span>
+                                    <span v-if="agent.vipGroup" class="px-1 py-0.5 rounded text-[9px] font-bold" :class="getVipClass(agent.vipGroup)">{{ agent.vipGroup }}</span>
+                                    
+                                    <!-- Persona 翻譯與提示 -->
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap text-white font-bold opacity-80"
+                                          :style="{ backgroundColor: getPersonaColor(agent.persona) }">
+                                        {{ formatPersonaName(agent.persona) }}
+                                    </span>
+                                </div>
+                                
+                                <div class="flex items-center gap-4 text-xs font-mono w-full sm:w-auto justify-between sm:justify-end">
+                                    <div class="text-gray-400 flex items-center gap-1">
+                                        <span v-if="agent.buyLightning" title="已購買付費閃電" class="text-yellow-400">⚡</span>
+                                        <span v-if="agent.bonusWin > 0" title="Bonus 通關獎金" class="text-purple-400">🎯</span>
+                                        <span v-if="agent.jpWin > 0" title="獨得 JP 分紅" class="text-pink-400">💎</span>
+                                        投入: {{ agent.cost.toFixed(2) }}
+                                    </div>
+                                    <div class="text-right w-20">
+                                        <span :class="agent.netProfit > 0 ? 'text-green-400 font-bold' : (agent.netProfit < 0 ? 'text-red-400' : 'text-gray-400')">
+                                            {{ agent.netProfit > 0 ? '+' : '' }}{{ agent.netProfit.toFixed(2) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
 
                 <!-- 結算總計 -->
@@ -108,6 +152,56 @@
 <script>
 export default {
     name: 'HistoryModal',
-    inject: ['$game']
+    inject: ['$game'],
+    computed: {
+        sortedAgentDetails() {
+            const record = this.$game.selectedHistoryRecord;
+            if (!record || !record.agentDetails) return [];
+            return [...record.agentDetails].sort((a, b) => b.netProfit - a.netProfit);
+        }
+    },
+    methods: {
+        getVipClass(vipGroup) {
+            if (!vipGroup) return 'bg-gray-700 text-gray-300';
+            const num = parseInt(vipGroup.replace('V', ''));
+            if (num >= 8) return 'bg-gradient-to-r from-yellow-400 to-yellow-600 text-black shadow-[0_0_8px_rgba(234,179,8,0.5)]';
+            if (num >= 5) return 'bg-gradient-to-r from-purple-400 to-purple-600 text-white';
+            if (num >= 2) return 'bg-gradient-to-r from-blue-400 to-blue-600 text-white';
+            return 'bg-gray-600 text-gray-300';
+        },
+        formatPersonaName(persona) {
+            if (persona === 'persona_casual_tourist') return '觀光客';
+            const stats = this.$game.trafficPersonaStats;
+            if (stats && stats[persona]) {
+                return stats[persona].personaNameZH || persona;
+            }
+            return persona;
+        },
+        getPersonaColor(persona) {
+            if (persona === 'persona_casual_tourist') return '#9ca3af'; // gray-400
+            const stats = this.$game.trafficPersonaStats;
+            if (stats && stats[persona] && stats[persona].color) {
+                return stats[persona].color;
+            }
+            return '#6366f1'; // default indigo
+        }
+    }
 }
 </script>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.4);
+}
+</style>

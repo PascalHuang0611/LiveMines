@@ -1980,3 +1980,6 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 - **[Milestone 9] JP Candidate Share**: Implemented precise JP sharing mechanics. When multiple agents enter the Bonus game, the JP is split into shares. Only agents who survive until L5 and cash out can claim their share. The shares of agents who crash or cash out early are forfeited and rolled over to the next round's JP pool.
 - **Bug Fix**: Fixed a bug where bonus survival checks were incorrectly evaluating objects, causing 0% bonus win rates.
 - **UI Update**: Unhid VIP labels V0 and V1 in the Grid Details Modal.
+
+## v2.21
+- **[Milestone 10] History UI Leaderboard**: Overhauled the History Modal. In Agent Traffic mode, it now displays a fully scrollable 'Player Profit Leaderboard' sorted by Net Profit. Includes dynamic VIP badges, colored Persona tags, and icon indicators for Lightning (⚡), Bonus Win (🎯), and JP Share (💎) for quick verification of the settlement engine's accuracy.

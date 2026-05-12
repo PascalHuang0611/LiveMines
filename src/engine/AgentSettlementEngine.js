@@ -100,6 +100,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
 
         agentDetails.push({
             agentId: decision.agentId,
+            persona: decision.persona,
+            vipGroup: decision.vipGroup,
+            buyLightning: decision.buyLightning,
             cost: totalCost,
             baseWin: agentBaseWin,
             lightningWin: agentLightningWin,
