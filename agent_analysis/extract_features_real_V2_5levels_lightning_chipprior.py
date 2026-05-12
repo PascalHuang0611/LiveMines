@@ -1007,6 +1007,42 @@ def extract_real_agents_dna(data_dir, min_rounds=30, grid_neighbor_map=None):
     
     user_agg['is_active_for_clustering'] = user_agg['Account'].isin(active_accounts)
 
+    # 讀取並整合 VIP 資料 (Milestone 5.5)
+    vip_csv_path = os.path.join(data_dir, '..', 'PlayerData', 'PlayerData.csv')
+    if os.path.exists(vip_csv_path):
+        print(f"💎 正在整合 VIP 分群資料: {vip_csv_path}")
+        vip_df = pd.read_csv(vip_csv_path)
+        
+        # 確保總押注額為數值
+        if '總押注額' in vip_df.columns:
+            vip_df['總押注額'] = pd.to_numeric(vip_df['總押注額'], errors='coerce').fillna(0)
+            
+            # 定義 VIP 判斷邏輯
+            def get_vip_level(amt):
+                if amt >= 10_000_000: return 'V8'
+                if amt >= 6_000_000:  return 'V7'
+                if amt >= 3_000_000:  return 'V6'
+                if amt >= 600_000:    return 'V5'
+                if amt >= 60_000:     return 'V4'
+                if amt >= 6_000:      return 'V3'
+                if amt >= 3_000:      return 'V2'
+                return 'V1'
+                
+            vip_df['VIP_Group'] = vip_df['總押注額'].apply(get_vip_level)
+            
+            # 只取 Account 與 VIP_Group，並與 user_agg 合併
+            vip_map = vip_df[['Account', 'VIP_Group']].drop_duplicates(subset=['Account'])
+            user_agg = pd.merge(user_agg, vip_map, on='Account', how='left')
+            # 若資料中沒有該 Account 的 VIP_Group，預設為 V1
+            user_agg['VIP_Group'] = user_agg['VIP_Group'].fillna('V1')
+            print(f"💎 VIP 整合完成。V8: {(user_agg['VIP_Group'] == 'V8').sum()}, V1: {(user_agg['VIP_Group'] == 'V1').sum()}")
+        else:
+            print("⚠️ VIP 資料中未找到 '總押注額' 欄位，全部預設為 V1")
+            user_agg['VIP_Group'] = 'V1'
+    else:
+        print(f"⚠️ 找不到 VIP 資料 ({vip_csv_path})，全部預設為 V1")
+        user_agg['VIP_Group'] = 'V1'
+
     # 時間/頻次特徵 (v2.1):24 小時活躍向量、每日上線機率、每日 session 數
     total_obs_days = df['Date'].nunique()
     print(f"📅 資料觀察窗口共涵蓋 {total_obs_days} 天。")
@@ -1079,6 +1115,7 @@ def export_frontend_spec(df, prefix):
         'Persona_Name_ZH':            df['persona_name_zh'],
         'Persona_Name_EN':            df['persona_name_en'],
         'Persona_Description':        df['persona_description'],
+        'VIP_Group':                  df['VIP_Group'],
         'Primary_Play_Hour':          df['trait_primary_play_hour'],
         'Hourly_Activity_Vector':     df['trait_hourly_activity_vector'],
         'Daily_Login_Probability':    df['trait_daily_login_probability'].round(4),

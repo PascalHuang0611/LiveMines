@@ -28,9 +28,22 @@
                                  agent.Player_Persona === 'persona_casual_tourist' ? (selectedAgent?.Account === agent.Account ? 'bg-gray-800' : 'bg-gray-900/50 opacity-60 hover:opacity-100') : (selectedAgent?.Account === agent.Account ? 'bg-blue-900/50' : 'bg-gray-800 hover:bg-gray-700')
                              ]">
                             <div class="font-mono text-sm font-bold text-white truncate">{{ agent.Account }}</div>
-                            <div class="text-xs mt-1 truncate font-bold"
-                                 :class="agent.Player_Persona === 'persona_casual_tourist' ? 'text-gray-500' : 'text-blue-400'">
-                                {{ agent.Persona_Name_ZH || agent.Player_Persona || 'Unknown' }}
+                            <div class="flex items-center justify-between mt-1 gap-2">
+                                <div class="text-xs truncate font-bold"
+                                     :style="agent.Player_Persona !== 'persona_casual_tourist' ? { color: $game.trafficPersonaStats[agent.Player_Persona]?.color || '#60a5fa' } : {}"
+                                     :class="agent.Player_Persona === 'persona_casual_tourist' ? 'text-gray-500' : ''">
+                                    {{ agent.Persona_Name_ZH || agent.Player_Persona || 'Unknown' }}
+                                </div>
+                                <span v-if="agent.VIP_Group" 
+                                      class="text-[9px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap shrink-0"
+                                      :class="[
+                                          ['V8','V7','V6'].includes(agent.VIP_Group) ? 'bg-gradient-to-r from-yellow-600 to-yellow-400 text-black shadow-[0_0_8px_rgba(234,179,8,0.5)]' : 
+                                          (['V5','V4'].includes(agent.VIP_Group) ? 'bg-purple-600/80 text-white border border-purple-500' : 
+                                          (['V3','V2'].includes(agent.VIP_Group) ? 'bg-blue-600/80 text-white border border-blue-500' : 
+                                          'bg-gray-700 text-gray-400 border border-gray-600'))
+                                      ]">
+                                    {{ agent.VIP_Group }}
+                                </span>
                             </div>
                         </div>
                         <div v-if="filteredAgents.length === 0" class="text-center text-gray-500 text-sm mt-10">
@@ -48,9 +61,24 @@
                                 🧑‍💻
                             </div>
                             <div>
-                                <h3 class="text-2xl font-bold text-white font-mono">{{ selectedAgent.Account }}</h3>
-                                <div class="inline-block mt-2 px-3 py-1 bg-gray-800 rounded-full text-sm text-blue-400 font-bold border border-blue-900/50">
-                                    {{ selectedAgent.Persona_Name_ZH || selectedAgent.Player_Persona || 'Unknown' }}
+                                <h3 class="text-2xl font-bold text-white font-mono flex items-center gap-3">
+                                    {{ selectedAgent.Account }}
+                                </h3>
+                                <div class="flex items-center gap-3 mt-2">
+                                    <div class="px-3 py-1 bg-gray-800 rounded-full text-sm font-bold border shadow-inner"
+                                         :style="selectedAgent.Player_Persona !== 'persona_casual_tourist' ? { color: $game.trafficPersonaStats[selectedAgent.Player_Persona]?.color || '#60a5fa', borderColor: ($game.trafficPersonaStats[selectedAgent.Player_Persona]?.color || '#60a5fa') + '40' } : { color: '#9ca3af', borderColor: '#374151' }">
+                                        {{ selectedAgent.Persona_Name_ZH || selectedAgent.Player_Persona || 'Unknown' }}
+                                    </div>
+                                    <span v-if="selectedAgent.VIP_Group" 
+                                          class="text-sm px-2 py-0.5 rounded font-bold tracking-wider shadow-sm"
+                                          :class="[
+                                              ['V8','V7','V6'].includes(selectedAgent.VIP_Group) ? 'bg-gradient-to-r from-yellow-600 to-yellow-400 text-black shadow-[0_0_10px_rgba(234,179,8,0.6)]' : 
+                                              (['V5','V4'].includes(selectedAgent.VIP_Group) ? 'bg-purple-600 text-white' : 
+                                              (['V3','V2'].includes(selectedAgent.VIP_Group) ? 'bg-blue-600 text-white' : 
+                                              'bg-gray-700 text-gray-400'))
+                                          ]">
+                                        💎 {{ selectedAgent.VIP_Group }}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -159,13 +187,28 @@ export default {
         filteredAgents() {
             const activeAgents = [...(this.$game.currentActiveAgents || [])];
             
-            // 排序：有分群的在上面，觀光客在下面
+            // 排序：高 VIP 在最上面，觀光客在最下面
             activeAgents.sort((a, b) => {
                 const isACasual = a.Player_Persona === 'persona_casual_tourist';
                 const isBCasual = b.Player_Persona === 'persona_casual_tourist';
                 if (isACasual && !isBCasual) return 1;
                 if (!isACasual && isBCasual) return -1;
-                return 0; // 如果都是觀光客或都不是觀光客，保持原樣
+                
+                // VIP 排序 (V8 > V7 > ... > V1 > 預設)
+                const getVipLevel = (vip) => {
+                    if (!vip) return 0;
+                    const match = vip.match(/V(\d+)/);
+                    return match ? parseInt(match[1]) : 0;
+                };
+                
+                const vipA = getVipLevel(a.VIP_Group);
+                const vipB = getVipLevel(b.VIP_Group);
+                
+                if (vipA !== vipB) {
+                    return vipB - vipA; // 降冪排列 (高 VIP 在上)
+                }
+
+                return 0; // VIP 相同時保持原樣
             });
 
             if (!this.searchQuery) return activeAgents;

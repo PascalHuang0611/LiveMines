@@ -120,12 +120,15 @@ export function calculatePersonaStats(agents) {
             const colors = ['#4ade80', '#60a5fa', '#f87171', '#fbbf24', '#a78bfa', '#34d399', '#f472b6'];
             const colorIdx = p.length % colors.length;
             
+            // 針對觀光客特別設定為灰色
+            const finalColor = p === 'persona_casual_tourist' ? '#9ca3af' : colors[colorIdx];
+
             stats[p] = {
                 count: 0,
                 personaNameZH: a.Persona_Name_ZH || p,
                 personaNameEN: a.Persona_Name_EN || p,
                 desc: a.Persona_Description || '缺乏描述',
-                color: colors[colorIdx],
+                color: finalColor,
                 sumBet: 0,
                 sumMartingale: 0,
                 sumRetrench: 0,

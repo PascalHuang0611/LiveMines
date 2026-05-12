@@ -13,3 +13,5 @@ agent_analysis/*.json
 
 # 企劃與開發文件 (現在改為推版)
 # live_mines_agent_traffic_sandbox_ai_agent_spec.md
+
+agent_analysis/PlayerData/PlayerData.csv
