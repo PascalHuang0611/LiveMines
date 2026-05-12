@@ -296,6 +296,30 @@
                     </div>
                 </div>
 
+                <!-- ================= 總押注額走勢圖 (最後 24 小時) ================= -->
+                <div v-if="$game.simulationMode === 'agentTraffic'" class="bg-gray-800 rounded-xl p-5 mt-6 border border-gray-700 shadow-lg relative">
+                    <div class="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
+                        <h3 class="text-lg font-bold text-red-400 flex items-center gap-2">
+                            <span>💸 每小時總押注額走勢圖 (近24小時)</span>
+                        </h3>
+                    </div>
+                    <div class="relative w-full h-[250px]">
+                        <canvas id="hourlyBetChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- ================= 登入人數走勢圖 (最後 24 小時) ================= -->
+                <div v-if="$game.simulationMode === 'agentTraffic'" class="bg-gray-800 rounded-xl p-5 mt-6 border border-gray-700 shadow-lg relative mb-10">
+                    <div class="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">
+                        <h3 class="text-lg font-bold text-blue-400 flex items-center gap-2">
+                            <span>👥 每小時登入人數走勢圖 (近24小時)</span>
+                        </h3>
+                    </div>
+                    <div class="relative w-full h-[250px]">
+                        <canvas id="hourlyUserChart"></canvas>
+                    </div>
+                </div>
+
             </div>
 </template>
 

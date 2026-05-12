@@ -114,6 +114,10 @@ export const useGameStore = defineStore('game', {
         batches: [], // 儲存已完成的批次
         currentBatchStats: getEmptyStats(), // 當前進行中的批次
         selectedBatch: null, // 用於 Batch Modal 顯示
+
+        hourlyStats: [], // 追蹤最後24小時的資料: { hourKey: '', totalBet: 0, activeUsers: new Set(), loginCount: 0 }
+        hourlyBetChartInstance: null,
+        hourlyUserChartInstance: null,
         
         // 預設單格押注金額 (用於「全選」快速填入)
         defaultBetUnit: 100,
@@ -339,6 +343,12 @@ export const useGameStore = defineStore('game', {
 
             this.initChart();
             this.initDistributionChart();
+            
+            setTimeout(() => {
+                if (this.simulationMode === 'agentTraffic') {
+                    this.initHourlyCharts();
+                }
+            }, 100);
         },
 
         initChart() {
@@ -681,6 +691,50 @@ export const useGameStore = defineStore('game', {
                 this.expandedDistributionChartInstance.data.datasets[0].data = dist.data;
                 this.expandedDistributionChartInstance.update();
             }
+
+            this.updateHourlyCharts();
+        },
+
+        initHourlyCharts() {
+            const betCtx = document.getElementById('hourlyBetChart')?.getContext('2d');
+            if (betCtx) {
+                if (this.hourlyBetChartInstance) this.hourlyBetChartInstance.destroy();
+                const betConfig = {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: '總押注額', data: [], borderColor: 'rgb(248, 113, 113)', backgroundColor: 'rgba(248, 113, 113, 0.1)', fill: true, tension: 0.1, pointRadius: 2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9ca3af' }, grid: { display: false } }, y: { ticks: { color: '#9ca3af' }, grid: { color: '#374151', borderDash: [5,5] } } } }
+                };
+                this.hourlyBetChartInstance = markRaw(new Chart(betCtx, betConfig));
+            }
+            
+            const userCtx = document.getElementById('hourlyUserChart')?.getContext('2d');
+            if (userCtx) {
+                if (this.hourlyUserChartInstance) this.hourlyUserChartInstance.destroy();
+                const userConfig = {
+                    type: 'line',
+                    data: { labels: [], datasets: [{ label: '登入人數', data: [], borderColor: 'rgb(96, 165, 250)', backgroundColor: 'rgba(96, 165, 250, 0.1)', fill: true, tension: 0.1, pointRadius: 2 }] },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: '#9ca3af' }, grid: { display: false } }, y: { ticks: { color: '#9ca3af', stepSize: 1 }, grid: { color: '#374151', borderDash: [5,5] }, beginAtZero: true } } }
+                };
+                this.hourlyUserChartInstance = markRaw(new Chart(userCtx, userConfig));
+            }
+        },
+
+        updateHourlyCharts() {
+            if (!this.hourlyStats) return;
+            const labels = this.hourlyStats.map(s => s.hourKey);
+            const betData = this.hourlyStats.map(s => s.totalBet);
+            const userData = this.hourlyStats.map(s => s.loginCount);
+            
+            if (this.hourlyBetChartInstance) {
+                this.hourlyBetChartInstance.data.labels = labels;
+                this.hourlyBetChartInstance.data.datasets[0].data = betData;
+                this.hourlyBetChartInstance.update();
+            }
+            if (this.hourlyUserChartInstance) {
+                this.hourlyUserChartInstance.data.labels = labels;
+                this.hourlyUserChartInstance.data.datasets[0].data = userData;
+                this.hourlyUserChartInstance.update();
+            }
         },
 
         openChartModal() {
@@ -915,6 +969,7 @@ export const useGameStore = defineStore('game', {
             this.stats = getEmptyStats();
             this.batches = [];
             this.currentBatchStats = getEmptyStats();
+            this.hourlyStats = [];
 
             this.grids.forEach(g => {
                 g.balls = 0;
@@ -1142,6 +1197,35 @@ export const useGameStore = defineStore('game', {
                 
                 // Milestone 6: 由 Agent Decision 獨立計算總成本 (包含他們各自的 Lightning)
                 currentCost = totalAgentCost || 0;
+
+                // 追蹤每小時統計資料
+                const rpd = this.trafficScenario.roundsPerDay || 1200;
+                const rph = Math.max(1, Math.floor(rpd / 24));
+                const currentDay = Math.floor(this.currentRound / rpd) + 1;
+                const currentHour = Math.floor((this.currentRound % rpd) / rph);
+                const hourKey = `D${currentDay} ${currentHour.toString().padStart(2, '0')}:00`;
+
+                if (this.hourlyStats.length === 0 || this.hourlyStats[this.hourlyStats.length - 1].hourKey !== hourKey) {
+                    this.hourlyStats.push({
+                        hourKey,
+                        totalBet: 0,
+                        activeUsers: new Set(),
+                        loginCount: 0
+                    });
+                    if (this.hourlyStats.length > 24) {
+                        this.hourlyStats.shift();
+                    }
+                }
+                
+                const currentStat = this.hourlyStats[this.hourlyStats.length - 1];
+                currentStat.totalBet += currentCost;
+                
+                this.currentActiveAgents.forEach(agent => {
+                    if (!currentStat.activeUsers.has(agent.Account)) {
+                        currentStat.activeUsers.add(agent.Account);
+                        currentStat.loginCount++;
+                    }
+                });
             }
 
             this.currentRound++;
@@ -1244,6 +1328,15 @@ export const useGameStore = defineStore('game', {
             if (mode === 'agentTraffic' && (!this.agentPool || this.agentPool.length === 0)) {
                 await this.fetchDefaultAgents();
             }
+
+            if (mode === 'agentTraffic') {
+                setTimeout(() => {
+                    if (!this.hourlyBetChartInstance || !this.hourlyUserChartInstance) {
+                        this.initHourlyCharts();
+                    }
+                    this.updateHourlyCharts();
+                }, 100);
+            }
         },
 
         async fetchDefaultAgents() {
@@ -1269,6 +1362,8 @@ export const useGameStore = defineStore('game', {
             this.trafficDaySummaries = [];
             this.trafficPersonaStats = {};
             this.trafficAgentStats = {};
+            this.hourlyStats = [];
+            this.updateHourlyCharts();
         },
 
         async loadAgentPool(event) {

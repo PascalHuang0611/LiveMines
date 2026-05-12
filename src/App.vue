@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.24 (DNA Polish)
+            v2.25 (Hourly Charts)
         </div>
     </div>
 </template>
