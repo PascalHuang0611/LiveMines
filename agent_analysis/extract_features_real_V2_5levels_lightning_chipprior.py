@@ -263,14 +263,15 @@ def load_raw_bets(data_dir):
     return df
 
 
-def filter_active_players(df, min_rounds):
-    """只保留總局數 >= min_rounds 的真實玩家。"""
+def split_active_players(df, min_rounds):
+    """標記總局數 >= min_rounds 的活躍玩家，但不剔除觀光客。"""
     account_counts = df['Account'].value_counts()
-    valid_accounts = account_counts[account_counts >= min_rounds].index
-    df = df[df['Account'].isin(valid_accounts)].copy()
+    active_accounts = account_counts[account_counts >= min_rounds].index
+    casual_accounts = account_counts[account_counts < min_rounds].index
     print(f"✅ 載入完成,共 {len(df)} 筆有效注單。")
-    print(f"🎯 篩選後 (>= {min_rounds} 局) 共有 {len(valid_accounts)} 位玩家。")
-    return df
+    print(f"🎯 活躍玩家 (>= {min_rounds} 局): {len(active_accounts)} 位。")
+    print(f"🚶 觀光玩家 (< {min_rounds} 局): {len(casual_accounts)} 位。")
+    return df, active_accounts, casual_accounts
 
 
 # ====================================================================
@@ -927,21 +928,35 @@ def cluster_personas(user_agg, n_clusters=4, seed=42):
         'trait_win_grid_stickiness',
     ]
 
-    X = user_agg[cluster_features].copy()
+    active_mask = user_agg['is_active_for_clustering'] == True
+    
+    X = user_agg.loc[active_mask, cluster_features].copy()
     X = X.fillna(X.median())
 
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
     kmeans = KMeans(n_clusters=n_clusters, random_state=seed, n_init=10)
-    user_agg['cluster_id'] = kmeans.fit_predict(X_scaled)
+    user_agg.loc[active_mask, 'cluster_id'] = kmeans.fit_predict(X_scaled)
+    user_agg.loc[~active_mask, 'cluster_id'] = -1
 
     persona_summary = (
-        user_agg.groupby('cluster_id')[cluster_features].mean().round(3)
+        user_agg[active_mask].groupby('cluster_id')[cluster_features].mean().round(3)
     )
 
     # 自動語意命名
     persona_naming = name_personas(persona_summary)
+    
+    # 新增觀光客命名
+    casual_naming = pd.DataFrame([{
+        'cluster_id': -1,
+        'persona_key': 'persona_casual_tourist',
+        'persona_name_zh': '觀光客 (Casual)',
+        'persona_name_en': 'Casual Tourist',
+        'persona_description': '總遊戲局數少於 30 局，偶爾出現的輕度過客。'
+    }])
+    persona_naming = pd.concat([persona_naming, casual_naming], ignore_index=True)
+
     print("\n📛 Persona 自動命名結果:")
     for _, r in persona_naming.iterrows():
         print(f"   Cluster {r['cluster_id']}: {r['persona_name_zh']} / {r['persona_name_en']}")
@@ -968,7 +983,7 @@ def extract_real_agents_dna(data_dir, min_rounds=30, grid_neighbor_map=None):
     if df is None:
         return None
 
-    df = filter_active_players(df, min_rounds)
+    df, active_accounts, casual_accounts = split_active_players(df, min_rounds)
     if df.empty:
         return None
 
@@ -978,6 +993,8 @@ def extract_real_agents_dna(data_dir, min_rounds=30, grid_neighbor_map=None):
     # 萃取 traits + observed
     traits_results = extract_traits(round_agg)
     user_agg = aggregate_to_user(round_agg, traits_results)
+    
+    user_agg['is_active_for_clustering'] = user_agg['Account'].isin(active_accounts)
 
     # 時間/頻次特徵 (v2.1):24 小時活躍向量、每日上線機率、每日 session 數
     total_obs_days = df['Date'].nunique()
