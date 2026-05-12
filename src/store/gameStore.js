@@ -1038,7 +1038,7 @@ export const useGameStore = defineStore('game', {
             const currentCost = this.totalCost;
 
             setTimeout(() => {
-                let newRecord = this.simulateSingleRound(currentCost);
+                let newRecord = this.simulateSingleRound(currentCost, false);
                 this.history.unshift(newRecord);
                 
                 if (this.history.length > 100000) {
@@ -1072,7 +1072,7 @@ export const useGameStore = defineStore('game', {
                 let runsThisBatch = 0;
                 
                 while (runsThisBatch < batchSize && this.simulatedCount < this.totalSimToRun) {
-                    newRecordsBuffer.push(this.simulateSingleRound(currentCost));
+                    newRecordsBuffer.push(this.simulateSingleRound(currentCost, true));
                     runsThisBatch++;
                     this.simulatedCount++;
                 }
@@ -1096,6 +1096,11 @@ export const useGameStore = defineStore('game', {
                     this.history.length = 100000;
                 }
                 this.applyResultToUI(newRecordsBuffer[0]);
+                
+                // 批次跑完後，強制更新一次 Agent 的 UI 總下注額
+                if (this.simulationMode === 'agentTraffic') {
+                    this.generateCurrentAgentDecisions(false);
+                }
             }
             
             if (this.currentBatchStats.roundsCount > 0) {
@@ -1107,7 +1112,7 @@ export const useGameStore = defineStore('game', {
             this.updateChart(); 
         },
 
-        simulateSingleRound(currentCost) {
+        simulateSingleRound(currentCost, isBatch = false) {
             // 如果剛好換日，重新產生 Day Plan
             if (this.simulationMode === 'agentTraffic' && this.currentRound > 0) {
                 const rpd = this.trafficScenario.roundsPerDay || 1200;
@@ -1117,9 +1122,19 @@ export const useGameStore = defineStore('game', {
                 }
             }
 
-            // Milestone 5: 在人流模式下，單局模擬時印出目前的 Agent Decisions
+            let currentGrids = this.grids;
+            
+            // Milestone 5: 在人流模式下，單局模擬時算出目前的 Agent Decisions
             if (this.simulationMode === 'agentTraffic') {
-                this.generateCurrentAgentDecisions();
+                const { virtualGrids } = this.generateCurrentAgentDecisions(isBatch);
+                currentGrids = virtualGrids;
+                
+                // 重新計算由 Agent 下注後產生的實際 currentCost
+                let base = currentGrids.reduce((sum, g) => sum + (g.betAmount || 0), 0);
+                if (this.buyExtraLightning) {
+                    base += base * (this.appConfig.mainGame.extraPurchaseCostPercent || 0);
+                }
+                currentCost = base;
             }
 
             this.currentRound++;
@@ -1139,7 +1154,7 @@ export const useGameStore = defineStore('game', {
                 currentCost: currentCost,
                 baseBetUnit: null, // 已由各格 betAmount 取代
                 config: this.appConfig,
-                grids: this.grids,
+                grids: currentGrids,
                 buyExtraLightning: this.buyExtraLightning,
                 bonusTargetLevel: this.bonusTargetLevel,
                 bonusPositions: this.bonusPositions,
@@ -1336,13 +1351,14 @@ export const useGameStore = defineStore('game', {
             console.log(`📅 Day Plan (v4.5) 產生完畢: 今日預計活躍人數 ${dayActiveCount}, 預估尖峰在線人數 ${this.estimatedPeakActiveCount}`);
         },
 
-        generateCurrentAgentDecisions() {
-            if (this.simulationMode !== 'agentTraffic') return [];
+        generateCurrentAgentDecisions(isBatch = false) {
+            if (this.simulationMode !== 'agentTraffic') return { decisions: [], virtualGrids: this.grids };
             
             const activeAgents = this.currentActiveAgents;
             if (!activeAgents || activeAgents.length === 0) {
-                this.grids.forEach(g => g.betAmount = 0);
-                return [];
+                if (!isBatch) this.grids.forEach(g => g.betAmount = 0);
+                const virtualGrids = this.grids.map(g => ({ ...g, betAmount: 0 }));
+                return { decisions: [], virtualGrids };
             }
 
             const decisions = [];
@@ -1372,13 +1388,18 @@ export const useGameStore = defineStore('game', {
                 }
             });
             
-            // 將加總結果反饋到 UI 的 this.grids，讓模擬引擎與畫面能直接吃到 Agent 的群體下注
-            this.grids.forEach(g => {
-                g.betAmount = Math.round(aggregateBetMap[g.id] || 0);
-            });
+            // 建立供本局模擬使用的虛擬 grids 陣列，避免在 batch 時觸發 Vue Reactivity
+            const virtualGrids = this.grids.map(g => ({ ...g, betAmount: Math.round(aggregateBetMap[g.id] || 0) }));
 
-            console.log(`🧠 已產生 ${decisions.length} 筆 Agent Decision (Raw Bet)`, decisions);
-            return decisions;
+            // 如果不是批次跑，才即時更新 UI 綁定的 this.grids
+            if (!isBatch) {
+                this.grids.forEach(g => {
+                    g.betAmount = Math.round(aggregateBetMap[g.id] || 0);
+                });
+                console.log(`🧠 已產生 ${decisions.length} 筆 Agent Decision (Raw Bet)`, decisions);
+            }
+
+            return { decisions, virtualGrids };
         }
     }
 });
