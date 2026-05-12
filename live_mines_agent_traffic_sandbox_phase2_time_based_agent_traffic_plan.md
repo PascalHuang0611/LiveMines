@@ -1983,3 +1983,6 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 
 ## v2.21
 - **[Milestone 10] History UI Leaderboard**: Overhauled the History Modal. In Agent Traffic mode, it now displays a fully scrollable 'Player Profit Leaderboard' sorted by Net Profit. Includes dynamic VIP badges, colored Persona tags, and icon indicators for Lightning (⚡), Bonus Win (🎯), and JP Share (💎) for quick verification of the settlement engine's accuracy.
+
+## v2.22
+- **[UI Overhaul] History Modal**: Redesigned the History Modal with a wide 2-column layout (max-w-5xl). The Agent Leaderboard is now prominently displayed in the right column. The 3x3 grids in the history log are now fully interactive in Agent Traffic mode; clicking them dynamically switches the right column to show a detailed breakdown of all agents who bet on that specific grid during that historical round.

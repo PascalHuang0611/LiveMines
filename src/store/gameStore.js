@@ -1217,7 +1217,8 @@ export const useGameStore = defineStore('game', {
                 csvInfo: csvInfo, 
                 bonusResultText: result.bonusResultText,
                 bonusLevelHistory: result.bonusLevelHistory, 
-                finalGridsState: result.finalGridsState 
+                finalGridsState: result.finalGridsState,
+                agentDetails: result.agentDetails
             });
         },
 
