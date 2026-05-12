@@ -1,7 +1,7 @@
 <template>
     <!-- ================= 玩家詳細資料 (DNA 透視) 彈跳視窗 ================= -->
     <div v-if="$game.selectedAgentInfo" @click.self="$game.closeAgentInfoModal" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
-        <div class="bg-gray-800 border-2 border-gray-600 rounded-2xl w-full max-w-sm overflow-hidden relative shadow-2xl">
+        <div class="bg-gray-800 border-2 border-gray-600 rounded-2xl w-full max-w-md overflow-hidden relative shadow-2xl">
             
             <!-- 頂部：玩家基本資料 -->
             <div class="bg-gradient-to-br from-gray-700 to-gray-900 p-6 flex flex-col items-center justify-center relative border-b border-gray-600">
@@ -12,7 +12,7 @@
                     {{ getPersonaEmoji(agent.persona) }}
                 </div>
                 
-                <h2 class="text-xl font-mono font-bold text-white mb-1">{{ agent.agentId }}</h2>
+                <h2 class="text-xl font-mono font-bold text-white mb-1 truncate w-full px-8 text-center" :title="agent.agentId">{{ agent.agentId }}</h2>
                 
                 <div class="flex items-center gap-2">
                     <span v-if="agent.vipGroup" class="px-2 py-0.5 rounded text-xs font-bold" :class="getVipClass(agent.vipGroup)">
@@ -39,7 +39,7 @@
                     </div>
                     <div class="bg-gray-800 border border-gray-700 p-3 rounded-lg flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
                         <span class="text-xs text-gray-500 mb-1">Bonus 停扣目標</span>
-                        <span class="text-lg font-bold text-purple-400">L{{ agent.plannedCashoutLevel }}</span>
+                        <span class="text-lg font-bold text-purple-400">L{{ agent.plannedCashoutLevel || 1 }}</span>
                         <!-- 背景浮水印效果 -->
                         <span class="absolute -right-2 -bottom-2 text-4xl opacity-10">🎯</span>
                     </div>
@@ -73,8 +73,23 @@
                     </div>
                     
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-400">Base_Bet_Amount (基礎注碼)</span>
-                        <span class="text-green-400 font-bold">{{ agent.dna.Base_Bet_Amount }}</span>
+                        <span class="text-gray-400">Cashout_Stop_Level (停扣上限)</span>
+                        <span class="text-purple-400 font-bold">L{{ agent.dna.Cashout_Stop_Level || 3 }}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Base_bet_Amount (基礎注碼)</span>
+                        <span class="text-green-400 font-bold">{{ agent.dna.Base_bet_Amount || 10 }}</span>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Martingale_Multiplier (追注倍率)</span>
+                        <span class="text-red-400 font-bold">{{ agent.dna.Martingale_Multiplier || 1.0 }}x</span>
+                    </div>
+
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-400">Win_Retrench_Ratio (縮注比例)</span>
+                        <span class="text-green-400 font-bold">{{ agent.dna.Win_Retrench_Ratio || 1.0 }}x</span>
                     </div>
                 </div>
             </div>

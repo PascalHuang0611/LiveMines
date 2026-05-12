@@ -1990,3 +1990,13 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 ## v2.23
 - **[Milestone 10.5] Agent Info Modal**: Implemented a new Agent Info Modal. Clicking any agent in the History Leaderboard now displays a detailed 'DNA Resume' modal. This modal reveals the agent's core traits (Cashout Propensity, Lightning Probability, etc.) visually with a radar-like progress bar design, and exposes their hidden intentions for that specific round (e.g. their planned cashout level and whether they bought lightning).
 - **Bug Fix**: Restored the VIP badge propagation to ensure VIP groups are displayed correctly in the History Leaderboard.
+
+## v2.24
+- **[UI Polish] Agent Info Modal**: 
+  - Expanded modal width (max-w-md) and applied text truncation to long Account IDs to prevent layout bleeding.
+  - Fixed empty display issue for Bonus Cashout Level when an agent lacks propensity, now properly defaulting to L1.
+  - Added new DNA properties to the radar: Cashout Stop Level, Martingale Multiplier, and Win Retrench Ratio.
+  - Corrected the case-sensitivity issue for Base_bet_Amount causing empty displays.
+- **[UI Polish] Active Agents Modal (PM Only)**: 
+  - Aligned the displayed parameters with the new DNA standards (replaced Avg_Bet_Amount with Base_bet_Amount).
+  - Added the agent\'s Bet Distribution Type (Anchor vs Equal) to the Betting Strategy breakdown section.

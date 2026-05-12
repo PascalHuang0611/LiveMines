@@ -95,7 +95,11 @@
                                 <ul class="space-y-3 text-gray-300 text-sm leading-relaxed">
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
-                                        <span>他平常喜歡下注 <strong class="text-white">{{ selectedAgent.Avg_Bet_Amount || 100 }} 元</strong> 左右。</span>
+                                        <span>他平常喜歡下注 <strong class="text-white">{{ selectedAgent.Base_bet_Amount || 10 }} 元</strong> 左右。</span>
+                                    </li>
+                                    <li class="flex gap-2">
+                                        <span class="text-blue-400 mt-0.5">▪</span>
+                                        <span>下注分佈偏好：<strong class="text-white">{{ selectedAgent.Bet_Distribution_Type === 'anchor' ? '主投策略 (Anchor)' : '平均分散 (Equal)' }}</strong>。</span>
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>

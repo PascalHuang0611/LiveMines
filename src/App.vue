@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.23 (Agent DNA)
+            v2.24 (DNA Polish)
         </div>
     </div>
 </template>
@@ -64,7 +64,29 @@ export default {
             $game: this.game
         };
     },
+    computed: {
+        isAnyModalOpen() {
+            return !!(
+                this.game.selectedHistoryRecord ||
+                this.game.selectedBatch ||
+                this.game.selectedGridId ||
+                this.game.selectedAgentInfo ||
+                this.game.showConfigModal ||
+                this.game.showChartModal ||
+                this.game.showDistributionModal ||
+                this.game.showBinModal ||
+                this.game.showActiveAgentsModal
+            );
+        }
+    },
     watch: {
+        isAnyModalOpen(newVal) {
+            if (newVal) {
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        },
         'game.simRounds'(newVal) {
             localStorage.setItem('livemines_simRounds', newVal);
         },
