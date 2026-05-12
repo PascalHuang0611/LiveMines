@@ -150,7 +150,7 @@
                                 <span class="text-sm text-gray-400 font-bold w-16">第 {{ level }} 層</span>
                                 <div class="flex space-x-2">
                                     <button v-for="pos in $game.appConfig.bonusGame.levelSettings.totalChoices[level-1]" :key="pos"
-                                            @click="if($game.simulationMode !== 'agentTraffic') $game.bonusPositions[level-1] = pos"
+                                            @click="$game.bonusPositions[level-1] = pos"
                                             :disabled="$game.simulationMode === 'agentTraffic'"
                                             :class="$game.bonusPositions[level-1] === pos ? 'bg-yellow-500 text-black shadow-[0_0_8px_rgba(234,179,8,0.6)] scale-110' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
                                             class="w-10 h-10 rounded-lg font-bold text-lg transition-all border border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
