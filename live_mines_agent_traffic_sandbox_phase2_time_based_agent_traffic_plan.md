@@ -1968,3 +1968,9 @@ LLM 不直接改寫遊戲規則，所有 LLM decision 都必須通過 engine cla
 - Implemented legalizeChips in AgentDecisionEngine.js using a weighted distribution based on Chip_Denomination_Weights with a rounding fallback to ensure exact change using [5, 10, 50, 100, 500, 1000, 10000] chips.
 - Updated gameStore.js to accurately aggregate legalBetMap for UI grid displays, and compute totalAgentCost (including 50% lightning cost markup, rounded to 2 decimal places) for the totalCost tracker.
 - Updated App.vue version string to v2.18.
+
+## v2.19
+- Implemented GridDetailsModal to allow clicking on grids in Agent Traffic mode to view detailed betting lists.
+- Integrated dynamic Persona translations and VIP labels in the GridDetailsModal.
+- Updated grid bet amounts in the UI to accurately include the 50% lightning cost markup for agents who purchased it.
+- Widened the Account ID display in the details list to show up to 30 characters.

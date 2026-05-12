@@ -52,8 +52,10 @@
                 <!-- 9宮格遊戲區 -->
                 <div class="grid grid-cols-3 grid-rows-3 gap-2 sm:gap-3 mb-6 aspect-square max-w-md mx-auto w-full">
                     <div v-for="grid in $game.grids" :key="grid.id"
+                         @click="$game.simulationMode === 'agentTraffic' ? $game.openGridDetails(grid.id) : null"
                          :class="['grid-cell relative overflow-hidden border-2 rounded-xl flex flex-col items-center justify-center p-1 sm:p-2',
-                                  grid.betAmount > 0 ? 'selected' : 'bg-gray-800 border-gray-600']">
+                                  grid.betAmount > 0 ? 'selected' : 'bg-gray-800 border-gray-600',
+                                  $game.simulationMode === 'agentTraffic' ? 'cursor-pointer hover:border-blue-500 hover:bg-gray-700 transition-colors' : '']">
                         
                         <!-- 格子編號 -->
                         <span class="text-gray-500 font-bold text-lg absolute top-1 right-2 opacity-40 z-0">{{ grid.id }}</span>

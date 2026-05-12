@@ -40,6 +40,10 @@ export const useGameStore = defineStore('game', {
         // --- Milestone 1: Agent Traffic Mode ---
         simulationMode: 'manual', // 'manual' | 'agentTraffic'
         agentTrafficEnabled: false,
+        currentTotalAgentCost: 0,
+        currentAgentDecisions: [],
+        isGridDetailsModalOpen: false,
+        selectedGridId: null,
         trafficScenario: {
             roundsPerDay: 1200,
             daysToSimulate: 1,
@@ -301,6 +305,14 @@ export const useGameStore = defineStore('game', {
     },
     
     actions: {
+        openGridDetails(gridId) {
+            this.selectedGridId = gridId;
+            this.isGridDetailsModalOpen = true;
+        },
+        closeGridDetails() {
+            this.isGridDetailsModalOpen = false;
+            this.selectedGridId = null;
+        },
         initializeStore() {
             const savedConfig = localStorage.getItem('livemines_config');
             if (savedConfig) {
@@ -1143,7 +1155,7 @@ export const useGameStore = defineStore('game', {
                 baseBetUnit: null, // 已由各格 betAmount 取代
                 config: this.appConfig,
                 grids: currentGrids,
-                buyExtraLightning: this.buyExtraLightning,
+                buyExtraLightning: this.simulationMode === 'agentTraffic' ? true : this.buyExtraLightning,
                 bonusTargetLevel: this.bonusTargetLevel,
                 bonusPositions: this.bonusPositions,
                 forcedDrops: forcedDrops,
@@ -1380,7 +1392,11 @@ export const useGameStore = defineStore('game', {
                 // 累加 Legal Bet (Milestone 6)
                 if (decision.legalBetMap) {
                     Object.entries(decision.legalBetMap).forEach(([gridId, amount]) => {
-                        aggregateBetMap[gridId] += amount;
+                        let finalAmount = amount;
+                        if (decision.buyLightning) {
+                            finalAmount += amount * (appConfig.mainGame.extraPurchaseCostPercent || 0.5);
+                        }
+                        aggregateBetMap[gridId] += finalAmount;
                     });
                 }
                 
@@ -1394,14 +1410,15 @@ export const useGameStore = defineStore('game', {
             });
             
             // 建立供本局模擬使用的虛擬 grids 陣列，避免在 batch 時觸發 Vue Reactivity
-            const virtualGrids = this.grids.map(g => ({ ...g, betAmount: aggregateBetMap[g.id] || 0 }));
+            const virtualGrids = this.grids.map(g => ({ ...g, betAmount: Math.round(aggregateBetMap[g.id] || 0) }));
 
             // 如果不是批次跑，才即時更新 UI 綁定的 this.grids
             if (!isBatch) {
                 this.grids.forEach(g => {
-                    g.betAmount = aggregateBetMap[g.id] || 0;
+                    g.betAmount = Math.round(aggregateBetMap[g.id] || 0);
                 });
                 this.currentTotalAgentCost = totalAgentCost;
+                this.currentAgentDecisions = decisions; // 儲存供彈窗使用
                 console.log(`🧠 已產生 ${decisions.length} 筆 Agent Decision (Legal Bet)`, decisions);
             }
 

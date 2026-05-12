@@ -15,10 +15,11 @@
         <BatchModal />
         <HistoryModal />
         <ActiveAgentsModal />
+        <GridDetailsModal />
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.18 (Milestone 6)
+            v2.19 (Grid Details)
         </div>
     </div>
 </template>
@@ -34,6 +35,7 @@ import BinModal from './components/modals/BinModal.vue';
 import BatchModal from './components/modals/BatchModal.vue';
 import HistoryModal from './components/modals/HistoryModal.vue';
 import ActiveAgentsModal from './components/game/ActiveAgentsModal.vue';
+import GridDetailsModal from './components/game/GridDetailsModal.vue';
 import { useGameStore } from './store/gameStore';
 
 export default {
@@ -47,7 +49,8 @@ export default {
         BinModal,
         BatchModal,
         HistoryModal,
-        ActiveAgentsModal
+        ActiveAgentsModal,
+        GridDetailsModal
     },
     setup() {
         const game = useGameStore();
