@@ -35,8 +35,11 @@
                                 <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" @change="$game.generateDayPlan()" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">模擬天數</label>
-                                <input type="number" v-model.number="$game.trafficScenario.daysToSimulate" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
+                                <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold" title="由畫面上方的總模擬次數 ÷ 一天局數 計算得出">模擬天數</label>
+                                <div class="w-full bg-gray-900/50 border border-gray-800 rounded px-2 py-1.5 text-gray-400 text-sm flex items-center justify-between cursor-not-allowed">
+                                    <span>{{ Math.max(0.1, Math.round(($game.simRounds / $game.trafficScenario.roundsPerDay) * 10) / 10) }} 天</span>
+                                    <span class="text-[10px] bg-gray-800 px-1.5 py-0.5 rounded text-gray-500">自動計算</span>
+                                </div>
                             </div>
                         </div>
 
