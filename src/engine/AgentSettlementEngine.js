@@ -22,6 +22,27 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
 
     let l5Winners = [];
     let bonusEntrantsCount = 0;
+    
+    // 初始化 bonusLevelStats
+    let bonusLevelStats = [];
+    if (publicResult.bonusTriggered && publicResult.bonusLevelHistory) {
+        publicResult.bonusLevelHistory.forEach(lvl => {
+            bonusLevelStats.push({
+                level: lvl.level,
+                cashedOutCount: 0,
+                crashedCount: 0,
+                continuedCount: 0,
+                totalArrived: 0
+            });
+        });
+    }
+    
+    // 初始化 gridStats
+    let gridStats = Array.from({length: 9}, (_, i) => ({
+        id: i + 1,
+        totalBet: 0,
+        totalWin: 0
+    }));
 
     // 2. 第一遍掃描：處理基礎派彩與收集 L5 贏家
     agentDecisions.forEach(decision => {
@@ -35,6 +56,13 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
         Object.entries(decision.legalBetMap || {}).forEach(([gridIdStr, betAmount]) => {
             const gridId = parseInt(gridIdStr);
             const gridResult = publicResult.details.find(d => d.grid === gridId);
+            
+            // 累加 gridStats 的押注額 (閃電稅也算在內)
+            let actualCost = betAmount;
+            if (decision.buyLightning) {
+                actualCost += actualCost * (config.mainGame.extraPurchaseCostPercent || 0.5);
+            }
+            gridStats[gridId - 1].totalBet += actualCost;
 
             let winBase = 0;
             let winLightning = 0;
@@ -60,13 +88,30 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                 if (publicResult.bonusTriggered && gridId === triggerGridId) {
                     bonusEntrantsCount++; // 紀錄有參與 Bonus 的人數 (計算 JP Share 分母)
                     
-                    // 檢查公共結果的通關歷史，看是否有成功存活到 cashoutLevel
+                    // 追蹤該 Agent 的 Bonus 歷程 (World Line)
                     let survived = true;
                     for (let i = 0; i < cashoutLevel; i++) {
-                        // bonusLevelHistory 是一個包含 {passed: boolean} 的物件陣列
-                        if (!publicResult.bonusLevelHistory[i] || !publicResult.bonusLevelHistory[i].passed) {
+                        // 確保該層有歷史紀錄 (World Line 尚未中斷)
+                        if (i >= bonusLevelStats.length) break;
+                        
+                        let lvl = publicResult.bonusLevelHistory[i];
+                        bonusLevelStats[i].totalArrived++;
+                        
+                        if (!lvl.passed) {
+                            // 踩到地雷，此人陣亡
                             survived = false;
+                            bonusLevelStats[i].crashedCount++;
                             break;
+                        } else {
+                            // 過關
+                            if (i + 1 === cashoutLevel) {
+                                // 抵達目標層並 Cashout
+                                bonusLevelStats[i].cashedOutCount++;
+                                break;
+                            } else {
+                                // 繼續前往下一層
+                                bonusLevelStats[i].continuedCount++;
+                            }
                         }
                     }
 
@@ -83,6 +128,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                     }
                 }
             }
+
+            // 紀錄該格子該 Agent 贏的總額
+            gridStats[gridId - 1].totalWin += (winBase + winLightning + winBonus);
 
             // 紀錄明細 (不管有沒有中獎都要紀錄，才能在 UI 點擊格子時顯示投資名單)
             agentWinDetails.push({
@@ -138,6 +186,11 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                     if (detail) {
                         detail.jpWin = individualJpShare;
                         detail.totalWin += individualJpShare;
+                        
+                        // JP 贏分也算在觸發那格的 totalWin
+                        if (triggerGridId) {
+                            gridStats[triggerGridId - 1].totalWin += individualJpShare;
+                        }
                     }
                 });
             }
@@ -168,6 +221,8 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
         bonusWin: batchBonusWin,
         jpWin: batchJpWin,
         newJpPool: finalNewJpPool,
-        agentDetails
+        agentDetails,
+        bonusLevelStats,
+        gridStats
     };
 }

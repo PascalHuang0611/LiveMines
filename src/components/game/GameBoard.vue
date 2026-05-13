@@ -18,7 +18,7 @@
                 <!-- 控制面板 (押注設定) -->
                 <div class="bg-gray-800 rounded-xl p-5 mb-6 border border-gray-700 shadow-lg">
                     <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
-                        <div class="space-y-3 w-full">
+                        <div v-if="$game.simulationMode === 'manual'" class="space-y-3 w-full">
                             <div class="flex flex-wrap items-center gap-3">
                                 <!-- 預設單格金額輸入 -->
                                 <div class="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-600">
@@ -42,9 +42,11 @@
                             </label>
                         </div>
                         
-                        <div class="text-right bg-gray-900 p-3 rounded-lg min-w-[150px]">
-                            <p class="text-sm text-gray-400">本局總成本</p>
-                            <p class="text-2xl font-bold text-red-400">-{{ $game.totalCost }}</p>
+                        <div class="text-right bg-gray-900 p-3 rounded-lg min-w-[150px]" :class="{ 'w-full text-center flex justify-between items-center': $game.simulationMode === 'agentTraffic' }">
+                            <p class="text-sm text-gray-400">{{ $game.simulationMode === 'agentTraffic' ? '本局大盤總押注' : '本局總成本' }}</p>
+                            <p class="text-2xl font-bold" :class="$game.simulationMode === 'agentTraffic' ? 'text-yellow-400' : 'text-red-400'">
+                                <span v-if="$game.simulationMode === 'manual'">-</span>{{ $game.totalCost }}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -126,7 +128,7 @@
                 </div>
 
                 <!-- 二級玩法進階設定區塊 -->
-                <div class="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg flex flex-col gap-4 w-full">
+                <div v-if="$game.simulationMode === 'manual'" class="bg-gray-800 rounded-xl p-5 border border-gray-700 shadow-lg flex flex-col gap-4 w-full">
                     <h3 class="text-lg font-bold text-yellow-400 border-b border-gray-700 pb-2 flex items-center gap-2">
                         <span>🎯 BONUS 闖關設定</span>
                     </h3>

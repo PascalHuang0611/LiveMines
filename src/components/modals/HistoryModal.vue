@@ -53,35 +53,68 @@
                     <!-- 該局結算明細 (Bonus + 總計) -->
                     <div class="flex-1 flex flex-col overflow-hidden">
                         <div class="space-y-3 font-mono text-sm sm:text-base mb-4 overflow-y-auto custom-scrollbar flex-1">
-                            <!-- Modal 內的 Bonus 結算顯示 -->
-                            <div v-if="$game.selectedHistoryRecord.bonusTriggered" class="p-3 rounded mb-2 text-center font-bold text-sm shrink-0"
-                                 :class="$game.selectedHistoryRecord.bonusSuccess ? 'bg-yellow-600 text-white shadow-[0_0_10px_rgba(202,138,4,0.5)]' : 'bg-red-900/80 text-gray-300 border border-red-700'">
-                                <div v-if="$game.selectedHistoryRecord.bonusSuccess">
-                                    🎉 BONUS 挑戰成功！<br>
-                                    {{ $game.selectedHistoryRecord.bonusResultText }} : <span class="text-lg">+{{ $game.selectedHistoryRecord.bonusWin }}</span>
-                                    <div v-if="$game.selectedHistoryRecord.jpWin > 0" class="mt-1 text-pink-300 text-base animate-bounce">
-                                        💎 獨得 JP 累積池！ +{{ $game.selectedHistoryRecord.jpWin.toFixed(2) }}
+                            <!-- Modal 內的 Bonus 結算顯示 (手動模式) -->
+                            <template v-if="!$game.selectedHistoryRecord.agentDetails">
+                                <div v-if="$game.selectedHistoryRecord.bonusTriggered" class="p-3 rounded mb-2 text-center font-bold text-sm shrink-0"
+                                     :class="$game.selectedHistoryRecord.bonusSuccess ? 'bg-yellow-600 text-white shadow-[0_0_10px_rgba(202,138,4,0.5)]' : 'bg-red-900/80 text-gray-300 border border-red-700'">
+                                    <div v-if="$game.selectedHistoryRecord.bonusSuccess">
+                                        🎉 BONUS 挑戰成功！<br>
+                                        {{ $game.selectedHistoryRecord.bonusResultText }} : <span class="text-lg">+{{ $game.selectedHistoryRecord.bonusWin }}</span>
+                                        <div v-if="$game.selectedHistoryRecord.jpWin > 0" class="mt-1 text-pink-300 text-base animate-bounce">
+                                            💎 獨得 JP 累積池！ +{{ $game.selectedHistoryRecord.jpWin.toFixed(2) }}
+                                        </div>
+                                    </div>
+                                    <div v-else>
+                                        💥 BONUS 挑戰失敗...<br>
+                                        <span class="text-gray-400 font-normal">{{ $game.selectedHistoryRecord.bonusResultText }}</span>
+                                        <div v-if="$game.selectedHistoryRecord.bonusFailDetails" class="text-xs text-red-300 mt-2 border-t border-red-800/50 pt-2">
+                                            您選擇了 [{{ $game.selectedHistoryRecord.bonusFailDetails.pick }}] 號位<br>
+                                            此層安全位置為: {{ $game.selectedHistoryRecord.bonusFailDetails.safe.join(', ') }}
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 各層開獎紀錄 -->
+                                    <div v-if="$game.selectedHistoryRecord.bonusLevelHistory" class="text-xs text-left mt-3 border-t border-white/20 pt-2 space-y-1 font-mono">
+                                        <div v-for="lvl in $game.selectedHistoryRecord.bonusLevelHistory" :key="lvl.level" class="flex justify-between items-center bg-black/30 p-1.5 rounded" :class="lvl.passed ? 'border-l-2 border-green-400' : 'border-l-2 border-red-400'">
+                                            <span class="text-gray-200">第{{ lvl.level }}層</span>
+                                            <span class="text-gray-200">選[{{ lvl.pick }}]</span>
+                                            <span class="text-gray-300">安全:{{ lvl.safe.join(',') }}</span>
+                                            <span :class="lvl.passed ? 'text-green-300' : 'text-red-400'">{{ lvl.passed ? '✔ 過關' : '✖ 觸雷' }}</span>
+                                        </div>
                                     </div>
                                 </div>
-                                <div v-else>
-                                    💥 BONUS 挑戰失敗...<br>
-                                    <span class="text-gray-400 font-normal">{{ $game.selectedHistoryRecord.bonusResultText }}</span>
-                                    <div v-if="$game.selectedHistoryRecord.bonusFailDetails" class="text-xs text-red-300 mt-2 border-t border-red-800/50 pt-2">
-                                        您選擇了 [{{ $game.selectedHistoryRecord.bonusFailDetails.pick }}] 號位<br>
-                                        此層安全位置為: {{ $game.selectedHistoryRecord.bonusFailDetails.safe.join(', ') }}
+                            </template>
+
+                            <!-- Modal 內的 Bonus 結算顯示 (人流模式) -->
+                            <template v-else>
+                                <div v-if="$game.selectedHistoryRecord.bonusTriggered" class="p-3 rounded mb-2 text-center font-bold text-sm shrink-0 bg-purple-900/80 text-gray-200 border border-purple-700 shadow-[0_0_10px_rgba(147,51,234,0.3)]">
+                                    <div class="mb-1 text-purple-300 text-base">
+                                        🌐 BONUS 世界線 (Public Result)
+                                    </div>
+                                    <div class="text-xs text-gray-400 mb-2">
+                                        全場共用此開獎結果，玩家依自身 DNA 決定提早 Cashout 或繼續
+                                    </div>
+                                    
+                                    <!-- 各層存活統計 -->
+                                    <div v-if="$game.selectedHistoryRecord.bonusLevelStats" class="text-xs text-left mt-2 border-t border-purple-800/50 pt-2 space-y-2 font-mono">
+                                        <div v-for="stat in $game.selectedHistoryRecord.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2" :class="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].passed ? 'border-green-400' : 'border-red-400'">
+                                            <div class="flex justify-between items-center mb-1">
+                                                <span class="text-gray-200 font-bold">第 {{ stat.level }} 層 <span class="text-yellow-400 ml-1 text-[11px]">({{ $game.appConfig.bonusGame.levelSettings.payouts[stat.level - 1] }}倍)</span> <span class="text-gray-400 font-normal ml-1">(抵達: {{ stat.totalArrived }} 人)</span></span>
+                                                <span class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">安全: {{ $game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].safe.join(',') }}</span>
+                                            </div>
+                                            <div class="flex justify-between items-center text-[10px]">
+                                                <span v-if="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].passed" class="text-green-400 bg-green-900/30 px-1 py-0.5 rounded">世界線: 過關</span>
+                                                <span v-else class="text-red-400 bg-red-900/30 px-1 py-0.5 rounded">世界線: 炸彈 ({{ stat.crashedCount }} 人陣亡)</span>
+                                                
+                                                <div class="flex space-x-2" v-if="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].passed">
+                                                    <span class="text-yellow-400 bg-yellow-900/30 px-1 py-0.5 rounded">{{ stat.cashedOutCount }} 人 Cashout</span>
+                                                    <span class="text-blue-300 bg-blue-900/30 px-1 py-0.5 rounded">{{ stat.continuedCount }} 人續闖</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                                
-                                <!-- 各層開獎紀錄 -->
-                                <div v-if="$game.selectedHistoryRecord.bonusLevelHistory" class="text-xs text-left mt-3 border-t border-white/20 pt-2 space-y-1 font-mono">
-                                    <div v-for="lvl in $game.selectedHistoryRecord.bonusLevelHistory" :key="lvl.level" class="flex justify-between items-center bg-black/30 p-1.5 rounded" :class="lvl.passed ? 'border-l-2 border-green-400' : 'border-l-2 border-red-400'">
-                                        <span class="text-gray-200">第{{ lvl.level }}層</span>
-                                        <span class="text-gray-200">選[{{ lvl.pick }}]</span>
-                                        <span class="text-gray-300">安全:{{ lvl.safe.join(',') }}</span>
-                                        <span :class="lvl.passed ? 'text-green-300' : 'text-red-400'">{{ lvl.passed ? '✔ 過關' : '✖ 觸雷' }}</span>
-                                    </div>
-                                </div>
-                            </div>
+                            </template>
 
                             <!-- 手動模式：顯示各別格子的總結算明細 -->
                             <template v-if="!$game.selectedHistoryRecord.agentDetails">
@@ -245,12 +278,16 @@ export default {
             record.agentDetails.forEach(agent => {
                 const gridDetail = agent.details.find(d => d.gridId === this.selectedHistoryGridId);
                 if (gridDetail && gridDetail.betAmount > 0) {
+                    let actualBet = gridDetail.betAmount;
+                    if (agent.buyLightning) {
+                        actualBet += actualBet * (this.$game.appConfig.mainGame.extraPurchaseCostPercent || 0.5);
+                    }
                     results.push({
                         agentId: agent.agentId,
                         persona: agent.persona,
                         vipGroup: agent.vipGroup,
                         buyLightning: agent.buyLightning,
-                        betAmount: gridDetail.betAmount,
+                        betAmount: actualBet,
                         win: gridDetail.winBase + gridDetail.winLightning + (gridDetail.winBonus || 0),
                         isBonus: gridDetail.isBonus,
                         cashoutLevel: gridDetail.cashoutLevel

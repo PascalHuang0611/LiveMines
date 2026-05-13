@@ -28,7 +28,13 @@
         </div>
 
         <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg h-full flex flex-col">
-            <h3 class="text-xl font-bold text-white mb-4 border-b border-gray-600 pb-2">📜 歷史紀錄</h3>
+            <div class="flex justify-between items-center mb-4 border-b border-gray-600 pb-2">
+                <h3 class="text-xl font-bold text-white">📜 歷史紀錄</h3>
+                <div class="flex items-center gap-2">
+                    <label class="text-xs text-gray-400" title="顯示過多筆數可能導致畫面卡頓">顯示筆數:</label>
+                    <input type="number" v-model.number="$game.historyDisplayLimit" min="10" step="50" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 w-16 text-center shadow-inner">
+                </div>
+            </div>
             
             <!-- 歷史紀錄篩選器 -->
             <div class="flex flex-col gap-2 mb-3 bg-gray-900 p-2 rounded-lg">
@@ -96,12 +102,6 @@
                     ...僅顯示首 {{ $game.historyDisplayLimit }} 筆 (符合條件共 {{ $game.filteredHistory.length }} 筆)...
                 </div>
                 
-                <!-- 自定義顯示筆數 -->
-                <div v-if="$game.history.length > 0" class="flex flex-col items-center justify-center py-4 gap-2 border-t border-gray-800 mt-2">
-                    <label class="text-xs text-gray-400">顯示筆數 (過多可能導致卡頓)</label>
-                    <input type="number" v-model.number="$game.historyDisplayLimit" min="10" step="50" class="bg-gray-800 border border-gray-600 rounded px-3 py-1 text-white text-sm outline-none focus:border-blue-500 w-24 text-center">
-                </div>
-
                 <div v-if="$game.filteredHistory.length === 0 && $game.history.length > 0" class="text-center text-gray-500 py-8">
                     沒有符合篩選條件的紀錄
                 </div>

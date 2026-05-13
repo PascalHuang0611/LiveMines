@@ -105,7 +105,7 @@ export const useGameStore = defineStore('game', {
         filterStartRound: null, // 局數篩選 (起)
         filterEndRound: null,   // 局數篩選 (迄)
         historySortMethod: 'time_desc', // 'time_desc', 'value_desc', 'value_asc'
-        historyDisplayLimit: 200,
+        historyDisplayLimit: 60,
         currentRound: 0,
         
         // 全域統計資料
@@ -358,6 +358,9 @@ export const useGameStore = defineStore('game', {
             if (savedDistBinSize) this.distributionBinSize = parseFloat(savedDistBinSize) || 2;
 
             this.initChart();
+            
+            // 預設啟用人流模式並載入資料
+            this.setSimulationMode('agentTraffic');
             this.initDistributionChart();
             
             setTimeout(() => {
@@ -969,8 +972,8 @@ export const useGameStore = defineStore('game', {
         
         resetCsvIndex() { this.csvDataIndex = 0; },
 
-        clearData() {
-            if (!confirm("確定要清除所有的統計資料與歷史紀錄嗎？")) return;
+        clearData(skipConfirm = false) {
+            if (!skipConfirm && !confirm("確定要清除所有的統計資料與歷史紀錄嗎？")) return;
             
             this.balance = 0;
             this.lastResult = null;
@@ -992,6 +995,8 @@ export const useGameStore = defineStore('game', {
                 g.baseLightning = 0;
                 g.purchasedLightning = 0;
             });
+            
+            this.resetAgentTrafficSimulation();
             
             this.updateChart(); 
         },
@@ -1285,7 +1290,9 @@ export const useGameStore = defineStore('game', {
                     jpWin: settlement.jpWin,
                     newJpPool: settlement.newJpPool,
                     netProfit: settlement.totalWin - result.cost,
-                    agentDetails: settlement.agentDetails
+                    agentDetails: settlement.agentDetails,
+                    bonusLevelStats: settlement.bonusLevelStats,
+                    gridStats: settlement.gridStats
                 };
             }
 
@@ -1322,7 +1329,9 @@ export const useGameStore = defineStore('game', {
                 bonusResultText: result.bonusResultText,
                 bonusLevelHistory: result.bonusLevelHistory, 
                 finalGridsState: result.finalGridsState,
-                agentDetails: result.agentDetails
+                agentDetails: result.agentDetails,
+                bonusLevelStats: result.bonusLevelStats,
+                gridStats: result.gridStats
             });
         },
 
@@ -1337,15 +1346,23 @@ export const useGameStore = defineStore('game', {
 
         // --- Agent Traffic Actions ---
         async setSimulationMode(mode) {
+            if (this.simulationMode === mode) return;
+            
+            // 切換模式時自動清空舊有紀錄，避免資料混雜
+            this.clearData(true);
+
             this.simulationMode = mode;
             this.agentTrafficEnabled = (mode === 'agentTraffic');
             
             // 如果切換到人流模式且目前沒有 Agent 資料，則嘗試自動載入
-            if (mode === 'agentTraffic' && (!this.agentPool || this.agentPool.length === 0)) {
-                await this.fetchDefaultAgents();
-            }
-
             if (mode === 'agentTraffic') {
+                if (!this.agentPool || this.agentPool.length === 0) {
+                    await this.fetchDefaultAgents();
+                } else {
+                    // 若已載入，重新產生排程以配合被清空的模擬狀態
+                    this.generateDayPlan();
+                }
+                
                 setTimeout(() => {
                     if (!this.hourlyBetChartInstance || !this.hourlyUserChartInstance) {
                         this.initHourlyCharts();
@@ -1376,7 +1393,6 @@ export const useGameStore = defineStore('game', {
             this.trafficCurrentRoundInDay = 0;
             this.trafficHistory = [];
             this.trafficDaySummaries = [];
-            this.trafficPersonaStats = {};
             this.trafficAgentStats = {};
             this.hourlyStats = [];
             this.updateHourlyCharts();

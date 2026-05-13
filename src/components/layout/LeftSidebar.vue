@@ -137,36 +137,66 @@
                     </h3>
                     
                     <!-- Bonus 結算顯示 -->
-                    <div v-if="$game.lastResult.bonusTriggered" class="p-3 rounded mb-4 text-center font-bold text-sm"
-                         :class="$game.lastResult.bonusSuccess ? 'bg-yellow-600 text-white shadow-[0_0_15px_rgba(202,138,4,0.5)] animate-pulse' : 'bg-red-900/80 text-gray-300 border border-red-700'">
-                        <div v-if="$game.lastResult.bonusSuccess">
-                            🎉 BONUS 挑戰成功！<br>
-                            {{ $game.lastResult.bonusResultText }}
-                            <div v-if="$game.lastResult.jpWin > 0" class="mt-1 text-pink-300 text-base animate-bounce">
-                                💎 獨得 JP 累積池！ +{{ $game.lastResult.jpWin.toFixed(2) }}
+                    <div v-if="$game.lastResult.bonusTriggered" class="mb-4">
+                        <div v-if="$game.simulationMode === 'manual'">
+                            <div class="p-3 rounded text-center font-bold text-sm"
+                                 :class="$game.lastResult.bonusSuccess ? 'bg-yellow-600 text-white shadow-[0_0_15px_rgba(202,138,4,0.5)] animate-pulse' : 'bg-red-900/80 text-gray-300 border border-red-700'">
+                                <div v-if="$game.lastResult.bonusSuccess">
+                                    🎉 BONUS 挑戰成功！<br>
+                                    {{ $game.lastResult.bonusResultText }}
+                                    <div v-if="$game.lastResult.jpWin > 0" class="mt-1 text-pink-300 text-base animate-bounce">
+                                        💎 獨得 JP 累積池！ +{{ $game.lastResult.jpWin.toFixed(2) }}
+                                    </div>
+                                </div>
+                                <div v-else>
+                                    💥 BONUS 挑戰失敗...<br>
+                                    <span class="text-gray-400 font-normal">{{ $game.lastResult.bonusResultText }}</span>
+                                    <div v-if="$game.lastResult.bonusFailDetails" class="text-xs text-red-300 mt-2 border-t border-red-800/50 pt-2">
+                                        您選擇了 [{{ $game.lastResult.bonusFailDetails.pick }}] 號位<br>
+                                        此層安全位置為: {{ $game.lastResult.bonusFailDetails.safe.join(', ') }}
+                                    </div>
+                                </div>
+                                
+                                <!-- 各層開獎紀錄 -->
+                                <div v-if="$game.lastResult.bonusLevelHistory" class="text-xs text-left mt-3 border-t border-white/20 pt-2 space-y-1 font-mono">
+                                    <div v-for="lvl in $game.lastResult.bonusLevelHistory" :key="lvl.level" class="flex justify-between items-center bg-black/30 p-1.5 rounded" :class="lvl.passed ? 'border-l-2 border-green-400' : 'border-l-2 border-red-400'">
+                                        <span class="text-gray-200">第{{ lvl.level }}層</span>
+                                        <span class="text-gray-200">選[{{ lvl.pick }}]</span>
+                                        <span class="text-gray-300">安全:{{ lvl.safe.join(',') }}</span>
+                                        <span :class="lvl.passed ? 'text-green-300' : 'text-red-400'">{{ lvl.passed ? '✔ 過關' : '✖ 觸雷' }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div v-else>
-                            💥 BONUS 挑戰失敗...<br>
-                            <span class="text-gray-400 font-normal">{{ $game.lastResult.bonusResultText }}</span>
-                            <div v-if="$game.lastResult.bonusFailDetails" class="text-xs text-red-300 mt-2 border-t border-red-800/50 pt-2">
-                                您選擇了 [{{ $game.lastResult.bonusFailDetails.pick }}] 號位<br>
-                                此層安全位置為: {{ $game.lastResult.bonusFailDetails.safe.join(', ') }}
-                            </div>
-                        </div>
-                        
-                        <!-- 各層開獎紀錄 -->
-                        <div v-if="$game.lastResult.bonusLevelHistory" class="text-xs text-left mt-3 border-t border-white/20 pt-2 space-y-1 font-mono">
-                            <div v-for="lvl in $game.lastResult.bonusLevelHistory" :key="lvl.level" class="flex justify-between items-center bg-black/30 p-1.5 rounded" :class="lvl.passed ? 'border-l-2 border-green-400' : 'border-l-2 border-red-400'">
-                                <span class="text-gray-200">第{{ lvl.level }}層</span>
-                                <span class="text-gray-200">選[{{ lvl.pick }}]</span>
-                                <span class="text-gray-300">安全:{{ lvl.safe.join(',') }}</span>
-                                <span :class="lvl.passed ? 'text-green-300' : 'text-red-400'">{{ lvl.passed ? '✔ 過關' : '✖ 觸雷' }}</span>
+                            <!-- 人流模式：世界線視角 -->
+                            <div class="bg-purple-900/40 border border-purple-600/50 p-4 rounded-lg text-center">
+                                <div class="text-purple-300 font-bold mb-2">🌐 BONUS 世界線 (Public Result)</div>
+                                <div class="text-xs text-gray-400">全場共用此開獎結果，玩家依自身 DNA 決定</div>
+                                
+                                <div v-if="$game.lastResult.bonusLevelStats" class="text-xs text-left mt-2 border-t border-purple-800/50 pt-2 space-y-2 font-mono">
+                                    <div v-for="stat in $game.lastResult.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2" :class="$game.lastResult.bonusLevelHistory[stat.level - 1].passed ? 'border-green-400' : 'border-red-400'">
+                                        <div class="flex justify-between items-center mb-1">
+                                            <span class="text-gray-200 font-bold">第 {{ stat.level }} 層 <span class="text-yellow-400 ml-1 text-[11px]">({{ $game.appConfig.bonusGame.levelSettings.payouts[stat.level - 1] }}倍)</span> <span class="text-gray-400 font-normal ml-1">(抵達: {{ stat.totalArrived }} 人)</span></span>
+                                            <span class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">安全: {{ $game.lastResult.bonusLevelHistory[stat.level - 1].safe.join(',') }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-[10px]">
+                                            <div v-if="$game.lastResult.bonusLevelHistory[stat.level - 1].passed" class="text-green-400 font-bold">✅ 世界線: 安全</div>
+                                            <div v-else class="text-red-400 font-bold">💥 世界線: 觸雷炸毀</div>
+                                            
+                                            <div class="flex gap-2">
+                                                <span v-if="stat.cashedOutCount > 0" class="text-blue-300">💰 Cashout: {{ stat.cashedOutCount }} 人</span>
+                                                <span v-if="stat.continuedCount > 0" class="text-yellow-300">🏃 續闖: {{ stat.continuedCount }} 人</span>
+                                                <span v-if="stat.crashedCount > 0" class="text-red-400">💀 陣亡: {{ stat.crashedCount }} 人</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="space-y-3 font-mono text-sm sm:text-base">
+                    <div v-if="$game.simulationMode === 'manual'" class="space-y-3 font-mono text-sm sm:text-base">
                         <div v-for="detail in $game.lastResult.details" :key="detail.grid" class="flex justify-between items-center bg-gray-900 p-2 rounded">
                             <span class="text-gray-300">格子 [{{ detail.grid }}] (中 {{ detail.balls }} 球)</span>
                             <div class="text-right">
@@ -179,6 +209,28 @@
                         
                         <div v-if="$game.lastResult.details.length === 0 && !$game.lastResult.bonusTriggered" class="text-center text-gray-500 py-2">
                             本局沒有押中任何獎項...
+                        </div>
+                    </div>
+                    <div v-else class="space-y-2 font-mono text-xs sm:text-sm">
+                        <!-- 人流模式：簡化顯示落球與閃電結果及總押注與總派彩 -->
+                        <div v-for="grid in $game.lastResult.finalGridsState.filter(g => g.balls > 0 || g.baseLightning > 0 || g.purchasedLightning > 0 || ($game.lastResult.gridStats && $game.lastResult.gridStats[g.id-1] && $game.lastResult.gridStats[g.id-1].totalBet > 0))" :key="'grid-res-'+grid.id" 
+                             class="flex flex-col bg-gray-900 p-2 rounded border-l-2" 
+                             :class="grid.balls > 0 ? 'border-blue-500' : 'border-gray-700'">
+                            <div class="flex justify-between items-center border-b border-gray-800 pb-1 mb-1">
+                                <span class="text-gray-300 font-bold whitespace-nowrap">格子 [{{ grid.id }}]</span>
+                                <div class="flex flex-wrap justify-end gap-1 items-center">
+                                    <span v-if="grid.balls > 0" class="bg-red-900/80 text-white px-1.5 py-0.5 rounded shadow text-[10px]">中 {{ grid.balls }} 球</span>
+                                    <span v-if="grid.baseLightning > 0" class="text-yellow-400 bg-yellow-900/30 border border-yellow-800/50 px-1.5 py-0.5 rounded text-[10px]">⚡ 免費 +{{ grid.baseLightning }}x</span>
+                                    <span v-if="grid.purchasedLightning > 0" class="text-purple-400 bg-purple-900/30 border border-purple-800/50 px-1.5 py-0.5 rounded text-[10px]">⚡ 付費 +{{ grid.purchasedLightning }}x</span>
+                                </div>
+                            </div>
+                            <div v-if="$game.lastResult.gridStats" class="flex justify-between items-center text-xs">
+                                <span class="text-gray-400">總押注: <span class="text-red-400 font-bold">{{ $game.lastResult.gridStats[grid.id - 1].totalBet.toFixed(2).replace(/\.00$/, '') }}</span></span>
+                                <span class="text-gray-400">總派彩: <span :class="$game.lastResult.gridStats[grid.id - 1].totalWin > 0 ? 'text-green-400 font-bold' : 'text-gray-500'">{{ $game.lastResult.gridStats[grid.id - 1].totalWin.toFixed(2).replace(/\.00$/, '') }}</span></span>
+                            </div>
+                        </div>
+                        <div v-if="$game.lastResult.finalGridsState.filter(g => g.balls > 0 || g.baseLightning > 0 || g.purchasedLightning > 0 || ($game.lastResult.gridStats && $game.lastResult.gridStats[g.id-1] && $game.lastResult.gridStats[g.id-1].totalBet > 0)).length === 0" class="text-center text-gray-500 py-2">
+                            本局無任何落球與押注...
                         </div>
                     </div>
 
