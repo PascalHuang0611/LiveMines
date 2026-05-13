@@ -20,8 +20,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
     const triggerGridId = publicResult.bonusTriggered ? 
         publicResult.details.find(d => d.balls >= 3)?.grid : null;
 
-    let l5Winners = [];
+    let l5Winners = []; // 存 { agentId, betAmount }
     let bonusEntrantsCount = 0;
+    let totalBonusEntrantsBet = 0; // 進入 Bonus 關卡的所有人的總押注額
     
     // 初始化 bonusLevelStats
     let bonusLevelStats = [];
@@ -86,7 +87,8 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
 
                 // Bonus Win (Second Level Play) 計算
                 if (publicResult.bonusTriggered && gridId === triggerGridId) {
-                    bonusEntrantsCount++; // 紀錄有參與 Bonus 的人數 (計算 JP Share 分母)
+                    bonusEntrantsCount++; // 紀錄有參與 Bonus 的人數
+                    totalBonusEntrantsBet += betAmount; // 累加參與者的押注額，作為 JP 分發的分母
                     
                     // 追蹤該 Agent 的 Bonus 歷程 (World Line)
                     let survived = true;
@@ -128,7 +130,7 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
 
                         // 如果通關 L5，則擁有分配 JP 的資格
                         if (cashoutLevel === config.bonusGame.endLevel) {
-                            l5Winners.push(decision);
+                            l5Winners.push({ agentId: decision.agentId, betAmount: betAmount });
                         }
                     }
                 }
@@ -173,24 +175,25 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
 
     // 3. 處理 JP 分配 (Milestone 9: JP Candidate Share)
     let finalNewJpPool = publicResult.newJpPool; // 預設沿用 SimulationEngine 算出的 JpPool (如果沒中大獎)
+    let availableJp = 0;
 
     if (publicResult.bonusTriggered) {
         // 如果觸發 Bonus，此局原本可以分配的總 JP 獎金，是進入遊戲前的 JpPool + JP Win (如果有通關的話)
-        const availableJp = (publicResult.newJpPool || 0) + (publicResult.jpWin || 0);
+        availableJp = (publicResult.newJpPool || 0) + (publicResult.jpWin || 0);
         
-        if (availableJp > 0 && bonusEntrantsCount > 0) {
-            // 每個人可以分到的份額
-            const individualJpShare = availableJp / bonusEntrantsCount;
+        if (availableJp > 0 && totalBonusEntrantsBet > 0) {
             
             // 只有成功通關 L5 並且打算在 L5 提現的人，才能拿走自己的那一份
             if (l5Winners.length > 0) {
-                batchJpWin = individualJpShare * l5Winners.length;
-                
-                l5Winners.forEach(winnerDecision => {
-                    const detail = agentDetails.find(d => d.agentId === winnerDecision.agentId);
+                l5Winners.forEach(winner => {
+                    const detail = agentDetails.find(d => d.agentId === winner.agentId);
                     if (detail) {
+                        // 根據該玩家的押注額佔全部進入 Bonus 玩家押注額的比例，分配 JP
+                        const individualJpShare = availableJp * (winner.betAmount / totalBonusEntrantsBet);
+                        
                         detail.jpWin = individualJpShare;
                         detail.totalWin += individualJpShare;
+                        batchJpWin += individualJpShare;
                         
                         // JP 贏分也算在觸發那格的 totalWin
                         if (triggerGridId) {
@@ -225,6 +228,7 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
         lightningWin: batchLightningWin,
         bonusWin: batchBonusWin,
         jpWin: batchJpWin,
+        availableJp: availableJp,
         newJpPool: finalNewJpPool,
         agentDetails,
         bonusLevelStats,

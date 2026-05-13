@@ -79,10 +79,10 @@
                             <span v-if="record.bonusTriggered && !record.bonusSuccess" class="text-[10px] bg-red-800 text-white px-2 py-0.5 rounded border border-red-600">BONUS FAIL</span>
                         </div>
                     </div>
-                    <div class="flex justify-between text-gray-400 text-xs">
-                        <span>投入: {{ record.cost }}</span>
-                        <span>派彩: <span :class="record.netProfit >= 0 ? 'text-green-400' : 'text-gray-300'">{{ record.totalWin }}</span></span>
-                        <span>淨利: <span :class="record.netProfit >= 0 ? 'text-green-400 font-bold' : 'text-red-400'">{{ record.netProfit >= 0 ? '+' : '' }}{{ record.netProfit }}</span></span>
+                    <div class="flex justify-between text-gray-400 text-xs mt-1 bg-gray-800/50 p-1.5 rounded">
+                        <span>投入: {{ Number(record.cost || 0).toFixed(2) }}</span>
+                        <span>派彩: <span :class="record.netProfit >= 0 ? 'text-green-400' : 'text-gray-300'">{{ Number(record.totalWin || 0).toFixed(2) }}</span></span>
+                        <span>淨利: <span :class="record.netProfit >= 0 ? 'text-green-400 font-bold' : 'text-red-400'">{{ record.netProfit >= 0 ? '+' : '' }}{{ Number(record.netProfit || 0).toFixed(2) }}</span></span>
                     </div>
                     <div class="flex justify-between items-center text-[10px] text-gray-500 mt-1">
                         <span v-if="record.csvInfo" class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-[9px]" title="版本 / 批次 / 索引">

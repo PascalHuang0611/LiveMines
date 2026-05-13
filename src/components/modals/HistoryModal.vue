@@ -95,6 +95,22 @@
                                         全場共用此開獎結果，玩家依自身 DNA 決定提早 Cashout 或繼續
                                     </div>
                                     
+                                    <!-- 加入 JP 派發資訊 -->
+                                    <div v-if="$game.selectedHistoryRecord.availableJp > 0" class="mb-3 p-2 bg-pink-900/40 rounded border border-pink-700/50 flex flex-col gap-1 text-xs">
+                                        <div class="flex justify-between items-center text-pink-300">
+                                            <span>💎 該局可分配 JP 總額:</span>
+                                            <span class="font-bold">{{ Number($game.selectedHistoryRecord.availableJp || 0).toFixed(2) }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-pink-400">
+                                            <span>👑 實際派發 (L5贏家均分):</span>
+                                            <span class="font-bold">-{{ Number($game.selectedHistoryRecord.jpWin || 0).toFixed(2) }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center text-pink-200 border-t border-pink-800/50 pt-1 mt-1">
+                                            <span>🏦 結算後剩餘池 (滾入下局):</span>
+                                            <span class="font-bold">{{ Number($game.selectedHistoryRecord.newJpPool || 0).toFixed(2) }}</span>
+                                        </div>
+                                    </div>
+                                    
                                     <!-- 各層存活統計 -->
                                     <div v-if="$game.selectedHistoryRecord.bonusLevelStats" class="text-xs text-left mt-2 border-t border-purple-800/50 pt-2 space-y-2 font-mono">
                                         <div v-for="stat in $game.selectedHistoryRecord.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2 border-purple-500">
@@ -122,7 +138,7 @@
                                         <span class="text-gray-400 text-xs block">
                                             ({{ detail.betAmount }} × {{ detail.basePayout }}) × (1 + {{ detail.baseL }} + {{ detail.purchasedL }})
                                         </span>
-                                        <span class="text-green-400 font-bold">+{{ detail.win }}</span>
+                                        <span class="text-green-400 font-bold">+{{ Number(detail.win || 0).toFixed(2) }}</span>
                                     </div>
                                 </div>
                                 <div v-if="$game.selectedHistoryRecord.details.length === 0 && !$game.selectedHistoryRecord.bonusTriggered" class="text-center text-gray-500 py-2">
@@ -134,13 +150,13 @@
                         <!-- 結算總計 -->
                         <div class="border-t border-gray-600 pt-4 flex justify-between items-end shrink-0 mt-auto">
                             <div>
-                                <p class="text-gray-400 text-sm">投入: <span class="text-red-400">{{ $game.selectedHistoryRecord.cost }}</span></p>
-                                <p class="text-gray-400 text-sm">派彩: <span class="text-green-400">{{ $game.selectedHistoryRecord.totalWin }}</span></p>
+                                <p class="text-gray-400 text-sm">投入: <span class="text-red-400">{{ Number($game.selectedHistoryRecord.cost || 0).toFixed(2) }}</span></p>
+                                <p class="text-gray-400 text-sm">派彩: <span class="text-green-400">{{ Number($game.selectedHistoryRecord.totalWin || 0).toFixed(2) }}</span></p>
                             </div>
                             <div class="text-right">
                                 <p class="text-sm text-gray-400 mb-1">該局淨利</p>
                                 <p :class="$game.selectedHistoryRecord.netProfit >= 0 ? 'text-green-400' : 'text-red-400'" class="text-2xl font-bold">
-                                    {{ $game.selectedHistoryRecord.netProfit >= 0 ? '+' : '' }}{{ $game.selectedHistoryRecord.netProfit }}
+                                    {{ $game.selectedHistoryRecord.netProfit >= 0 ? '+' : '' }}{{ Number($game.selectedHistoryRecord.netProfit || 0).toFixed(2) }}
                                 </p>
                             </div>
                         </div>

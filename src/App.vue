@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.34 (Agent Cashout Strict Fix)
+            v2.35 (JP Proportional Distribution & UI Refinements)
         </div>
     </div>
 </template>

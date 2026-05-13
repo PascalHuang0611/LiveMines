@@ -46,6 +46,44 @@
                 </div>
 
                 <h3 class="text-sm text-gray-400 font-bold mb-3 uppercase tracking-wider flex items-center gap-2 border-t border-gray-700 pt-4">
+                    <span>🧾 本局下注明細</span>
+                </h3>
+                
+                <div class="space-y-2 mb-5 max-h-40 overflow-y-auto custom-scrollbar pr-1">
+                    <div v-for="d in agent.details" :key="d.gridId" class="bg-gray-800 p-2.5 rounded text-xs border border-gray-700 shadow-sm">
+                        <div class="flex justify-between items-center mb-1.5 border-b border-gray-700/50 pb-1.5">
+                            <span class="font-bold text-gray-300 text-sm">格子 [{{ d.gridId }}]</span>
+                            <span :class="(d.winBase + d.winLightning + (d.winBonus || 0)) > 0 ? 'text-green-400' : 'text-gray-500'" class="font-bold text-sm">
+                                {{ (d.winBase + d.winLightning + (d.winBonus || 0)) > 0 ? '+' : '' }}{{ (d.winBase + d.winLightning + (d.winBonus || 0)).toFixed(2) }}
+                            </span>
+                        </div>
+                        <div class="text-gray-400 text-[10px] space-y-1 font-mono">
+                            <div class="flex justify-between">
+                                <span>押注金額:</span>
+                                <span>{{ d.betAmount.toFixed(2) }}</span>
+                            </div>
+                            <div v-if="d.winBase > 0 || d.winLightning > 0" class="flex justify-between text-blue-300">
+                                <span>一般中獎 (含閃電):</span>
+                                <span>+{{ d.winBase.toFixed(2) }} <span v-if="d.winLightning > 0" class="text-yellow-400">(⚡+{{ d.winLightning.toFixed(2) }})</span></span>
+                            </div>
+                            <div v-if="d.isBonus" class="flex justify-between text-purple-400 font-bold">
+                                <span>Bonus (L{{d.cashoutLevel}}):</span>
+                                <span>+{{ d.winBonus.toFixed(2) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div v-if="agent.jpWin > 0" class="bg-pink-900/30 p-2.5 rounded text-xs border border-pink-700/50 flex justify-between items-center shadow-sm">
+                        <span class="font-bold text-pink-400 text-sm">💎 JP 分紅</span>
+                        <span class="font-bold text-pink-400 text-sm">+{{ agent.jpWin.toFixed(2) }}</span>
+                    </div>
+                    
+                    <div v-if="!agent.details || agent.details.length === 0" class="text-center text-gray-500 py-3 text-xs">
+                        本局無押注紀錄
+                    </div>
+                </div>
+
+                <h3 class="text-sm text-gray-400 font-bold mb-3 uppercase tracking-wider flex items-center gap-2 border-t border-gray-700 pt-4">
                     <span>🧬 天生 DNA 參數</span>
                 </h3>
                 
@@ -79,17 +117,17 @@
 
                     <div class="flex justify-between items-center">
                         <span class="text-gray-400">Avg_Bet_Amount (平均注碼)</span>
-                        <span class="text-green-400 font-bold">{{ agent.dna.Avg_Bet_Amount || 10 }}</span>
+                        <span class="text-green-400 font-bold">{{ Number(agent.dna.Avg_Bet_Amount || 10).toFixed(2) }}</span>
                     </div>
 
                     <div class="flex justify-between items-center">
                         <span class="text-gray-400">Martingale_Multiplier (追注倍率)</span>
-                        <span class="text-red-400 font-bold">{{ agent.dna.Martingale_Multiplier || 1.0 }}x</span>
+                        <span class="text-red-400 font-bold">{{ Number(agent.dna.Martingale_Multiplier || 1.0).toFixed(2) }}x</span>
                     </div>
 
                     <div class="flex justify-between items-center">
                         <span class="text-gray-400">Win_Retrench_Ratio (縮注比例)</span>
-                        <span class="text-green-400 font-bold">{{ agent.dna.Win_Retrench_Ratio || 1.0 }}x</span>
+                        <span class="text-green-400 font-bold">{{ Number(agent.dna.Win_Retrench_Ratio || 1.0).toFixed(2) }}x</span>
                     </div>
                 </div>
             </div>

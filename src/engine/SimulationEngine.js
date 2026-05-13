@@ -292,9 +292,13 @@ export function accumulateStats(stats, result) {
     stats.totalBonusWin += result.bonusWin;
     stats.totalJpWin += result.jpWin;
 
-    stats.totalJpPool += result.jpContribution;
-    if (result.jpWin > 0) {
-        stats.totalJpPool = 0;
+    if (result.newJpPool !== undefined) {
+        stats.totalJpPool = result.newJpPool;
+    } else {
+        stats.totalJpPool += result.jpContribution;
+        if (result.jpWin > 0) {
+            stats.totalJpPool = 0;
+        }
     }
 
     result.gridHits.forEach((hits, idx) => {
