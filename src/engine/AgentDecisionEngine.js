@@ -138,13 +138,11 @@ export function decideLightning(agentState) {
  * @returns {Number|null} 1~5 代表預計在該階段停扣，null 代表不提早 Cashout
  */
 export function decideCashoutStrategy(agentState) {
-    const propensity = Number(agentState.dna.Cashout_Propensity) || 0;
-    if (Math.random() < propensity) {
-        let stopLevel = Number(agentState.dna.Cashout_Stop_Level) || 3;
-        // 強制限制在 1~5 之間
-        return Math.max(1, Math.min(5, Math.round(stopLevel)));
-    }
-    return null;
+    let stopLevel = Number(agentState.dna.Cashout_Stop_Level) || 5;
+    
+    // 嚴格遵守 DNA 設定的 Cashout_Stop_Level 作為收手目標基準
+    // 確保不會發生錯誤衝到最後一關的 Bug
+    return Math.max(1, Math.min(5, Math.round(stopLevel)));
 }
 
 /**
