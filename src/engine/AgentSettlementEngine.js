@@ -68,7 +68,7 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
             let winLightning = 0;
             let winBonus = 0;
             let isBonus = false;
-            let cashoutLevel = decision.plannedCashoutLevel || 1;
+            let cashoutLevel = decision.plannedCashoutLevel || config.bonusGame.endLevel;
 
             if (gridResult && gridResult.balls > 0) {
                 // Base Win 計算

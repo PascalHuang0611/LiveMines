@@ -233,7 +233,7 @@
                                         <span v-if="agent.buyLightning" class="bg-yellow-900/50 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-700/50">
                                             ⚡ 付費閃電
                                         </span>
-                                        <span v-if="agent.isBonus" class="bg-purple-900/50 text-purple-400 px-1.5 py-0.5 rounded border border-purple-700/50">
+                                        <span v-if="agent.isBonusGrid" class="bg-purple-900/50 text-purple-400 px-1.5 py-0.5 rounded border border-purple-700/50">
                                             🎯 目標: L{{ agent.cashoutLevel }}
                                         </span>
                                     </div>
@@ -275,6 +275,9 @@ export default {
             const record = this.$game.selectedHistoryRecord;
             if (!record || !record.agentDetails || !this.selectedHistoryGridId) return [];
             
+            const gridState = record.finalGridsState.find(g => g.id === this.selectedHistoryGridId);
+            const isBonusTriggerGrid = record.bonusTriggered && gridState && gridState.balls === 3;
+            
             const results = [];
             record.agentDetails.forEach(agent => {
                 const gridDetail = agent.details.find(d => d.gridId === this.selectedHistoryGridId);
@@ -295,6 +298,7 @@ export default {
                         betAmount: actualBet,
                         win: gridDetail.winBase + gridDetail.winLightning + (gridDetail.winBonus || 0),
                         isBonus: gridDetail.isBonus,
+                        isBonusGrid: isBonusTriggerGrid,
                         cashoutLevel: gridDetail.cashoutLevel
                     });
                 }
