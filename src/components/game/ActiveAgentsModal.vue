@@ -4,7 +4,7 @@
             <!-- Header -->
             <div class="bg-gray-800 p-4 border-b border-gray-700 flex justify-between items-center shrink-0">
                 <h2 class="text-xl font-bold text-white flex items-center gap-2">
-                    <span>👥 在線玩家透視鏡 (PM 專用)</span>
+                    <span>👥 在線玩家透視鏡</span>
                     <span class="bg-blue-600 text-xs px-2 py-1 rounded text-white font-mono">{{ $game.currentActiveAgents.length }} 人在線</span>
                 </h2>
                 <button @click="$game.closeActiveAgentsModal()" class="text-gray-400 hover:text-white transition">
@@ -95,7 +95,7 @@
                                 <ul class="space-y-3 text-gray-300 text-sm leading-relaxed">
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
-                                        <span>他平常喜歡下注 <strong class="text-white">{{ selectedAgent.Avg_Bet_Amount || 10 }} 元</strong> 左右。</span>
+                                        <span>他平常喜歡下注 <strong class="text-white">{{ Number(selectedAgent.Avg_Bet_Amount || 10).toFixed(2) }} 元</strong> 左右。</span>
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
@@ -103,11 +103,11 @@
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
-                                        <span>當他 <span class="text-red-400">輸錢</span> 時，下一把注碼會變成 <strong class="text-white">{{ selectedAgent.Martingale_Multiplier || 1.0 }} 倍</strong> (追注)。</span>
+                                        <span>當他 <span class="text-red-400">輸錢</span> 時，下一把注碼會變成 <strong class="text-white">{{ Number(selectedAgent.Martingale_Multiplier || 1.0).toFixed(2) }} 倍</strong> (追注)。</span>
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
-                                        <span>當他 <span class="text-green-400">贏錢</span> 時，下一把注碼會變成 <strong class="text-white">{{ selectedAgent.Win_Retrench_Ratio || 1.0 }} 倍</strong> (縮注)。</span>
+                                        <span>當他 <span class="text-green-400">贏錢</span> 時，下一把注碼會變成 <strong class="text-white">{{ Number(selectedAgent.Win_Retrench_Ratio || 1.0).toFixed(2) }} 倍</strong> (縮注)。</span>
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-blue-400 mt-0.5">▪</span>
@@ -129,11 +129,11 @@
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-green-400 mt-0.5">▪</span>
-                                        <span>只要單次遊玩累積輸掉 <strong class="text-red-400">{{ selectedAgent.Session_Stop_Loss_Multi || 20 }} 倍</strong> 本金，他就會立刻停損離線。</span>
+                                        <span>只要單次遊玩累積輸掉 <strong class="text-red-400">{{ Number(selectedAgent.Session_Stop_Loss_Multi || 20).toFixed(2) }} 倍</strong> 本金，他就會立刻停損離線。</span>
                                     </li>
                                     <li class="flex gap-2">
                                         <span class="text-green-400 mt-0.5">▪</span>
-                                        <span>只要單次遊玩累積贏得 <strong class="text-green-400">{{ selectedAgent.Session_Take_Profit_Multi || 30 }} 倍</strong> 本金，他就會心滿意足地提早下線。</span>
+                                        <span>只要單次遊玩累積贏得 <strong class="text-green-400">{{ Number(selectedAgent.Session_Take_Profit_Multi || 30).toFixed(2) }} 倍</strong> 本金，他就會心滿意足地提早下線。</span>
                                     </li>
                                 </ul>
                             </div>
