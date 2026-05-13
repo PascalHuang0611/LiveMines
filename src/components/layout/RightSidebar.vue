@@ -49,6 +49,15 @@
                     <input type="number" v-model.number="$game.filterEndRound" placeholder="迄" class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 transition">
                     <button @click="$game.filterStartRound=null; $game.filterEndRound=null" class="bg-gray-700 hover:bg-gray-600 text-gray-300 px-2 py-1 rounded text-xs whitespace-nowrap transition">清除</button>
                 </div>
+                <!-- 排序功能 -->
+                <div class="flex gap-2 items-center mt-1 border-t border-gray-700 pt-2">
+                    <span class="text-gray-400 text-xs whitespace-nowrap">排序:</span>
+                    <select v-model="$game.historySortMethod" class="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 transition cursor-pointer">
+                        <option value="time_desc">最新紀錄優先</option>
+                        <option value="value_desc">{{ $game.simulationMode === 'agentTraffic' ? '玩家淨利 (大到小)' : '贏分 (大到小)' }}</option>
+                        <option value="value_asc">{{ $game.simulationMode === 'agentTraffic' ? '玩家淨利 (小到大)' : '贏分 (小到大)' }}</option>
+                    </select>
+                </div>
             </div>
 
             <!-- 歷史紀錄列表 -->
@@ -83,9 +92,16 @@
                 </div>
                 
                 <!-- 狀態提示文字 -->
-                <div v-if="$game.filteredHistory.length > 200" class="text-center text-xs text-gray-500 py-3">
-                    ...僅顯示最近 200 筆 (符合條件共 {{ $game.filteredHistory.length }} 筆)...
+                <div v-if="$game.filteredHistory.length > $game.historyDisplayLimit" class="text-center text-xs text-gray-500 py-3">
+                    ...僅顯示首 {{ $game.historyDisplayLimit }} 筆 (符合條件共 {{ $game.filteredHistory.length }} 筆)...
                 </div>
+                
+                <!-- 自定義顯示筆數 -->
+                <div v-if="$game.history.length > 0" class="flex flex-col items-center justify-center py-4 gap-2 border-t border-gray-800 mt-2">
+                    <label class="text-xs text-gray-400">顯示筆數 (過多可能導致卡頓)</label>
+                    <input type="number" v-model.number="$game.historyDisplayLimit" min="10" step="50" class="bg-gray-800 border border-gray-600 rounded px-3 py-1 text-white text-sm outline-none focus:border-blue-500 w-24 text-center">
+                </div>
+
                 <div v-if="$game.filteredHistory.length === 0 && $game.history.length > 0" class="text-center text-gray-500 py-8">
                     沒有符合篩選條件的紀錄
                 </div>

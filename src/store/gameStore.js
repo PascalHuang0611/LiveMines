@@ -104,6 +104,8 @@ export const useGameStore = defineStore('game', {
         historyFilter: 'all',
         filterStartRound: null, // 局數篩選 (起)
         filterEndRound: null,   // 局數篩選 (迄)
+        historySortMethod: 'time_desc', // 'time_desc', 'value_desc', 'value_asc'
+        historyDisplayLimit: 200,
         currentRound: 0,
         
         // 全域統計資料
@@ -252,10 +254,20 @@ export const useGameStore = defineStore('game', {
                 result = result.filter(r => r.round <= this.filterEndRound);
             }
             
+            if (this.historySortMethod !== 'time_desc') {
+                const sortKey = this.simulationMode === 'agentTraffic' ? 'netProfit' : 'totalWin';
+                const modifier = this.historySortMethod === 'value_desc' ? -1 : 1;
+                // 複製陣列以避免改動原始 history
+                if (result === this.history) result = [...result];
+                result.sort((a, b) => {
+                    return (a[sortKey] - b[sortKey]) * modifier;
+                });
+            }
+            
             return result;
         },
         displayHistory() {
-            return this.filteredHistory.slice(0, 200);
+            return this.filteredHistory.slice(0, this.historyDisplayLimit);
         },
         distributionData() {
             const rtps = this.batches.map(b => parseFloat(this.getBatchRTP(b, 'total')));
@@ -1109,7 +1121,7 @@ export const useGameStore = defineStore('game', {
                 let newRecord = this.simulateSingleRound(currentCost, false);
                 this.history.unshift(newRecord);
                 
-                if (this.history.length > 100000) {
+                if (this.history.length > 1000000) {
                     this.history.pop();
                 }
                 
@@ -1160,8 +1172,8 @@ export const useGameStore = defineStore('game', {
         finishBatchSimulations(newRecordsBuffer) {
             if (newRecordsBuffer.length > 0) {
                 this.history = newRecordsBuffer.reverse().concat(this.history);
-                if (this.history.length > 100000) {
-                    this.history.length = 100000;
+                if (this.history.length > 1000000) {
+                    this.history.length = 1000000;
                 }
                 this.applyResultToUI(newRecordsBuffer[0]);
                 
