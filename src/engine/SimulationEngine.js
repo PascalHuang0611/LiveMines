@@ -76,7 +76,8 @@ export function simulateRound(payload) {
         bonusTargetLevel,
         bonusPositions,
         forcedDrops, // [pos1, pos2, pos3] or null
-        currentJpPool
+        currentJpPool,
+        simulationMode
     } = payload;
 
     const allGridIds = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -188,7 +189,7 @@ export function simulateRound(payload) {
                     passed: passed
                 });
                 
-                if (passed) {
+                if (simulationMode === 'agentTraffic' || passed) {
                     currentLevel++;
                 } else {
                     alive = false; 

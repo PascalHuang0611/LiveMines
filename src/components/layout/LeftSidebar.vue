@@ -175,15 +175,12 @@
                                 <div class="text-xs text-gray-400">全場共用此開獎結果，玩家依自身 DNA 決定</div>
                                 
                                 <div v-if="$game.lastResult.bonusLevelStats" class="text-xs text-left mt-2 border-t border-purple-800/50 pt-2 space-y-2 font-mono">
-                                    <div v-for="stat in $game.lastResult.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2" :class="$game.lastResult.bonusLevelHistory[stat.level - 1].passed ? 'border-green-400' : 'border-red-400'">
+                                    <div v-for="stat in $game.lastResult.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2 border-purple-500">
                                         <div class="flex justify-between items-center mb-1">
                                             <span class="text-gray-200 font-bold">第 {{ stat.level }} 層 <span class="text-yellow-400 ml-1 text-[11px]">({{ $game.appConfig.bonusGame.levelSettings.payouts[stat.level - 1] }}倍)</span> <span class="text-gray-400 font-normal ml-1">(抵達: {{ stat.totalArrived }} 人)</span></span>
                                             <span class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">安全: {{ $game.lastResult.bonusLevelHistory[stat.level - 1].safe.join(',') }}</span>
                                         </div>
-                                        <div class="flex justify-between items-center text-[10px]">
-                                            <div v-if="$game.lastResult.bonusLevelHistory[stat.level - 1].passed" class="text-green-400 font-bold">✅ 世界線: 安全</div>
-                                            <div v-else class="text-red-400 font-bold">💥 世界線: 觸雷炸毀</div>
-                                            
+                                        <div class="flex justify-end items-center text-[10px]">
                                             <div class="flex gap-2">
                                                 <span v-if="stat.cashedOutCount > 0" class="text-blue-300">💰 Cashout: {{ stat.cashedOutCount }} 人</span>
                                                 <span v-if="stat.continuedCount > 0" class="text-yellow-300">🏃 續闖: {{ stat.continuedCount }} 人</span>

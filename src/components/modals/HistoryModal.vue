@@ -23,10 +23,10 @@
                     <div class="grid grid-cols-3 grid-rows-3 gap-2 mb-6 aspect-square max-w-xs mx-auto w-full shrink-0">
                         <div v-for="grid in $game.selectedHistoryRecord.finalGridsState" :key="grid.id" 
                              @click="$game.selectedHistoryRecord.agentDetails ? (selectedHistoryGridId = grid.id) : null"
-                             :class="['grid-cell relative overflow-hidden border-2 border-gray-600 rounded-xl flex flex-col items-center justify-center p-1 transition-colors', 
-                                      grid.betAmount > 0 ? 'selected' : 'bg-gray-800',
-                                      $game.selectedHistoryRecord.agentDetails ? 'cursor-pointer hover:border-blue-400' : '',
-                                      selectedHistoryGridId === grid.id ? 'ring-2 ring-blue-500 shadow-[0_0_15px_#3b82f6]' : '']">
+                             :class="['grid-cell relative border-2 rounded flex flex-col items-center justify-center p-1', 
+                                      grid.betAmount > 0 ? getGridColorClass(grid) : 'bg-gray-800 border-gray-600',
+                                      $game.selectedHistoryRecord.agentDetails ? 'cursor-pointer hover:border-white transition-colors' : '',
+                                      selectedHistoryGridId === grid.id ? 'ring-2 ring-white shadow-[0_0_15px_rgba(255,255,255,0.5)]' : '']">
                             
                             <div v-if="grid.betAmount > 0" class="absolute top-1 left-1 w-2 h-2 bg-blue-500 rounded-full shadow-[0_0_8px_#3b82f6] z-0"></div>
                             <span class="text-gray-500 font-bold text-lg absolute top-1 right-2 opacity-50 z-0">{{ grid.id }}</span>
@@ -97,18 +97,16 @@
                                     
                                     <!-- 各層存活統計 -->
                                     <div v-if="$game.selectedHistoryRecord.bonusLevelStats" class="text-xs text-left mt-2 border-t border-purple-800/50 pt-2 space-y-2 font-mono">
-                                        <div v-for="stat in $game.selectedHistoryRecord.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2" :class="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].passed ? 'border-green-400' : 'border-red-400'">
+                                        <div v-for="stat in $game.selectedHistoryRecord.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2 border-purple-500">
                                             <div class="flex justify-between items-center mb-1">
                                                 <span class="text-gray-200 font-bold">第 {{ stat.level }} 層 <span class="text-yellow-400 ml-1 text-[11px]">({{ $game.appConfig.bonusGame.levelSettings.payouts[stat.level - 1] }}倍)</span> <span class="text-gray-400 font-normal ml-1">(抵達: {{ stat.totalArrived }} 人)</span></span>
                                                 <span class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">安全: {{ $game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].safe.join(',') }}</span>
                                             </div>
-                                            <div class="flex justify-between items-center text-[10px]">
-                                                <span v-if="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].passed" class="text-green-400 bg-green-900/30 px-1 py-0.5 rounded">世界線: 過關</span>
-                                                <span v-else class="text-red-400 bg-red-900/30 px-1 py-0.5 rounded">世界線: 炸彈 ({{ stat.crashedCount }} 人陣亡)</span>
-                                                
-                                                <div class="flex space-x-2" v-if="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].passed">
-                                                    <span class="text-yellow-400 bg-yellow-900/30 px-1 py-0.5 rounded">{{ stat.cashedOutCount }} 人 Cashout</span>
-                                                    <span class="text-blue-300 bg-blue-900/30 px-1 py-0.5 rounded">{{ stat.continuedCount }} 人續闖</span>
+                                            <div class="flex justify-end items-center text-[10px]">
+                                                <div class="flex gap-2">
+                                                    <span v-if="stat.cashedOutCount > 0" class="text-blue-300 bg-blue-900/30 px-1 py-0.5 rounded">💰 Cashout: {{ stat.cashedOutCount }} 人</span>
+                                                    <span v-if="stat.continuedCount > 0" class="text-yellow-300 bg-yellow-900/30 px-1 py-0.5 rounded">🏃 續闖: {{ stat.continuedCount }} 人</span>
+                                                    <span v-if="stat.crashedCount > 0" class="text-red-400 bg-red-900/30 px-1 py-0.5 rounded">💀 陣亡: {{ stat.crashedCount }} 人</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -222,8 +220,11 @@
                                             {{ formatPersonaName(agent.persona) }}
                                         </span>
                                     </div>
-                                    <div class="text-lg font-bold" :class="agent.buyLightning ? 'text-yellow-300' : 'text-gray-200'">
-                                        {{ agent.betAmount }}
+                                    <div class="text-lg font-bold flex items-baseline gap-1">
+                                        <span class="text-gray-200">{{ agent.baseBet }}</span>
+                                        <span v-if="agent.taxAmount > 0" class="text-yellow-400 text-sm" title="付費閃電加收">
+                                            +{{ agent.taxAmount }}
+                                        </span>
                                     </div>
                                 </div>
                                 
@@ -279,14 +280,18 @@ export default {
                 const gridDetail = agent.details.find(d => d.gridId === this.selectedHistoryGridId);
                 if (gridDetail && gridDetail.betAmount > 0) {
                     let actualBet = gridDetail.betAmount;
+                    let taxAmount = 0;
                     if (agent.buyLightning) {
-                        actualBet += actualBet * (this.$game.appConfig.mainGame.extraPurchaseCostPercent || 0.5);
+                        taxAmount = actualBet * (this.$game.appConfig.mainGame.extraPurchaseCostPercent || 0.5);
+                        actualBet += taxAmount;
                     }
                     results.push({
                         agentId: agent.agentId,
                         persona: agent.persona,
                         vipGroup: agent.vipGroup,
                         buyLightning: agent.buyLightning,
+                        baseBet: gridDetail.betAmount,
+                        taxAmount: taxAmount,
                         betAmount: actualBet,
                         win: gridDetail.winBase + gridDetail.winLightning + (gridDetail.winBonus || 0),
                         isBonus: gridDetail.isBonus,
@@ -299,6 +304,36 @@ export default {
         }
     },
     methods: {
+        getGridColorClass(grid) {
+            const record = this.$game.selectedHistoryRecord;
+            if (!record) return 'bg-gray-800 border-gray-600';
+            
+            let bet = grid.betAmount;
+            if (record.gridStats && record.gridStats[grid.id - 1]) {
+                bet = record.gridStats[grid.id - 1].totalBet;
+            }
+            
+            if (bet === 0) return 'bg-gray-800 border-gray-600';
+            if (!record.agentDetails) return 'border-blue-500 bg-blue-900/30';
+            
+            const amounts = new Set();
+            record.finalGridsState.forEach(g => {
+                let a = g.betAmount;
+                if (record.gridStats && record.gridStats[g.id - 1]) {
+                    a = record.gridStats[g.id - 1].totalBet;
+                }
+                if (a > 0) amounts.add(a);
+            });
+            const sortedAmounts = [...amounts].sort((a, b) => b - a);
+            
+            if (sortedAmounts.length > 0 && bet === sortedAmounts[0]) {
+                return 'border-red-500 bg-red-900/40';
+            } else if (sortedAmounts.length > 1 && bet === sortedAmounts[1]) {
+                return 'border-red-400/80 bg-red-900/20';
+            } else {
+                return 'border-blue-500 bg-blue-900/30';
+            }
+        },
         getVipClass(vipGroup) {
             if (!vipGroup) return 'bg-gray-700 text-gray-300';
             const num = parseInt(vipGroup.replace('V', ''));

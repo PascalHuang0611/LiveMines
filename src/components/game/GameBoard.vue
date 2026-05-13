@@ -56,8 +56,8 @@
                     <div v-for="grid in $game.grids" :key="grid.id"
                          @click="$game.simulationMode === 'agentTraffic' ? $game.openGridDetails(grid.id) : null"
                          :class="['grid-cell relative overflow-hidden border-2 rounded-xl flex flex-col items-center justify-center p-1 sm:p-2',
-                                  grid.betAmount > 0 ? 'selected' : 'bg-gray-800 border-gray-600',
-                                  $game.simulationMode === 'agentTraffic' ? 'cursor-pointer hover:border-blue-500 hover:bg-gray-700 transition-colors' : '']">
+                                  grid.betAmount > 0 ? getGridColorClass(grid) : 'bg-gray-800 border-gray-600',
+                                  $game.simulationMode === 'agentTraffic' ? 'cursor-pointer hover:border-white transition-colors' : '']">
                         
                         <!-- 格子編號 -->
                         <span class="text-gray-500 font-bold text-lg absolute top-1 right-2 opacity-40 z-0">{{ grid.id }}</span>
@@ -328,6 +328,23 @@
 <script>
 export default {
     name: 'GameBoard',
-    inject: ['$game']
+    inject: ['$game'],
+    methods: {
+        getGridColorClass(grid) {
+            if (this.$game.simulationMode !== 'agentTraffic') {
+                return 'selected';
+            }
+            
+            const amounts = [...new Set(this.$game.grids.map(g => g.betAmount).filter(a => a > 0))].sort((a, b) => b - a);
+            
+            if (amounts.length > 0 && grid.betAmount === amounts[0]) {
+                return 'border-red-500 bg-red-900/40';
+            } else if (amounts.length > 1 && grid.betAmount === amounts[1]) {
+                return 'border-red-400/80 bg-red-900/20';
+            } else {
+                return 'border-blue-500 bg-blue-900/30';
+            }
+        }
+    }
 }
 </script>

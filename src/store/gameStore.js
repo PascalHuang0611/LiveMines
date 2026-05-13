@@ -1271,7 +1271,8 @@ export const useGameStore = defineStore('game', {
                 bonusTargetLevel: this.simulationMode === 'agentTraffic' ? 'all' : this.bonusTargetLevel,
                 bonusPositions: this.bonusPositions,
                 forcedDrops: forcedDrops,
-                currentJpPool: this.stats.totalJpPool
+                currentJpPool: this.stats.totalJpPool,
+                simulationMode: this.simulationMode
             };
 
             let result = simulateRound(payload);
@@ -1364,9 +1365,7 @@ export const useGameStore = defineStore('game', {
                 }
                 
                 setTimeout(() => {
-                    if (!this.hourlyBetChartInstance || !this.hourlyUserChartInstance) {
-                        this.initHourlyCharts();
-                    }
+                    this.initHourlyCharts();
                     this.updateHourlyCharts();
                 }, 100);
             }

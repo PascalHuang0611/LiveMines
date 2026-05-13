@@ -97,7 +97,12 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                         let lvl = publicResult.bonusLevelHistory[i];
                         bonusLevelStats[i].totalArrived++;
                         
-                        if (!lvl.passed) {
+                        // Agent 隨機抽一個號碼
+                        let totalChoicesForLevel = config.bonusGame.levelSettings.totalChoices[i];
+                        let agentPick = Math.floor(Math.random() * totalChoicesForLevel) + 1;
+                        let agentPassed = lvl.safe.includes(agentPick);
+
+                        if (!agentPassed) {
                             // 踩到地雷，此人陣亡
                             survived = false;
                             bonusLevelStats[i].crashedCount++;

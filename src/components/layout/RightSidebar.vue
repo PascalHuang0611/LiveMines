@@ -38,14 +38,12 @@
             
             <!-- 歷史紀錄篩選器 -->
             <div class="flex flex-col gap-2 mb-3 bg-gray-900 p-2 rounded-lg">
-                <div class="flex gap-2">
-                    <button @click="$game.historyFilter = 'all'" :class="$game.historyFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">全部</button>
-                    <button @click="$game.historyFilter = 'win'" :class="$game.historyFilter === 'win' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">{{ $game.simulationMode === 'agentTraffic' ? '玩家有淨利' : '有贏分' }}</button>
-                    <button @click="$game.historyFilter = 'bonus'" :class="$game.historyFilter === 'bonus' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有 BONUS</button>
-                </div>
-                <div class="flex gap-2">
-                    <button @click="$game.historyFilter = 'bonus_pass'" :class="$game.historyFilter === 'bonus_pass' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">BONUS 且有通關</button>
-                    <button @click="$game.historyFilter = 'jp'" :class="$game.historyFilter === 'jp' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition flex-1">有 JP</button>
+                <div class="grid gap-2" :class="$game.simulationMode === 'agentTraffic' ? 'grid-cols-2' : 'grid-cols-3'">
+                    <button @click="$game.historyFilter = 'all'" :class="$game.historyFilter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition">全部</button>
+                    <button @click="$game.historyFilter = 'win'" :class="$game.historyFilter === 'win' ? 'bg-green-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition">{{ $game.simulationMode === 'agentTraffic' ? '玩家有淨利' : '有贏分' }}</button>
+                    <button @click="$game.historyFilter = 'bonus'" :class="$game.historyFilter === 'bonus' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition">有 BONUS</button>
+                    <button v-if="$game.simulationMode === 'manual'" @click="$game.historyFilter = 'bonus_pass'" :class="$game.historyFilter === 'bonus_pass' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition">BONUS 且通關</button>
+                    <button @click="$game.historyFilter = 'jp'" :class="[$game.historyFilter === 'jp' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700', { 'col-span-2': $game.simulationMode === 'manual' }]" class="px-3 py-1.5 rounded text-xs font-bold transition">有 JP</button>
                 </div>
                 <!-- 新增局數範圍篩選 -->
                 <div class="flex gap-2 items-center mt-1 border-t border-gray-700 pt-2">
