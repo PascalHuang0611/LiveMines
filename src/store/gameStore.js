@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { nextTick, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
-import { DEFAULT_CONFIG, getEmptyStats, validateConfigFormat } from '../utils/constants';
+import { DEFAULT_CONFIG, getEmptyStats, validateConfigFormat, formatConfigJson } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
 import { calculateBatchSettlement } from '../engine/AgentSettlementEngine';
 import { processAgentData, calculatePersonaStats } from '../engine/AgentDataLoader';
@@ -1052,7 +1052,7 @@ export const useGameStore = defineStore('game', {
         closeAgentInfoModal() { this.selectedAgentInfo = null; },
         
         openConfigModal() {
-            this.tempConfigText = JSON.stringify(this.appConfig, null, 4);
+            this.tempConfigText = formatConfigJson(this.appConfig);
             this.showConfigModal = true;
         },
         closeConfigModal() { this.showConfigModal = false; },

@@ -89,6 +89,33 @@ export const DEFAULT_CONFIG = {
     }
 };
 
+// 將設定物件格式化為易讀的 JSON 字串: 物件逐層縮排，數值陣列 (含倍率組合) 保持單行
+// 輸出仍為合法 JSON，可直接 JSON.parse
+export function formatConfigJson(value, indent = 0) {
+    const isPrimitive = v => v === null || typeof v !== 'object';
+    const pad = ' '.repeat(indent);
+    const childPad = ' '.repeat(indent + 4);
+
+    if (Array.isArray(value)) {
+        // 元素皆為純值、或皆為純值組成的子陣列 (如倍率組合 [[1,1,3],...]) 時單行顯示
+        const canInline = value.every(v => isPrimitive(v) || (Array.isArray(v) && v.every(isPrimitive)));
+        if (canInline) {
+            return '[' + value.map(v =>
+                Array.isArray(v) ? '[' + v.map(x => JSON.stringify(x)).join(',') + ']' : JSON.stringify(v)
+            ).join(',') + ']';
+        }
+        return '[\n' + value.map(v => childPad + formatConfigJson(v, indent + 4)).join(',\n') + '\n' + pad + ']';
+    }
+    if (value !== null && typeof value === 'object') {
+        const keys = Object.keys(value);
+        if (keys.length === 0) return '{}';
+        return '{\n' + keys.map(k =>
+            childPad + JSON.stringify(k) + ': ' + formatConfigJson(value[k], indent + 4)
+        ).join(',\n') + '\n' + pad + '}';
+    }
+    return JSON.stringify(value);
+}
+
 // 檢查設定是否符合新格式規範 (與 C++ 模擬器 V14 的規則一致)，不符合時 throw Error
 // 注意: gridWeights / riskScore 為 SERVER 專用欄位，此處不驗證 (僅需 JSON 語法合法)
 export function validateConfigFormat(cfg) {

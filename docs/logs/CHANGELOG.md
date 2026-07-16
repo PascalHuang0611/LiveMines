@@ -10,6 +10,8 @@
 - **localStorage 自動遷移**:
   - gameStore.js initializeStore(): 啟動時檢查本地儲存的參數，不符合新格式即自動重設為新版預設值並寫回 localStorage。
   - saveConfig(): 改用 validateConfigFormat() 統一驗證，貼上舊格式 JSON 會被擋下並顯示具體錯誤原因。
+- **參數設定視窗排版優化**:
+  - 新增 formatConfigJson()：Config Modal 開啟時，數值陣列 (含倍率組合) 保持單行顯示，與設定檔原始排版一致，不再每個元素各佔一行。
 
 ### 🐛 錯誤修正 (Bug Fixes)
 - **清除資料 (clearData) 殘留問題修復**:
