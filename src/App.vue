@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.36 (New Config Format: Purchased Lightning Combos)
+            v2.38 (New Config Format: Purchased Lightning Combos)
         </div>
     </div>
 </template>

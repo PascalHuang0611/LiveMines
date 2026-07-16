@@ -1,7 +1,7 @@
 <template>
 <!-- ================= Config 參數設定彈跳視窗 (Modal) ================= -->
         <div v-if="$game.showConfigModal" @click.self="$game.closeConfigModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-fade-in">
-            <div class="bg-gray-800 border border-gray-600 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col relative shadow-2xl overflow-hidden">
+            <div class="bg-gray-800 border border-gray-600 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col relative shadow-2xl overflow-hidden">
                 <div class="p-4 border-b border-gray-700 flex justify-between items-center bg-gray-900">
                     <h2 class="text-2xl font-bold text-blue-400">⚙️ Config.json 參數設定</h2>
                     <button @click="$game.closeConfigModal" class="text-gray-400 hover:text-white text-3xl font-bold leading-none">&times;</button>

@@ -1,6 +1,6 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
-## [v2.36] - 2026-07-15
+## [v2.38] - 2026-07-16
 ### ✨ 新增與優化 (Features & Refactoring)
 - **數學邏輯同步 C++ 模擬器 V14 新格式**:
   - SimulationEngine.js: 付費閃電改為「依權重抽一組倍率組合」(例如 [1,1,3] 代表打三道閃電、倍率各為 1/1/3，每組保證含 3)，不再先抽道數再逐道抽倍率。免費閃電規則不變，但 payoutMultipliers.values 改為單元素陣列格式 (如 [1])。
@@ -12,6 +12,7 @@
   - saveConfig(): 改用 validateConfigFormat() 統一驗證，貼上舊格式 JSON 會被擋下並顯示具體錯誤原因。
 - **參數設定視窗排版優化**:
   - 新增 formatConfigJson()：Config Modal 開啟時，數值陣列 (含倍率組合) 保持單行顯示，與設定檔原始排版一致，不再每個元素各佔一行。
+  - Config Modal 視窗加寬 (max-w-2xl → max-w-4xl，672px → 896px，約 1.33 倍)，最長的參數行不再折行。
 
 ### 🐛 錯誤修正 (Bug Fixes)
 - **清除資料 (clearData) 殘留問題修復**:
