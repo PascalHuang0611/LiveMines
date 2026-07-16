@@ -1,5 +1,23 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
+## [v2.36] - 2026-07-15
+### ✨ 新增與優化 (Features & Refactoring)
+- **數學邏輯同步 C++ 模擬器 V14 新格式**:
+  - SimulationEngine.js: 付費閃電改為「依權重抽一組倍率組合」(例如 [1,1,3] 代表打三道閃電、倍率各為 1/1/3，每組保證含 3)，不再先抽道數再逐道抽倍率。免費閃電規則不變，但 payoutMultipliers.values 改為單元素陣列格式 (如 [1])。
+  - 移除 gridWeights 加權落點邏輯 (sampleWeightedWithoutReplacement)，免費/付費閃電落點一律均勻隨機。設定中的 gridWeights 已改為 SERVER 專用的新物件格式 (thresholds/weights/neutralBand)，引擎不讀取。
+  - constants.js: DEFAULT_CONFIG 同步為 TG001_LM01_BASE_Config.json 現行內容 (含 SERVER 專用的 riskScore 區塊，引擎忽略)。
+  - 新增 validateConfigFormat(): 與 C++ 模擬器一致的新格式驗證，舊格式 (付費閃電含 strikes 區塊、平面倍率值) 一律拒絕。
+- **localStorage 自動遷移**:
+  - gameStore.js initializeStore(): 啟動時檢查本地儲存的參數，不符合新格式即自動重設為新版預設值並寫回 localStorage。
+  - saveConfig(): 改用 validateConfigFormat() 統一驗證，貼上舊格式 JSON 會被擋下並顯示具體錯誤原因。
+
+### 🐛 錯誤修正 (Bug Fixes)
+- **清除資料 (clearData) 殘留問題修復**:
+  - 修復批次執行中按下「清除資料」或切換模式時，批次結束會把清除前暫存的紀錄倒回 history 的 Bug。新增 batchRunId 執行代號機制，clearData 會使進行中的批次迴圈自動中止並丟棄暫存資料。
+  - 修復手動模式的押注金額在切換到人流模式後殘留在盤面上的問題 (setSimulationMode 現在會一併歸零 grids.betAmount)。
+  - 修復清除資料後 currentTotalAgentCost / currentAgentDecisions 殘留，導致成本顯示與「格子詳情」彈窗仍是上一輪 Agent 資料的問題。
+  - 移除與 getter 同名的 trafficCurrentDay / trafficCurrentRoundInDay 死 state 欄位，消除啟動時的 Pinia 同名衝突警告與 reset 時的靜默賦值失敗。
+
 ## [v2.35] - 2026-05-13
 ### ✨ 新增功能 (Features)
 - **歷史紀錄與 Agent 詳情 UI 升級**:

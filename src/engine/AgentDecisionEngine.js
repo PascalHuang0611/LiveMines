@@ -55,14 +55,34 @@ export function sampleWeightedWithoutReplacement(items, weights, count) {
 }
 
 /**
+ * Box-Muller 轉換演算法，產生常態分佈的隨機數
+ * @param {number} mean 期望值
+ * @param {number} std 標準差
+ * @returns {number}
+ */
+export function gaussianRandom(mean, std) {
+    if (std === 0) return mean;
+    let u = 0, v = 0;
+    while (u === 0) u = Math.random(); // 轉換 [0,1) 為 (0,1)
+    while (v === 0) v = Math.random();
+    let num = Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+    return num * std + mean;
+}
+
+/**
  * 決定押幾格
  */
 export function decideTargetGridCount(agentState, scenario) {
-    let count = Number(agentState.dna.LiveMines_Target_Grids) || 1;
+    let mean = Number(agentState.dna.LiveMines_Target_Grids) || 1;
+    let std = Number(agentState.dna.Grid_Count_Std) || 0;
+    
+    // 套用常態分佈隨機取樣
+    let count = gaussianRandom(mean, std);
 
     if (scenario.gridBehavior === 'conservative') count *= 0.8;
     if (scenario.gridBehavior === 'aggressive') count *= 1.15;
 
+    // 確保格子數在合法範圍內 1~9，且為整數
     return Math.max(1, Math.min(9, Math.round(count)));
 }
 
@@ -79,7 +99,11 @@ export function decideBetGrids(agentState, targetCount) {
  * 決定本局總下注額
  */
 export function decideTotalBetAmount(agentState, scenario) {
-    let amount = agentState.currentBetAmount || agentState.dna.Avg_Bet_Amount;
+    let mean = Number(agentState.dna.Avg_Bet_Amount) || 10;
+    let std = Number(agentState.dna.Bet_Amount_Std) || 0;
+    
+    // 如果有當前押注額(來自追注等策略)則以此為均值，否則使用 DNA 平均值並套用常態分佈
+    let amount = agentState.currentBetAmount || gaussianRandom(mean, std);
 
     // TODO: 目前 Milestone 5 尚無 settlement 更新 lastRoundNetProfit 狀態，
     // 因此 lastRoundNetProfit 預設為 0，以下邏輯暫時不會觸發，保留為 Milestone 8 使用。
@@ -94,7 +118,9 @@ export function decideTotalBetAmount(agentState, scenario) {
     amount *= scenario.betAmountMultiplier || 1;
 
     const maxBet = scenario.maxAgentBetAmount || Infinity;
-    return Math.max(1, Math.min(amount, maxBet));
+    
+    // 防呆：不可能押負數或零，最少 0.01 或 1。這裡暫以 1 為底線，並四捨五入至小數點第二位以求真實感
+    return Math.max(0.1, Math.min(Math.round(amount * 100) / 100, maxBet));
 }
 
 /**
@@ -148,20 +174,36 @@ export function decideCashoutStrategy(agentState) {
 /**
  * 將 rawAmount 依據 DNA 籌碼偏好權重 (Weighted) 分配成合法的實體面額籌碼
  * @param {Number} rawAmount 
- * @param {Array} dnaWeights - 長度 7 的權重陣列 [w5, w10, w50, w100, w500, w1k, w10k]
+ * @param {Array} dnaWeights - 權重陣列
+ * @param {Array} dnaDenoms - 籌碼面額陣列
  */
-export function legalizeChips(rawAmount, dnaWeights) {
-    const denoms = [5, 10, 50, 100, 500, 1000, 10000];
+export function legalizeChips(rawAmount, dnaWeights, dnaDenoms) {
+    const denoms = (Array.isArray(dnaDenoms) && dnaDenoms.length > 0) ? dnaDenoms : [1, 5, 10, 50, 100, 500, 1000];
     
     // 如果權重無效或長度不符，給予預設均勻權重
-    let weights = Array.isArray(dnaWeights) && dnaWeights.length === 7 ? [...dnaWeights] : [1,1,1,1,1,1,1];
+    let weights = Array.isArray(dnaWeights) && dnaWeights.length === denoms.length ? [...dnaWeights] : Array(denoms.length).fill(1);
     
-    // 1. 強制對齊最小面額 (5)
-    // 這樣做可以保證後續的 while 迴圈一定能完美除盡，不會產生找不開的餘數
-    let remaining = Math.round(rawAmount / 5) * 5;
-    if (remaining <= 0) remaining = 5; // 至少下注 5 元
+    const minDenom = Math.min(...denoms);
+
+    // 【機率性找零機制】
+    // 計算可以被完美填滿的最大金額 (最小面額的整數倍)
+    let guaranteedAmount = Math.floor(rawAmount / minDenom) * minDenom;
     
-    const chipMap = { 5: 0, 10: 0, 50: 0, 100: 0, 500: 0, 1000: 0, 10000: 0 };
+    // 計算剩餘的碎銀子 (小於最小面額)
+    let residual = rawAmount - guaranteedAmount;
+    
+    // 將碎銀子轉化為機率：剩餘 2.8，最小面額 5，則有 2.8/5 = 56% 的機率多押一個 5
+    if (residual > 0) {
+        const prob = residual / minDenom;
+        if (Math.random() < prob) {
+            guaranteedAmount += minDenom;
+        }
+    }
+    
+    let remaining = guaranteedAmount;
+    
+    const chipMap = {};
+    denoms.forEach(d => chipMap[d] = 0);
     let legalTotal = 0;
 
     // 將面額與權重組合並依照面額降冪排序 (大到小)，方便過濾
@@ -230,11 +272,28 @@ export function buildAgentRoundDecision(agentState, scenario, appConfig) {
         dnaWeights = [];
     }
 
+    // 解析面額
+    let dnaDenoms = [];
+    try {
+        if (typeof agentState.dna.Available_Bet_Denominations === 'string') {
+            dnaDenoms = JSON.parse(agentState.dna.Available_Bet_Denominations);
+        } else if (Array.isArray(agentState.dna.Available_Bet_Denominations)) {
+            dnaDenoms = agentState.dna.Available_Bet_Denominations;
+        }
+    } catch(e) {
+        dnaDenoms = [];
+    }
+
+    let finalSelectedGrids = [];
+
     Object.entries(rawBetMap).forEach(([gridId, rawAmt]) => {
-        const { chipMap, legalTotal } = legalizeChips(rawAmt, dnaWeights);
-        legalBetMap[gridId] = legalTotal;
-        fullChipMap[gridId] = chipMap;
-        legalTotalBetAmount += legalTotal;
+        const { chipMap, legalTotal } = legalizeChips(rawAmt, dnaWeights, dnaDenoms);
+        if (legalTotal > 0) {
+            legalBetMap[gridId] = legalTotal;
+            fullChipMap[gridId] = chipMap;
+            legalTotalBetAmount += legalTotal;
+            finalSelectedGrids.push(Number(gridId));
+        }
     });
 
     return {
@@ -242,7 +301,7 @@ export function buildAgentRoundDecision(agentState, scenario, appConfig) {
         persona: agentState.persona,
         vipGroup: agentState.dna.VIP_Group,
         dna: agentState.dna,
-        selectedGrids,
+        selectedGrids: finalSelectedGrids,
         rawBetMap,
         totalBetAmountRaw,
         legalBetMap,

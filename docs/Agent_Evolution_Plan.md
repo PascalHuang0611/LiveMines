@@ -8,7 +8,7 @@
 ## 階段 1：資金動態管理與常態分佈隨機性 (打破死板平均值)
 目前 Agent 的下注金額完全鎖死在 `Avg_Bet_Amount`，且缺乏歷史記憶。此階段將賦予 Agent 錢包概念與每次下注的手感波動，這是讓生態系活起來的最關鍵步驟。
 
-### 1.1 常態分佈波動 (Gaussian Variance)
+### 1.1 常態分佈波動 (Gaussian Variance) - ✅ 已完成 (v2.36)
 - **解鎖 DNA**: `Bet_Amount_Std` (下注額標準差), `Grid_Count_Std` (押注格數標準差)
 - **實作細節**: 
   - 實作 Box-Muller 轉換演算法，產生常態分佈的隨機數。

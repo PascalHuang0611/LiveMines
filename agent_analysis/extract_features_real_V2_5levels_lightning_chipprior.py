@@ -1,63 +1,55 @@
 """
 ====================================================================
-LiveMines Agent DNA 萃取引擎 v2 — 跨遊戲遷移版
+LiveMines Agent DNA 萃取引擎 (跨遊戲遷移分析腳本)
 ====================================================================
 
-【背景】
-本腳本的資料來源是「舊遊戲」(6 格 + 轉輪二級玩法),
-但模擬目標是「新遊戲」LiveMines (9 格 + CASHOUT 二級玩法)。
-因此我們無法簡單地說這份 DNA 是「真實映射」,
-而是一份「以舊遊戲行為為基礎,對新遊戲做先驗假設」的 DNA。
+【腳本定位與背景】
+本腳本的主要任務是進行「跨遊戲玩家行為遷移分析」。
+我們的歷史數據來源是一套「舊版遊戲」(6 格 + 轉輪機制)，
+但我們需要為即將上線的「新版遊戲」LiveMines (9 格 + CASHOUT 機制) 建立玩家行為模型 (Agent DNA)。
 
-【三層特徵架構】
-為了讓下游使用者清楚知道哪些欄位可信、哪些是猜的,
-本版本用前綴明確區分三類欄位:
+因此，這份產出的 DNA 並非 100% 的真實映射，而是：
+「基於舊遊戲的真實行為數據，對新遊戲所做出的合理『先驗推估 (Prior)』」。
 
-  observed_*  從舊遊戲資料「直接觀察統計」出來的事實。
-              例:observed_avg_bet, observed_bet_std
+【三層特徵架構設計】
+為了讓接手的數據分析師能清楚分辨「哪些是真實數據」與「哪些是推估假設」，
+本腳本產出的欄位嚴格遵循以下前綴命名原則：
 
-  trait_*     雖然從舊遊戲萃取,但屬於「跨遊戲穩定的人格特徵」,
-              理論上可以直接遷移到新遊戲。
-              例:trait_martingale_multiplier (凹單性格)、
-                  trait_win_retrench_ratio (見好就收性格)、
-                  trait_break_duration_minutes (生活節奏)。
+  1. observed_* (真實觀察指標)
+     - 意義：從舊遊戲資料中直接統計得出的客觀事實，無任何推測。
+     - 範例：observed_avg_bet (平均下注額), observed_bet_std (下注標準差)。
 
-  prior_*     針對新遊戲做的「先驗假設」,因舊資料中沒有對應行為。
-              這些欄位「等到新遊戲上線、收到真實資料後,應該被覆寫」。
-              例:prior_grid_preferences_9 (6→9 格的擴散)、
-                  prior_cashout_propensity (CASHOUT 決策的先驗推估)。
+  2. trait_* (跨遊戲人格特徵)
+     - 意義：從舊遊戲萃取出的深層行為模式，這類特徵屬於「玩家性格」，理論上可直接平移至新遊戲。
+     - 範例：
+       * trait_martingale_multiplier (凹單性格：連輸後的加注倍率)
+       * trait_win_retrench_ratio (見好就收性格：大贏後的減注比例)
+       * trait_daily_login_probability (上線頻率：日活躍機率)
 
-  synthetic_* 完全合成,沒有任何資料依據,僅作為 placeholder。
-              下游模擬器若使用,需自行承擔風險。
-              例:synthetic_wakeup_minute, synthetic_bonus_risk_prob
+  3. prior_* (新機制先驗推估)
+     - 意義：針對新遊戲專屬機制 (如 9 格、CASHOUT) 所做的邏輯推估。舊數據中不存在這些行為，因此我們依賴玩家性格 (trait) 進行映射。
+     - 動作：等新遊戲上線並累積真實數據後，這些欄位應優先被真實數據 (observed_*) 覆寫替換。
+     - 範例：
+       * prior_grid_preferences_9 (將 6 格偏好擴散至 9 格的機率分佈)
+       * prior_cashout_propensity (基於玩家貪婪/保守性格推估的提早套現傾向)
 
-【時間/頻次三維度】(v2.1 新增)
-為了讓模擬器產生的人流不要「同一小時排隊湧入」,
-新增三個時間維度的欄位,讓每位玩家有獨立的上線節奏:
+  4. synthetic_* (合成佔位符)
+     - 意義：目前完全缺乏數據支持，僅為了讓前端模擬器能運作而隨機生成的預設值。
+     - 動作：風險極高，上線後必須立即替換為真實統計值。
+     - 範例：synthetic_wakeup_minute, synthetic_bonus_risk_prob
 
-  trait_hourly_activity_vector  長度 24 的機率向量,反映該玩家在每個
-                                 小時的活躍權重。雙峰玩家(早晚高峰)
-                                 不會被眾數壓成單峰。
-  trait_daily_login_probability  在資料窗口內的上線天數佔比,反映該玩家
-                                 「今天會不會出現」。可用於模擬日與日
-                                 之間的 DAU 波動。
-  trait_sessions_per_active_day  該玩家活躍日的平均 session 數,反映
-                                 「玩 5 局休 10 分鐘再玩」這種短促多次
-                                 的特徵。
+【時間與活躍度維度解析】
+為確保模擬器產生的玩家不會呈現機械式的「同時湧入」，我們設計了三個維度來刻畫玩家的生活節奏：
+  - trait_hourly_activity_vector：長度 24 的機率向量，反映該玩家一天中各小時的活躍分佈 (例如雙峰分佈代表早晚通勤玩家)。
+  - trait_daily_login_probability：在整個數據觀察期內的上線天數佔比，反映忠誠度與 DAU 貢獻機率。
+  - trait_sessions_per_active_day：活躍日當天的平均登入次數，用於區分「久坐型玩家」與「碎片時間短打型玩家」。
 
-【替換 / 校準路徑】
-等新遊戲上線後,蒐集到真實的 Lightning、CASHOUT 行為與 9 格下注分佈,
-應該執行的覆寫順序:
-  1. prior_grid_preferences_9 → observed_grid_preferences_9
-  2. prior_buy_lightning_prob → observed_buy_lightning_prob
-  3. prior_cashout_propensity → observed_cashout_propensity
-  4. prior_cashout_stop_level → observed_cashout_stop_level
-  5. prior_bet_denomination_mode / prior_chip_denomination_weights
-     目前只能由下注金額與下注分佈 proxy 推估,不是 observed。
-     因為舊注單只有每格 Bet Amount,沒有玩家實際點擊的面額組合。
-     新遊戲上線並取得 chip clickstream 後,再覆寫為
-     observed_bet_denomination_mode / observed_chip_denomination_weights。
-  6. synthetic_bonus_risk_prob → observed_bonus_risk_prob
+【後續維護與校準建議】
+當新遊戲上線後，數據團隊應透過新的埋點日誌 (Clickstream/Action Log) 取代以下推估值：
+  1. 將 prior_grid_preferences_9 替換為實際 9 格點擊分佈。
+  2. 將 prior_buy_lightning_prob 替換為實際功能購買率。
+  3. 將 prior_cashout_propensity 與 stop_level 替換為實際 CASHOUT 行為數據。
+  4. 籌碼面額 (prior_bet_denomination_mode) 目前由總下注額推算，未來應由實際點擊的籌碼組合 (Chip Clickstream) 取代。
 """
 
 import pandas as pd
@@ -96,7 +88,7 @@ NEIGHBOR_WEIGHT = 0.6
 
 # 新遊戲固定可選下注面額。
 # DNA 只描述玩家偏好;實際組合由模擬器依照此清單解析。
-BET_DENOMINATIONS = [1, 5, 10, 50, 100, 500, 1000]
+BET_DENOMINATIONS = [5, 10, 50, 100, 500, 1000, 10000]
 
 
 # 舊遊戲 EXBET 欄位偵測設定。
@@ -303,8 +295,10 @@ def aggregate_by_round(df):
 def extract_traits(round_agg):
     """萃取跨遊戲穩定的人格特徵。"""
 
-    # ---- 3.1 Stickiness:贏格黏著度 (修正版,Date 重置) ----
-    # 修正點:原版只 groupby(Account),會把昨天最後一局誤當成今天第一局的前一局。
+    # ---- 3.1 Stickiness: 贏格黏著度 (衡量玩家對特定格子的忠誠度) ----
+    # 邏輯說明：比較上一局與本局的下注格子交集比例。
+    # 為確保準確性，必須將 Account 與 Date 共同分組 (groupby)，
+    # 避免將昨天最後一局誤認為今天第一局的前一局。
     # 這裡改成 groupby(Account, Date),確保比較只發生在同一天內。
     round_agg['Prev_Bet_Places'] = round_agg.groupby(['Account', 'Date'])['Bet_Places_List'].shift(1)
     round_agg['Prev_Net_Profit'] = round_agg.groupby(['Account', 'Date'])['Net_Profit'].shift(1)
@@ -364,10 +358,10 @@ def extract_traits(round_agg):
         .size().reset_index(name='Break_Count')
     )
 
-    # ---- 3.5 單日 PnL 軌跡 → 停損停利 (修正版) ----
-    # 修正點:原版用 groupby(Account).agg(min/max),抓的是「終身最慘/最好的一天」,
-    # 容易被單一極端日主導。這裡改成先算每日 min/max,再對所有日子取「中位數」,
-    # 更接近「典型一天」的玩家心理停損點。
+    # ---- 3.5 單日 PnL 軌跡 → 停損停利點推估 ----
+    # 邏輯說明：計算玩家每天的資金水位的波峰(Max)與波谷(Min)。
+    # 我們取所有活躍日子的「中位數」作為該玩家典型的停損/停利點，
+    # 這樣能避免被單一極端輸贏的日子 (outliers) 嚴重扭曲。
     round_agg['Cumulative_PnL'] = round_agg.groupby(['Account', 'Date'])['Net_Profit'].cumsum()
     daily_extremes = round_agg.groupby(['Account', 'Date']).agg(
         Daily_Min_PnL=('Cumulative_PnL', 'min'),
@@ -382,8 +376,8 @@ def extract_traits(round_agg):
 
 
 # ====================================================================
-# Section 3.5 — 時間/頻次特徵 (v2.1)
-# (跨遊戲穩定的生活節奏訊號)
+# Section 3.5 — 時間與頻次特徵
+# (跨遊戲穩定的生活節奏訊號，用於生成非同步的擬真流量)
 # ====================================================================
 
 def extract_temporal_patterns(round_agg, total_observation_days):
@@ -625,7 +619,7 @@ def derive_prior_buy_lightning(user_agg):
 
 def derive_bet_denomination_preferences(user_agg):
     """
-    推估玩家在新遊戲固定面額 [1, 5, 10, 50, 100, 500, 1000] 下的下注面額偏好。
+    推估玩家在新遊戲固定面額 [5, 10, 50, 100, 500, 1000, 10000] 下的下注面額偏好。
 
     注意:這裡不產生每局實際籌碼組合,只輸出 DNA 層級的偏好。
     模擬器應該先根據 Avg_Bet_Amount、Martingale、Win_Retrench 等欄位產生 raw bet amount,
@@ -776,7 +770,7 @@ def derive_prior_cashout(user_agg):
 
 # ====================================================================
 # Section 7 — 合成欄位 synthetic_*
-# (純 placeholder,等真實資料覆蓋)
+# (純佔位符，因為舊遊戲沒有相關行為可供推估，待未來真實數據覆蓋)
 # ====================================================================
 
 def add_synthetic_fields(user_agg, seed=42):
@@ -918,15 +912,14 @@ def name_personas(persona_summary, threshold=0.5):
 
 def cluster_personas(user_agg, n_clusters=4, seed=42):
     """
-    用 trait_* 特徵分群,讓 Persona 即使搬到新遊戲也保有意義。
-
-    舊版用了 [avg_bet, coverage, bet_std, martingale],其中前三個全屬「下注規模」
-    類別,等於分群高度被「玩家經濟能力」主導。
-    新版改用「人格 + 節奏」特徵,Persona 更接近「玩家類型」而非「玩家階級」,
-    並透過 name_personas() 自動產生語意命名,取代無語意的 Behavior_Type_N。
-
-    註:本版不對 outlier 做特別處理。極端玩家若自成 1 人 cluster,
-        視為「這個玩家獨一無二,沒有相似者」的有效訊息,予以保留。
+    使用跨遊戲穩定的人格特徵 (trait_*) 進行 K-Means 分群，
+    確保生成的 Persona 具有行為學意義，而非單純依賴下注金額大小來分群。
+    
+    這樣分出的 Persona 更接近真實的「玩家心理與節奏類型」(如激進、保守)，
+    我們透過 name_personas() 會根據最突出的特徵自動給予語意化命名。
+    
+    注意：本演算法刻意不剔除極端值 (outliers)。若有行為極端的玩家自成一類，
+    我們將其視為真實生態中的「特異玩家」特徵，並予以保留。
     """
     print("\n🧠 正在進行 K-Means Persona 標籤化 (使用跨遊戲穩定特徵)...")
 
@@ -988,7 +981,7 @@ def cluster_personas(user_agg, n_clusters=4, seed=42):
 
 def extract_real_agents_dna(data_dir, min_rounds=30, grid_neighbor_map=None):
     """主流程:從舊遊戲資料萃取每位玩家對新遊戲的 DNA。"""
-    print("🚀 啟動跨遊戲遷移 DNA 萃取引擎 v2...\n")
+    print("🚀 啟動跨遊戲遷移 DNA 萃取引擎...\n")
 
     df = load_raw_bets(data_dir)
     if df is None:

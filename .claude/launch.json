@@ -1,0 +1,13 @@
+﻿{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "finalcheck-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "cwd": "C:/WORK/TG001_LiveMines/V14_FinalCheck"
+    }
+  ]
+}
+

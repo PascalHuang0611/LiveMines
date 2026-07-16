@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { nextTick, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
-import { DEFAULT_CONFIG, getEmptyStats } from '../utils/constants';
+import { DEFAULT_CONFIG, getEmptyStats, validateConfigFormat } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
 import { calculateBatchSettlement } from '../engine/AgentSettlementEngine';
 import { processAgentData, calculatePersonaStats } from '../engine/AgentDataLoader';
@@ -54,8 +54,6 @@ export const useGameStore = defineStore('game', {
             betAmountMultiplier: 1.0,
             maxAgentBetAmount: 100000
         },
-        trafficCurrentDay: 0,
-        trafficCurrentRoundInDay: 0,
         trafficHistory: [],
         trafficDaySummaries: [],
         trafficPersonaStats: {},
@@ -95,6 +93,7 @@ export const useGameStore = defineStore('game', {
         simulatedCount: 0,
         totalSimToRun: 0,
         progressPercent: 0,
+        batchRunId: 0, // 批次執行代號: clearData 時遞增，讓進行中的批次迴圈自行中止，避免清除後舊紀錄倒回
 
         lastResult: null,
         selectedHistoryRecord: null,
@@ -340,11 +339,13 @@ export const useGameStore = defineStore('game', {
             if (savedConfig) {
                 try {
                     const parsed = JSON.parse(savedConfig);
-                    if (parsed.mainGame && parsed.bonusGame) {
-                        this.appConfig = parsed;
-                    }
+                    validateConfigFormat(parsed); // 舊格式或格式不符會 throw
+                    this.appConfig = parsed;
                 } catch (e) {
-                    console.error("本地參數解析失敗，使用預設值", e);
+                    // 本地存的是舊格式 (或已損毀)，直接以新版預設值覆蓋並寫回
+                    console.warn("本地參數不符合新格式，已重設為預設值並儲存: " + e.message);
+                    this.appConfig = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+                    localStorage.setItem('livemines_config', JSON.stringify(DEFAULT_CONFIG));
                 }
             }
             
@@ -974,7 +975,15 @@ export const useGameStore = defineStore('game', {
 
         clearData(skipConfirm = false) {
             if (!skipConfirm && !confirm("確定要清除所有的統計資料與歷史紀錄嗎？")) return;
-            
+
+            // 中止進行中的批次: 遞增 batchRunId 讓舊的 runBatch 迴圈失效，
+            // 避免批次結束時把清除前暫存的紀錄倒回 history
+            this.batchRunId++;
+            this.isPlaying = false;
+            this.simulatedCount = 0;
+            this.totalSimToRun = 0;
+            this.progressPercent = 0;
+
             this.balance = 0;
             this.lastResult = null;
             this.selectedHistoryRecord = null;
@@ -983,8 +992,8 @@ export const useGameStore = defineStore('game', {
             this.selectedBinBatches = [];
             this.history = [];
             this.currentRound = 0;
-            this.csvDataIndex = 0; 
-            
+            this.csvDataIndex = 0;
+
             this.stats = getEmptyStats();
             this.batches = [];
             this.currentBatchStats = getEmptyStats();
@@ -995,10 +1004,14 @@ export const useGameStore = defineStore('game', {
                 g.baseLightning = 0;
                 g.purchasedLightning = 0;
             });
-            
+
+            // 清除 Agent 決策殘留，避免清除後成本顯示與格子詳情彈窗仍是舊資料
+            this.currentTotalAgentCost = 0;
+            this.currentAgentDecisions = [];
+
             this.resetAgentTrafficSimulation();
-            
-            this.updateChart(); 
+
+            this.updateChart();
         },
 
         toggleBet(id) {
@@ -1059,16 +1072,8 @@ export const useGameStore = defineStore('game', {
         saveConfig() {
             try {
                 let newConfig = JSON.parse(this.tempConfigText);
-                
-                if (!newConfig.mainGame || typeof newConfig.mainGame.numberOfBalls !== 'number') {
-                    throw new Error("缺少 mainGame 節點或參數格式錯誤");
-                }
-                if (!newConfig.lightningFeature || !newConfig.purchasedLightningFeature) {
-                    throw new Error("缺少閃電模組 (lightningFeature / purchasedLightningFeature) 節點");
-                }
-                if (!newConfig.bonusGame || !newConfig.bonusGame.levelSettings || !Array.isArray(newConfig.bonusGame.levelSettings.payouts)) {
-                    throw new Error("缺少 bonusGame 節點或 levelSettings 結構不完整");
-                }
+
+                validateConfigFormat(newConfig); // 統一驗證新格式 (規則與 C++ 模擬器一致)
 
                 this.appConfig = newConfig;
                 localStorage.setItem('livemines_config', JSON.stringify(newConfig));
@@ -1147,15 +1152,19 @@ export const useGameStore = defineStore('game', {
             this.progressPercent = 0;
             this.isPlaying = true;
             this.lastResult = null;
-            
+
+            const myRunId = ++this.batchRunId;
             const currentCost = this.totalCost;
-            const batchSize = Math.max(1, Math.min(1000, Math.floor(this.totalSimToRun / 20))); 
-            
+            const batchSize = Math.max(1, Math.min(1000, Math.floor(this.totalSimToRun / 20)));
+
             let newRecordsBuffer = [];
 
             const runBatch = () => {
+                // 批次代號已失效 (清除資料或切換模式)，丟棄 buffer 直接中止
+                if (this.batchRunId !== myRunId) return;
+
                 let runsThisBatch = 0;
-                
+
                 while (runsThisBatch < batchSize && this.simulatedCount < this.totalSimToRun) {
                     newRecordsBuffer.push(this.simulateSingleRound(currentCost, true));
                     runsThisBatch++;
@@ -1355,6 +1364,9 @@ export const useGameStore = defineStore('game', {
             // 切換模式時自動清空舊有紀錄，避免資料混雜
             this.clearData(true);
 
+            // 押注金額不屬於新模式，一併歸零 (人流模式下由 Agent 決策覆蓋、手動模式由使用者重新輸入)
+            this.grids.forEach(g => g.betAmount = 0);
+
             this.simulationMode = mode;
             this.agentTrafficEnabled = (mode === 'agentTraffic');
             
@@ -1391,8 +1403,6 @@ export const useGameStore = defineStore('game', {
         },
 
         resetAgentTrafficSimulation() {
-            this.trafficCurrentDay = 0;
-            this.trafficCurrentRoundInDay = 0;
             this.trafficHistory = [];
             this.trafficDaySummaries = [];
             this.trafficAgentStats = {};

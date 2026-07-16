@@ -1,44 +1,5 @@
 // src/engine/SimulationEngine.js
 
-export function sampleWeightedWithoutReplacement(items, weights, n) {
-    let availableItems = [...items];
-    let availableWeights = [...weights];
-    let selectedItems = [];
-
-    for (let i = 0; i < n; i++) {
-        if (availableItems.length === 0) break;
-        
-        let totalWeight = availableWeights.reduce((sum, w) => sum + w, 0);
-        if (totalWeight <= 0) {
-            const randomIndex = Math.floor(Math.random() * availableItems.length);
-            selectedItems.push(availableItems[randomIndex]);
-            availableItems.splice(randomIndex, 1);
-            availableWeights.splice(randomIndex, 1);
-            continue;
-        }
-
-        let rand = Math.random() * totalWeight;
-        let sum = 0;
-        let selectedIdx = -1;
-
-        for (let j = 0; j < availableWeights.length; j++) {
-            sum += availableWeights[j];
-            if (rand <= sum) {
-                selectedIdx = j;
-                break;
-            }
-        }
-
-        if (selectedIdx === -1) selectedIdx = availableWeights.length - 1;
-
-        selectedItems.push(availableItems[selectedIdx]);
-        availableItems.splice(selectedIdx, 1);
-        availableWeights.splice(selectedIdx, 1);
-    }
-
-    return selectedItems;
-}
-
 export function sampleWithoutReplacement(arr, n) {
     let result = [...arr];
     for (let i = result.length - 1; i > 0; i--) {
@@ -95,22 +56,25 @@ export function simulateRound(payload) {
     let newJpPool = currentJpPool + jpContribution;
 
     // --- Lightning Feature ---
+    // 免費閃電: 先抽道數，均勻隨機抽出不重複格子，逐道獨立抽倍率 (values 元素為單元素陣列，如 [1])
     let numBaseStrikes = getWeightedRandom(config.lightningFeature.strikes);
-    const baseStrikeIds = sampleWeightedWithoutReplacement(allGridIds, config.lightningFeature.gridWeights, numBaseStrikes);
-    
+    const baseStrikeIds = sampleWithoutReplacement(allGridIds, numBaseStrikes);
+
     let baseLightningHits = Array(9).fill(0);
     baseStrikeIds.forEach(id => {
-        localGrids[id - 1].baseLightning = getWeightedRandom(config.lightningFeature.payoutMultipliers);
+        localGrids[id - 1].baseLightning = getWeightedRandom(config.lightningFeature.payoutMultipliers)[0];
         baseLightningHits[id - 1]++;
     });
 
     let numPurchasedStrikes = 0;
     let purchasedLightningHits = Array(9).fill(0);
     if (buyExtraLightning) {
-        numPurchasedStrikes = getWeightedRandom(config.purchasedLightningFeature.strikes);
-        const purchasedStrikeIds = sampleWeightedWithoutReplacement(allGridIds, config.purchasedLightningFeature.gridWeights, numPurchasedStrikes);
-        purchasedStrikeIds.forEach(id => {
-            localGrids[id - 1].purchasedLightning = getWeightedRandom(config.purchasedLightningFeature.payoutMultipliers);
+        // 付費閃電: 依權重抽一組倍率組合 (如 [1,1,3])，道數 = 組合長度，依序打到均勻抽出的格子上
+        const purchasedCombo = getWeightedRandom(config.purchasedLightningFeature.payoutMultipliers);
+        numPurchasedStrikes = purchasedCombo.length;
+        const purchasedStrikeIds = sampleWithoutReplacement(allGridIds, numPurchasedStrikes);
+        purchasedStrikeIds.forEach((id, k) => {
+            localGrids[id - 1].purchasedLightning = purchasedCombo[k];
             purchasedLightningHits[id - 1]++;
         });
     }
