@@ -9,13 +9,9 @@ export const DEFAULT_CONFIG = {
         "singleAreaBasePayouts": [2.0, 5.0, 10.0]
     },
     "lightningFeature": {
-        "strikes": {
-            "values": [2, 2, 2, 2, 2, 3],
-            "weights": [18, 18, 18, 17, 17, 15]
-        },
         "payoutMultipliers": {
-            "values": [[1], [1], [1], [1], [1], [1]],
-            "weights": [1, 1, 1, 1, 1, 1]
+            "values": [[1, 1], [1, 1, 1], [1], [1], [1], [1]],
+            "weights": [56, 44, 0, 0, 0, 0]
         },
         "gridWeights": {
             "thresholds": [20, 40, 60, 80],
@@ -26,7 +22,7 @@ export const DEFAULT_CONFIG = {
     "purchasedLightningFeature": {
         "payoutMultipliers": {
             "values": [[1, 1, 3], [1, 2, 3], [1, 3, 3], [2, 2, 3], [2, 3, 3], [3, 3, 3]],
-            "weights": [86, 86, 50, 50, 85, 85]
+            "weights": [10, 76, 14, 0, 0, 0]
         },
         "gridWeights": {
             "thresholds": [20, 40, 60, 80],
@@ -35,7 +31,7 @@ export const DEFAULT_CONFIG = {
         }
     },
     "riskScore": {
-        "enabled": false,
+        "enabled": true,
         "windows": {
             "shortMinutes": 30,
             "shortMaxRounds": 500,
@@ -51,7 +47,7 @@ export const DEFAULT_CONFIG = {
         },
         "ewma": {
             "treasureLambda": 0.2,
-            "lightningLambda": 0.1
+            "lightningLambda": 0.15
         },
         "caps": {
             "bet": 2.0,
@@ -69,12 +65,12 @@ export const DEFAULT_CONFIG = {
             "dataFreshSeconds": 120
         },
         "ev": {
-            "expectedMainEV": 0.726043,
-            "bonusAEV": 7.8125,
-            "baseBallMatchingEV": 0.726043,
-            "lightningIncrementEV": 2.03,
-            "tripleHitProb": 0.003825,
-            "ballBaseline": [0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111, 0.1111]
+            "expectedMainEV": 0.930668,
+            "bonusAEV": 9.8125,
+            "baseBallMatchingEV": 0.732169,
+            "lightningIncrementEV": 2.013333,
+            "tripleHitProb": 0.004444,
+            "ballBaseline": [0.113016, 0.098095, 0.117778, 0.103492, 0.100635, 0.112381, 0.123492, 0.111429, 0.119683]
         }
     },
     "bonusGame": {
@@ -124,32 +120,21 @@ export function validateConfigFormat(cfg) {
     if (!cfg.lightningFeature || !cfg.purchasedLightningFeature) throw new Error("缺少閃電模組 (lightningFeature / purchasedLightningFeature) 節點");
     if (!cfg.bonusGame || !cfg.bonusGame.levelSettings || !Array.isArray(cfg.bonusGame.levelSettings.payouts)) throw new Error("缺少 bonusGame 節點或 levelSettings 結構不完整");
 
-    const lf = cfg.lightningFeature;
-    if (!lf.strikes || !Array.isArray(lf.strikes.values) || !Array.isArray(lf.strikes.weights)
-        || lf.strikes.values.length === 0 || lf.strikes.values.length !== lf.strikes.weights.length) {
-        throw new Error("lightningFeature.strikes 的 values/weights 缺失或數量不一致");
-    }
-    if (!lf.payoutMultipliers || !Array.isArray(lf.payoutMultipliers.values) || lf.payoutMultipliers.values.length === 0) {
-        throw new Error("lightningFeature.payoutMultipliers.values 缺失");
-    }
-    if (!lf.payoutMultipliers.values.every(v => Array.isArray(v) && v.length === 1 && typeof v[0] === 'number')) {
-        throw new Error("lightningFeature.payoutMultipliers.values 每個元素必須是恰好一個倍率的陣列 (例如 [1])，免費閃電不支援組合格式");
-    }
-    if (!Array.isArray(lf.payoutMultipliers.weights) || lf.payoutMultipliers.weights.length !== lf.payoutMultipliers.values.length) {
-        throw new Error("lightningFeature.payoutMultipliers 的 weights 數量必須與 values 一致");
-    }
-
-    const plf = cfg.purchasedLightningFeature;
-    if (plf.strikes) throw new Error("purchasedLightningFeature 為舊格式 (含 strikes 區塊)，已不支援，請改用倍率組合格式");
-    if (!plf.payoutMultipliers || !Array.isArray(plf.payoutMultipliers.values) || plf.payoutMultipliers.values.length === 0) {
-        throw new Error("purchasedLightningFeature.payoutMultipliers.values 缺失");
-    }
-    if (!plf.payoutMultipliers.values.every(v => Array.isArray(v) && v.length > 0 && v.every(x => typeof x === 'number'))) {
-        throw new Error("purchasedLightningFeature.payoutMultipliers.values 每個元素必須是倍率組合陣列 (例如 [1,1,3])");
-    }
-    if (!Array.isArray(plf.payoutMultipliers.weights) || plf.payoutMultipliers.weights.length !== plf.payoutMultipliers.values.length) {
-        throw new Error("purchasedLightningFeature.payoutMultipliers 的 weights 數量必須與 values 一致");
-    }
+    // 免費與付費閃電規則相同: 倍率組合格式，不可含舊版 strikes 區塊
+    const checkLightning = (node, name) => {
+        if (node.strikes) throw new Error(name + " 為舊格式 (含 strikes 區塊)，已不支援，請改用倍率組合格式");
+        if (!node.payoutMultipliers || !Array.isArray(node.payoutMultipliers.values) || node.payoutMultipliers.values.length === 0) {
+            throw new Error(name + ".payoutMultipliers.values 缺失");
+        }
+        if (!node.payoutMultipliers.values.every(v => Array.isArray(v) && v.length > 0 && v.every(x => typeof x === 'number'))) {
+            throw new Error(name + ".payoutMultipliers.values 每個元素必須是倍率組合陣列 (例如 [1,1,3])");
+        }
+        if (!Array.isArray(node.payoutMultipliers.weights) || node.payoutMultipliers.weights.length !== node.payoutMultipliers.values.length) {
+            throw new Error(name + ".payoutMultipliers 的 weights 數量必須與 values 一致");
+        }
+    };
+    checkLightning(cfg.lightningFeature, "lightningFeature");
+    checkLightning(cfg.purchasedLightningFeature, "purchasedLightningFeature");
 }
 
 export function getEmptyStats() {

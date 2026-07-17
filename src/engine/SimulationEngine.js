@@ -56,13 +56,14 @@ export function simulateRound(payload) {
     let newJpPool = currentJpPool + jpContribution;
 
     // --- Lightning Feature ---
-    // 免費閃電: 先抽道數，均勻隨機抽出不重複格子，逐道獨立抽倍率 (values 元素為單元素陣列，如 [1])
-    let numBaseStrikes = getWeightedRandom(config.lightningFeature.strikes);
+    // 免費閃電: 依權重抽一組倍率組合 (如 [1,1])，道數 = 組合長度，依序打到均勻抽出的格子上 (規則與付費閃電相同)
+    const baseCombo = getWeightedRandom(config.lightningFeature.payoutMultipliers);
+    let numBaseStrikes = baseCombo.length;
     const baseStrikeIds = sampleWithoutReplacement(allGridIds, numBaseStrikes);
 
     let baseLightningHits = Array(9).fill(0);
-    baseStrikeIds.forEach(id => {
-        localGrids[id - 1].baseLightning = getWeightedRandom(config.lightningFeature.payoutMultipliers)[0];
+    baseStrikeIds.forEach((id, k) => {
+        localGrids[id - 1].baseLightning = baseCombo[k];
         baseLightningHits[id - 1]++;
     });
 

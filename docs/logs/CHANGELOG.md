@@ -1,9 +1,18 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
+## [v2.39] - 2026-07-16
+### ✨ 新增與優化 (Features & Refactoring)
+- **免費閃電規則對齊付費閃電 (統一組合格式)**:
+  - SimulationEngine.js: 免費閃電改為「依權重抽一組倍率組合」(例如 [1,1] 代表打兩道各 1 倍、[1,1,1] 代表三道)，道數 = 組合長度，與付費閃電規則完全一致。lightningFeature 的 strikes 區塊已移除，含 strikes 的舊格式一律拒絕並觸發 localStorage 自動重設。
+  - constants.js: 免費與付費閃電共用同一套組合格式驗證 (checkLightning)。
+- **DEFAULT_CONFIG 同步 PM 最新數值**:
+  - 免費閃電組合 [[1,1],[1,1,1],...] 權重 [56,44,0,0,0,0]、付費閃電權重 [10,76,14,0,0,0]。
+  - riskScore: enabled=true、lightningLambda=0.15、更新整組 ev 參數 (含非均勻 ballBaseline)。
+
 ## [v2.38] - 2026-07-16
 ### ✨ 新增與優化 (Features & Refactoring)
 - **數學邏輯同步 C++ 模擬器 V14 新格式**:
-  - SimulationEngine.js: 付費閃電改為「依權重抽一組倍率組合」(例如 [1,1,3] 代表打三道閃電、倍率各為 1/1/3，每組保證含 3)，不再先抽道數再逐道抽倍率。免費閃電規則不變，但 payoutMultipliers.values 改為單元素陣列格式 (如 [1])。
+  - SimulationEngine.js: 付費閃電改為「依權重抽一組倍率組合」(例如 [1,1,3] 代表打三道閃電、倍率各為 1/1/3)，不再先抽道數再逐道抽倍率。
   - 移除 gridWeights 加權落點邏輯 (sampleWeightedWithoutReplacement)，免費/付費閃電落點一律均勻隨機。設定中的 gridWeights 已改為 SERVER 專用的新物件格式 (thresholds/weights/neutralBand)，引擎不讀取。
   - constants.js: DEFAULT_CONFIG 同步為 TG001_LM01_BASE_Config.json 現行內容 (含 SERVER 專用的 riskScore 區塊，引擎忽略)。
   - 新增 validateConfigFormat(): 與 C++ 模擬器一致的新格式驗證，舊格式 (付費閃電含 strikes 區塊、平面倍率值) 一律拒絕。
