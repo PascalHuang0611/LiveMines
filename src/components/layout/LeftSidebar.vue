@@ -10,6 +10,36 @@
                     </span>
                 </div>
 
+                <!-- 🛡️ SERVER 風控模擬 -->
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-lg" :class="$game.riskControlEnabled ? 'border-l-4 border-l-red-500' : ''">
+                    <label class="flex items-center justify-between cursor-pointer select-none">
+                        <span class="text-lg font-bold text-gray-300">🛡️ SERVER 風控模擬</span>
+                        <input type="checkbox"
+                               :checked="$game.riskControlEnabled"
+                               :disabled="!$game.riskControlConfig"
+                               @change="$game.setRiskControlEnabled($event.target.checked)"
+                               class="w-5 h-5 accent-red-500 cursor-pointer">
+                    </label>
+                    <p v-if="!$game.riskControlConfig" class="text-xs text-gray-500 mt-2">risk_control.json 載入失敗，功能不可用</p>
+                    <div v-else-if="$game.riskControlEnabled" class="mt-3 space-y-1.5 text-sm font-mono animate-fade-in">
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">當前 Zone</span>
+                            <span :class="$game.riskZoneCode === 0 ? 'text-gray-200' : ($game.riskZoneCode >= 200 ? 'text-green-400' : 'text-red-400')" class="font-bold">
+                                {{ $game.riskZoneProfile }}<span class="text-gray-500 text-xs"> ({{ $game.riskZoneCode }})</span>
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">窗口 RTP</span>
+                            <span class="text-yellow-300">{{ $game.riskWindowRtp === null ? '冷啟動' : $game.riskWindowRtp.toFixed(2) + '%' }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">Zone 切換次數</span>
+                            <span class="text-gray-200">{{ $game.riskZoneSwitches }}</span>
+                        </div>
+                    </div>
+                    <p v-else class="text-xs text-gray-500 mt-2">勾選後每局依窗口 RTP 自動切換數值表 (V2 階梯+遲滯)</p>
+                </div>
+
                 <!-- 🧬 Agent 人流模式控制區 (Milestone 1) -->
                 <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg border-l-4 border-l-blue-500 mb-6">
                     <h3 class="text-xl font-bold text-white mb-4 flex justify-between items-center">

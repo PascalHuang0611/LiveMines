@@ -1,0 +1,25 @@
+{
+  "comment": "SERVER 風控參數 (對齊 gms.xml / rtpsim sim_config)。mode: 0=強制BASE, 1=自動階梯, 101-103/201-203=強制指定 zone",
+  "mode": 1,
+  "rtp_window_rounds": 48000,
+  "zones": [
+    { "code": 101, "trigger_rtp": 101.5, "exit_rtp": 100.5, "mathconfig": "PRT1" },
+    { "code": 102, "trigger_rtp": 99.5,  "exit_rtp": 98.8,  "mathconfig": "PRT2" },
+    { "code": 103, "trigger_rtp": 98.0,  "exit_rtp": 97.0,  "mathconfig": "PRT3" },
+    { "code": 0,   "mathconfig": "BASE" },
+    { "code": 203, "trigger_rtp": 94.0,  "exit_rtp": 95.0,  "mathconfig": "BST3" },
+    { "code": 202, "trigger_rtp": 92.0,  "exit_rtp": 93.0,  "mathconfig": "BST2" },
+    { "code": 201, "trigger_rtp": 88.0,  "exit_rtp": 90.0,  "mathconfig": "BST1" }
+  ],
+  "jp_protection_v3": {
+    "enabled": true,
+    "ggr_threshold": 0,
+    "phases": [
+      { "code": "U_PRT_L1", "rtp_threshold": 110, "levels": [1.0, 1.0, 1.0, 1.0, 1.0] },
+      { "code": "U_PRT_L2", "rtp_threshold": 107, "levels": [0.0, 0.1, 0.35, 0.6, 0.8] },
+      { "code": "U_PRT_L3", "rtp_threshold": 105, "levels": [0.0, 0.05, 0.18, 0.35, 0.55] },
+      { "code": "U_PRT_L4", "rtp_threshold": 103, "levels": [0.0, 0.0, 0.05, 0.12, 0.25] }
+    ]
+  },
+  "risk_score_v4": true
+}

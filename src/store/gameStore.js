@@ -3,6 +3,7 @@ import { nextTick, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
 import { DEFAULT_CONFIG, CONFIG_PROFILE_KEYS, configProfileFileName, getEmptyStats, validateConfigFormat, formatConfigJson } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
+import { RTPWindow, V2Decider, validateRiskControlConfig } from '../engine/RiskControlEngine';
 import { calculateBatchSettlement } from '../engine/AgentSettlementEngine';
 import { processAgentData, calculatePersonaStats } from '../engine/AgentDataLoader';
 import { buildAgentRoundDecision } from '../engine/AgentDecisionEngine';
@@ -140,6 +141,15 @@ export const useGameStore = defineStore('game', {
         activeConfigProfile: 'BASE', // 目前套用中的數值表
         tempConfigProfile: 'BASE',   // Config Modal 內選擇中的數值表 (按儲存才套用)
         profileOverrides: {},        // key → 是否存在本地修改 (localStorage)
+
+        // --- SERVER 風控模擬 (V2 數值表切換 / V3 JP 強控 / V4 風險權重) ---
+        riskControlEnabled: false,   // 勾選後啟用風控
+        riskControlConfig: null,     // risk_control.json 內容 (markRaw)
+        riskRuntime: null,           // markRaw { window: RTPWindow, decider: V2Decider, currentProfileKey, cache }
+        riskZoneCode: 0,             // 當前 zone (UI 顯示)
+        riskZoneProfile: 'BASE',     // 當前 zone 對應數值表 (UI 顯示)
+        riskWindowRtp: null,         // 窗口 RTP (UI 顯示；冷啟動為 null)
+        riskZoneSwitches: 0,         // zone 切換次數 (統計)
 
         // Chart instances
         chartInstance: null,
@@ -355,7 +365,11 @@ export const useGameStore = defineStore('game', {
                 localStorage.removeItem('livemines_config');
             }
 
-            await this.fetchConfigProfiles();
+            await Promise.all([this.fetchConfigProfiles(), this.fetchRiskControlConfig()]);
+
+            // 還原風控開關 (需 risk_control.json 載入成功才可啟用)
+            this.riskControlEnabled = !!this.riskControlConfig && localStorage.getItem('livemines_riskControl') === '1';
+            this.resetRiskRuntime();
 
             // 重建各數值表的「本地修改」標記
             const overrides = {};
@@ -1004,6 +1018,9 @@ export const useGameStore = defineStore('game', {
             this.totalSimToRun = 0;
             this.progressPercent = 0;
 
+            // 風控狀態 (RTP 窗口 / zone) 一併歸零重新冷啟動
+            this.resetRiskRuntime();
+
             this.balance = 0;
             this.lastResult = null;
             this.selectedHistoryRecord = null;
@@ -1071,6 +1088,69 @@ export const useGameStore = defineStore('game', {
         openAgentInfoModal(agent) { this.selectedAgentInfo = agent; },
         closeAgentInfoModal() { this.selectedAgentInfo = null; },
         
+        // --- SERVER 風控模擬 actions ---
+        async fetchRiskControlConfig() {
+            try {
+                const resp = await fetch(`${import.meta.env.BASE_URL}configs/risk_control.json`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const cfg = await resp.json();
+                validateRiskControlConfig(cfg);
+                this.riskControlConfig = markRaw(cfg);
+                console.log(`🛡️ 已載入風控參數 (mode=${cfg.mode}, window=${cfg.rtp_window_rounds} 局, zones=${cfg.zones.length})`);
+            } catch (e) {
+                this.riskControlConfig = null;
+                console.log(`ℹ️ 無法載入風控參數 risk_control.json (${e.message})，風控模擬不可用`);
+            }
+        },
+
+        setRiskControlEnabled(enabled) {
+            this.riskControlEnabled = !!enabled && !!this.riskControlConfig;
+            localStorage.setItem('livemines_riskControl', this.riskControlEnabled ? '1' : '0');
+            this.resetRiskRuntime();
+            if (!this.riskControlEnabled) {
+                // 關閉風控 → 回到使用者自選的數值表
+                this.applyProfile(this.activeConfigProfile);
+            }
+        },
+
+        resetRiskRuntime() {
+            this.riskZoneCode = 0;
+            this.riskZoneProfile = 'BASE';
+            this.riskWindowRtp = null;
+            this.riskZoneSwitches = 0;
+            if (!this.riskControlEnabled || !this.riskControlConfig) {
+                this.riskRuntime = null;
+                return;
+            }
+            const cfg = this.riskControlConfig;
+            this.riskRuntime = markRaw({
+                window: new RTPWindow(cfg.rtp_window_rounds || 48000),
+                decider: new V2Decider(cfg.zones, cfg.mode ?? 1),
+                currentProfileKey: null,
+                cache: {} // profileKey → 解析後的 math config (避免每局深拷貝)
+            });
+        },
+
+        // 每局開始：V2 決策本局數值表；zone 換表時切換 this.appConfig
+        decideRiskRound() {
+            const rt = this.riskRuntime;
+            if (!rt) return;
+            const { rtp, valid } = rt.window.currentRTP();
+            const d = rt.decider.decide(rtp, valid);
+            this.riskZoneCode = d.zoneCode;
+            this.riskZoneProfile = d.profileKey;
+            this.riskWindowRtp = valid ? rtp : null;
+            this.riskZoneSwitches = rt.decider.zoneSwitches;
+
+            if (rt.currentProfileKey !== d.profileKey) {
+                if (!rt.cache[d.profileKey]) {
+                    rt.cache[d.profileKey] = this.resolveProfileConfig(d.profileKey).config;
+                }
+                this.appConfig = rt.cache[d.profileKey];
+                rt.currentProfileKey = d.profileKey;
+            }
+        },
+
         // 從 public/configs/ 載入七份 PM 數值表 (唯一事實來源)；file:// 等 fetch 失敗時 BASE 退回內建 DEFAULT_CONFIG
         async fetchConfigProfiles() {
             const results = await Promise.all(CONFIG_PROFILE_KEYS.map(async key => {
@@ -1303,6 +1383,11 @@ export const useGameStore = defineStore('game', {
         },
 
         simulateSingleRound(currentCost, isBatch = false) {
+            // 風控模擬：每局開始前先由 V2 決定本局數值表 (在 Agent 決策之前，成本參數才會跟著換)
+            if (this.riskControlEnabled) {
+                this.decideRiskRound();
+            }
+
             // 如果剛好換日，重新產生 Day Plan
             if (this.simulationMode === 'agentTraffic' && this.currentRound > 0) {
                 const rpd = this.trafficScenario.roundsPerDay || 1200;
@@ -1401,6 +1486,11 @@ export const useGameStore = defineStore('game', {
                     bonusLevelStats: settlement.bonusLevelStats,
                     gridStats: settlement.gridStats
                 };
+            }
+
+            // 風控：局尾把本局 (投注, 派彩) 推入 RTP 滑動窗口 (payout 口徑 = 主遊戲+二級，不含 JP，對齊 LM01 統計)
+            if (this.riskControlEnabled && this.riskRuntime) {
+                this.riskRuntime.window.push(result.cost, result.totalWin - (result.jpWin || 0));
             }
 
             // 準備更新批次數據
