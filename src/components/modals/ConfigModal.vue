@@ -16,6 +16,9 @@
                             <option v-for="key in $game.availableConfigProfiles" :key="key" :value="key">
                                 {{ key }}{{ $game.profileOverrides[key] ? ' ✏️已修改' : '' }}{{ $game.activeConfigProfile === key ? '（使用中）' : '' }}
                             </option>
+                            <option v-if="$game.riskControlConfig" value="RISKCTL">
+                                風控參數{{ $game.profileOverrides['RISKCTL'] ? ' ✏️已修改' : '' }}
+                            </option>
                         </select>
                         <span v-if="$game.profileOverrides[$game.tempConfigProfile]" class="text-xs text-orange-400">此表有本地修改，「恢復預設」可還原為檔案內容</span>
                         <span v-else class="text-xs text-gray-500">目前為檔案預設值 (public/configs/)</span>

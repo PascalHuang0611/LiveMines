@@ -38,7 +38,8 @@ export function simulateRound(payload) {
         bonusPositions,
         forcedDrops, // [pos1, pos2, pos3] or null
         currentJpPool,
-        simulationMode
+        simulationMode,
+        riskV3 = null // { v3: V3Controller, windowBet, windowPayout } 手動模式 JP 強控用；人流模式由結算引擎處理
     } = payload;
 
     const allGridIds = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -116,81 +117,23 @@ export function simulateRound(payload) {
     let gridHits = Array(9).fill(0);
     let bonusSafeHits = Array(4).fill(0);
 
+    // 第一遍: 主遊戲派彩 (base + lightning)。先於 Bonus 計算對齊伺服器順序，
+    // V3 強控需要以「本局主遊戲派彩」預估派彩後 RTP
     localGrids.forEach(g => {
         gridHits[g.id - 1] += g.balls;
-        
+
         if (g.balls === 3) hasThreeSame = true;
         if (g.balls === 2) hasTwoSame = true;
-
-        // Bonus Game Logic
-        if (g.betAmount > 0 && g.balls === 3) {
-            bonusTriggered = true;
-            bonusLevelHistory = [];
-            
-            let currentLevel = 0;
-            let targetLevel = bonusTargetLevel === 'all' ? config.bonusGame.endLevel : bonusTargetLevel;
-            let alive = true;
-
-            for (let lvl = 0; lvl < targetLevel; lvl++) {
-                let totalChoices = config.bonusGame.levelSettings.totalChoices[lvl];
-                let winChoices = config.bonusGame.levelSettings.winChoices[lvl];
-                let userPick = bonusPositions[lvl]; 
-                
-                let allPositions = Array.from({length: totalChoices}, (_, i) => i + 1);
-                let winningSpots = sampleWithoutReplacement(allPositions, winChoices);
-                
-                winningSpots.forEach(spot => {
-                    if (spot - 1 < bonusSafeHits.length) {
-                        bonusSafeHits[spot - 1]++;
-                    }
-                });
-
-                let passed = winningSpots.includes(userPick);
-                
-                bonusLevelHistory.push({
-                    level: lvl + 1,
-                    pick: userPick,
-                    safe: winningSpots.sort((a, b) => a - b),
-                    passed: passed
-                });
-                
-                if (simulationMode === 'agentTraffic' || passed) {
-                    currentLevel++;
-                } else {
-                    alive = false; 
-                    break;
-                }
-            }
-
-            if (alive) {
-                bonusSuccess = true;
-                let payoutMult = config.bonusGame.levelSettings.payouts[targetLevel - 1];
-                bonusWin = g.betAmount * payoutMult; // 用觸發格的押注金額
-                bonusResultText = `成功通關第 ${targetLevel} 層！獲得 ${payoutMult} 倍`;
-                
-                if (targetLevel === config.bonusGame.endLevel) {
-                    jpWin = newJpPool; 
-                    newJpPool = 0;     
-                }
-            } else {
-                bonusSuccess = false;
-                bonusWin = 0;
-                bonusResultText = `在第 ${currentLevel + 1} 層觸雷失敗，獎金歸零`;
-            }
-
-            roundBonusWin += bonusWin;
-            totalWin += (bonusWin + jpWin);
-        }
 
         // Base Game Payouts
         if (g.betAmount > 0 && g.balls > 0) {
             let payoutIndex = Math.min(g.balls - 1, config.mainGame.singleAreaBasePayouts.length - 1);
             let payout = config.mainGame.singleAreaBasePayouts[payoutIndex];
-            
+
             let baseWinPart = g.betAmount * payout;
             let lightningWinPart = baseWinPart * (g.baseLightning + g.purchasedLightning);
             let cellTotalWin = baseWinPart + lightningWinPart;
-            
+
             roundBaseWin += baseWinPart;
             roundLightningWin += lightningWinPart;
             totalWin += cellTotalWin;
@@ -205,6 +148,83 @@ export function simulateRound(payload) {
                 win: cellTotalWin
             });
         }
+    });
+
+    // 第二遍: Bonus Game (同格 3 球且有押注)
+    localGrids.forEach(g => {
+        if (!(g.betAmount > 0 && g.balls === 3)) return;
+
+        bonusTriggered = true;
+        bonusLevelHistory = [];
+
+        let currentLevel = 0;
+        let targetLevel = bonusTargetLevel === 'all' ? config.bonusGame.endLevel : bonusTargetLevel;
+        let alive = true;
+
+        for (let lvl = 0; lvl < targetLevel; lvl++) {
+            let totalChoices = config.bonusGame.levelSettings.totalChoices[lvl];
+            let winChoices = config.bonusGame.levelSettings.winChoices[lvl];
+            let userPick = bonusPositions[lvl];
+
+            let allPositions = Array.from({length: totalChoices}, (_, i) => i + 1);
+            let winningSpots = sampleWithoutReplacement(allPositions, winChoices);
+
+            // V3 JP 開獎強控 (僅手動/單機模式；人流模式由 AgentSettlementEngine 的共用開獎處理)
+            let intervened = false;
+            if (riskV3 && riskV3.v3 && simulationMode !== 'agentTraffic'
+                && totalChoices === 4 && winningSpots.length === 2) {
+                const optionBets = [0, 0, 0, 0, 0];
+                optionBets[userPick] = g.betAmount;
+                const payoutMult = config.bonusGame.levelSettings.payouts[lvl] || 0;
+                const res = riskV3.v3.maybeIntervene(lvl, [winningSpots[0], winningSpots[1]], optionBets,
+                    payoutMult, riskV3.windowBet, riskV3.windowPayout,
+                    currentCost, roundBaseWin + roundLightningWin, 0);
+                winningSpots = res.survivors;
+                intervened = res.intervened;
+            }
+
+            winningSpots.forEach(spot => {
+                if (spot - 1 < bonusSafeHits.length) {
+                    bonusSafeHits[spot - 1]++;
+                }
+            });
+
+            let passed = winningSpots.includes(userPick);
+
+            bonusLevelHistory.push({
+                level: lvl + 1,
+                pick: userPick,
+                safe: [...winningSpots].sort((a, b) => a - b),
+                passed: passed,
+                intervened: intervened
+            });
+
+            if (simulationMode === 'agentTraffic' || passed) {
+                currentLevel++;
+            } else {
+                alive = false;
+                break;
+            }
+        }
+
+        if (alive) {
+            bonusSuccess = true;
+            let payoutMult = config.bonusGame.levelSettings.payouts[targetLevel - 1];
+            bonusWin = g.betAmount * payoutMult; // 用觸發格的押注金額
+            bonusResultText = `成功通關第 ${targetLevel} 層！獲得 ${payoutMult} 倍`;
+
+            if (targetLevel === config.bonusGame.endLevel) {
+                jpWin = newJpPool;
+                newJpPool = 0;
+            }
+        } else {
+            bonusSuccess = false;
+            bonusWin = 0;
+            bonusResultText = `在第 ${currentLevel + 1} 層觸雷失敗，獎金歸零`;
+        }
+
+        roundBonusWin += bonusWin;
+        totalWin += (bonusWin + jpWin);
     });
 
     let patternResult = 'allDifferent';

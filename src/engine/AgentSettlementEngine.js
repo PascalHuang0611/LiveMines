@@ -1,9 +1,107 @@
 /**
  * AgentSettlementEngine.js
  * 負責處理 Milestone 7 & 8 中，AI Agent 依據公共開獎結果 (Public Result) 進行獨立結算的邏輯。
+ * Bonus 一律採伺服器的「共用逐關開獎」流程 (playSharedBonus)：
+ * 逐關收集全場押注 → 原生 4選2 → (風控啟用時) V3 強控介入 → 判定生死與 Cashout。
  */
 
-export function calculateBatchSettlement(publicResult, agentDecisions, config) {
+/**
+ * 共用二級玩法：逐關互動開獎 (V3 為可選介入，v3=null 時即純隨機開獎)
+ * @param {Array} entrants [{agentId, bet, plannedLevel}] 押中觸發格的 Agent
+ * @param {Object} config math config
+ * @param {Object} riskV3Ctx { v3: V3Controller|null, windowBet, windowPayout }
+ * @param {number} roundBet 本局全場總投注 (含閃電稅)
+ * @param {number} roundMainPayout 本局主遊戲派彩 (base + lightning，僅 V3 預估 RTP 用)
+ * @returns {{ perAgent: Map, levelHistory: Array, bonusLevelStats: Array, bonusSafeHits: Array }}
+ */
+function playSharedBonusV3(entrants, config, riskV3Ctx, roundBet, roundMainPayout) {
+    const endLevel = config.bonusGame.endLevel;
+    const payouts = config.bonusGame.levelSettings.payouts;
+    const totalChoices = config.bonusGame.levelSettings.totalChoices;
+    const winChoices = config.bonusGame.levelSettings.winChoices;
+    const v3 = riskV3Ctx.v3;
+
+    // 每人狀態
+    const states = entrants.map(e => ({ ...e, alive: true, pick: 0 }));
+    const perAgent = new Map(); // agentId → { bonusWin, isBonus, isGrand }
+    entrants.forEach(e => perAgent.set(e.agentId, { bonusWin: 0, isBonus: false, isGrand: false }));
+
+    const levelHistory = [];
+    const bonusLevelStats = [];
+    const bonusSafeHits = [0, 0, 0, 0];
+    let bonusPaidSoFar = 0;
+
+    for (let level = 0; level < endLevel; level++) {
+        const nTotal = totalChoices[level];
+        const nWin = winChoices[level];
+        if (nTotal <= 0 || nWin <= 0) break;
+
+        // 1. 存活者先選格，聚合各選項押注
+        const optionBets = [0, 0, 0, 0, 0];
+        const stat = { level: level + 1, cashedOutCount: 0, crashedCount: 0, continuedCount: 0, totalArrived: 0 };
+        states.forEach(st => {
+            if (!st.alive) return;
+            st.pick = Math.floor(Math.random() * nTotal) + 1;
+            optionBets[st.pick] += st.bet;
+            stat.totalArrived++;
+        });
+
+        // 2. 原生 4選2 (洗牌取前 nWin)
+        const opts = Array.from({ length: nTotal }, (_, i) => i + 1);
+        for (let i = opts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [opts[i], opts[j]] = [opts[j], opts[i]];
+        }
+        let survivors = opts.slice(0, nWin);
+
+        // 3. V3 強控檢查 (本關派彩倍數 = payouts[level])
+        let intervened = false, phaseCode = null;
+        if (v3 && stat.totalArrived > 0) {
+            const res = v3.maybeIntervene(level, [survivors[0], survivors[1]], optionBets,
+                payouts[level] || 0, riskV3Ctx.windowBet, riskV3Ctx.windowPayout,
+                roundBet, roundMainPayout, bonusPaidSoFar);
+            survivors = res.survivors;
+            intervened = res.intervened;
+            phaseCode = res.phaseCode;
+        }
+
+        const safeSorted = [...survivors].sort((a, b) => a - b);
+        safeSorted.forEach(spot => { if (spot - 1 < bonusSafeHits.length) bonusSafeHits[spot - 1]++; });
+        levelHistory.push({ level: level + 1, pick: null, safe: safeSorted, passed: true, intervened, phaseCode });
+
+        // 4. 各玩家判定 + 依 DNA 計畫 cashout
+        states.forEach(st => {
+            if (!st.alive) return;
+            const hit = survivors.includes(st.pick);
+            if (!hit) {
+                st.alive = false;
+                stat.crashedCount++;
+                return;
+            }
+            const passLevel = level + 1;
+            if (passLevel === st.plannedLevel || passLevel === endLevel) {
+                // 抵達目標層 (或最終關) → 領獎離場
+                const win = st.bet * payouts[passLevel - 1];
+                const rec = perAgent.get(st.agentId);
+                rec.bonusWin = win;
+                rec.isBonus = true;
+                rec.isGrand = passLevel === endLevel;
+                bonusPaidSoFar += win;
+                st.alive = false;
+                stat.cashedOutCount++;
+            } else {
+                stat.continuedCount++;
+            }
+        });
+
+        bonusLevelStats.push(stat);
+        // 全滅後迴圈仍走完剩餘層數：世界線照開安全號碼 (UI 顯示 5 層)，但已無人可判定
+    }
+
+    return { perAgent, levelHistory, bonusLevelStats, bonusSafeHits };
+}
+
+export function calculateBatchSettlement(publicResult, agentDecisions, config, riskV3Ctx = null) {
     if (!publicResult || !agentDecisions || agentDecisions.length === 0) {
         return {
             totalWin: 0, baseWin: 0, lightningWin: 0, bonusWin: 0, jpWin: 0, newJpPool: publicResult?.newJpPool || 0, agentDetails: []
@@ -23,20 +121,41 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
     let l5Winners = []; // 存 { agentId, betAmount }
     let bonusEntrantsCount = 0;
     let totalBonusEntrantsBet = 0; // 進入 Bonus 關卡的所有人的總押注額
-    
-    // 初始化 bonusLevelStats
-    let bonusLevelStats = [];
-    if (publicResult.bonusTriggered && publicResult.bonusLevelHistory) {
-        publicResult.bonusLevelHistory.forEach(lvl => {
-            bonusLevelStats.push({
-                level: lvl.level,
-                cashedOutCount: 0,
-                crashedCount: 0,
-                continuedCount: 0,
-                totalArrived: 0
+
+    // Bonus 一律走「共用逐關開獎」(對齊伺服器 playSharedBonus)；V3 未啟用時 v3=null 即純隨機開獎
+    let sharedBonus = null;
+    if (publicResult.bonusTriggered && triggerGridId) {
+        const ctx = riskV3Ctx || { v3: null, windowBet: 0, windowPayout: 0 };
+        const entrants = [];
+        let preMainPayout = 0;
+        const endLevel = config.bonusGame.endLevel;
+        agentDecisions.forEach(decision => {
+            Object.entries(decision.legalBetMap || {}).forEach(([gridIdStr, betAmount]) => {
+                const gridId = parseInt(gridIdStr);
+                // 主遊戲派彩預掃描僅 V3 預估 RTP 需要
+                if (ctx.v3) {
+                    const gridResult = publicResult.details.find(d => d.grid === gridId);
+                    if (gridResult && gridResult.balls > 0) {
+                        const base = betAmount * gridResult.basePayout;
+                        let lMult = gridResult.baseL;
+                        if (decision.buyLightning) lMult += gridResult.purchasedL;
+                        preMainPayout += base + base * lMult;
+                    }
+                }
+                if (gridId === triggerGridId) {
+                    let planned = decision.plannedCashoutLevel || endLevel;
+                    planned = Math.max(1, Math.min(endLevel, planned));
+                    entrants.push({ agentId: decision.agentId, bet: betAmount, plannedLevel: planned });
+                }
             });
         });
+        if (entrants.length > 0) {
+            sharedBonus = playSharedBonusV3(entrants, config, ctx, publicResult.cost || 0, preMainPayout);
+        }
     }
+
+    // bonusLevelStats 由共用開獎產生
+    let bonusLevelStats = sharedBonus ? sharedBonus.bonusLevelStats : [];
     
     // 初始化 gridStats
     let gridStats = Array.from({length: 9}, (_, i) => ({
@@ -69,11 +188,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
             let winLightning = 0;
             let winBonus = 0;
             let isBonus = false;
-            // 目標層數不可超過世界線實際走過的層數，否則會發生「沒玩到的層數也照付獎金」
+            // 顯示用的預計收手層 (實際判定在共用開獎 playSharedBonusV3 內完成)
             let cashoutLevel = decision.plannedCashoutLevel || config.bonusGame.endLevel;
-            if (publicResult.bonusLevelHistory) {
-                cashoutLevel = Math.min(cashoutLevel, publicResult.bonusLevelHistory.length);
-            }
+            cashoutLevel = Math.max(1, Math.min(config.bonusGame.endLevel, cashoutLevel));
 
             if (gridResult && gridResult.balls > 0) {
                 // Base Win 計算
@@ -93,48 +210,17 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                 if (publicResult.bonusTriggered && gridId === triggerGridId) {
                     bonusEntrantsCount++; // 紀錄有參與 Bonus 的人數
                     totalBonusEntrantsBet += betAmount; // 累加參與者的押注額，作為 JP 分發的分母
-                    
-                    // 追蹤該 Agent 的 Bonus 歷程 (World Line)
-                    let survived = true;
-                    for (let i = 0; i < cashoutLevel; i++) {
-                        // 確保該層有歷史紀錄 (World Line 尚未中斷)
-                        if (i >= bonusLevelStats.length) break;
-                        
-                        let lvl = publicResult.bonusLevelHistory[i];
-                        bonusLevelStats[i].totalArrived++;
-                        
-                        // Agent 隨機抽一個號碼
-                        let totalChoicesForLevel = config.bonusGame.levelSettings.totalChoices[i];
-                        let agentPick = Math.floor(Math.random() * totalChoicesForLevel) + 1;
-                        let agentPassed = lvl.safe.includes(agentPick);
 
-                        if (!agentPassed) {
-                            // 踩到地雷，此人陣亡
-                            survived = false;
-                            bonusLevelStats[i].crashedCount++;
-                            break;
-                        } else {
-                            // 過關
-                            if (i + 1 === cashoutLevel) {
-                                // 抵達目標層並 Cashout
-                                bonusLevelStats[i].cashedOutCount++;
-                                break;
-                            } else {
-                                // 繼續前往下一層
-                                bonusLevelStats[i].continuedCount++;
+                    // 共用逐關開獎已判定，直接取結果
+                    if (sharedBonus) {
+                        const rec = sharedBonus.perAgent.get(decision.agentId);
+                        if (rec && rec.isBonus) {
+                            winBonus = rec.bonusWin;
+                            agentBonusWin += winBonus;
+                            isBonus = true;
+                            if (rec.isGrand) {
+                                l5Winners.push({ agentId: decision.agentId, betAmount: betAmount });
                             }
-                        }
-                    }
-
-                    if (survived && cashoutLevel > 0) {
-                        let bonusPayoutMult = config.bonusGame.levelSettings.payouts[cashoutLevel - 1];
-                        winBonus = betAmount * bonusPayoutMult;
-                        agentBonusWin += winBonus;
-                        isBonus = true;
-
-                        // 如果通關 L5，則擁有分配 JP 的資格
-                        if (cashoutLevel === config.bonusGame.endLevel) {
-                            l5Winners.push({ agentId: decision.agentId, betAmount: betAmount });
                         }
                     }
                 }
@@ -236,6 +322,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
         newJpPool: finalNewJpPool,
         agentDetails,
         bonusLevelStats,
-        gridStats
+        gridStats,
+        // 共用開獎產生的權威世界線 (含 V3 intervened 標記) 與安全號碼統計，覆蓋 publicResult 的暫定版本
+        bonusLevelHistory: sharedBonus ? sharedBonus.levelHistory : publicResult.bonusLevelHistory,
+        bonusSafeHits: sharedBonus ? sharedBonus.bonusSafeHits : publicResult.bonusSafeHits
     };
 }

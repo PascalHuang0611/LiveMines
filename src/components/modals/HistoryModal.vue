@@ -79,6 +79,7 @@
                                             <span class="text-gray-200">第{{ lvl.level }}層</span>
                                             <span class="text-gray-200">選[{{ lvl.pick }}]</span>
                                             <span class="text-gray-300">安全:{{ lvl.safe.join(',') }}</span>
+                                            <span v-if="lvl.intervened" class="text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded" title="V3 JP 強控介入：通關格被強改為押注最低 2 選項">🛡️ V3</span>
                                             <span :class="lvl.passed ? 'text-green-300' : 'text-red-400'">{{ lvl.passed ? '✔ 過關' : '✖ 觸雷' }}</span>
                                         </div>
                                     </div>
@@ -116,7 +117,10 @@
                                         <div v-for="stat in $game.selectedHistoryRecord.bonusLevelStats" :key="stat.level" class="flex flex-col bg-black/30 p-2 rounded border-l-2 border-purple-500">
                                             <div class="flex justify-between items-center mb-1">
                                                 <span class="text-gray-200 font-bold">第 {{ stat.level }} 層 <span class="text-yellow-400 ml-1 text-[11px]">({{ $game.appConfig.bonusGame.levelSettings.payouts[stat.level - 1] }}倍)</span> <span class="text-gray-400 font-normal ml-1">(抵達: {{ stat.totalArrived }} 人)</span></span>
-                                                <span class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">安全: {{ $game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].safe.join(',') }}</span>
+                                                <span class="flex items-center gap-1">
+                                                    <span v-if="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].intervened" class="text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded" title="V3 JP 強控介入：通關格被強改為押注最低 2 選項">🛡️ V3</span>
+                                                    <span class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">安全: {{ $game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].safe.join(',') }}</span>
+                                                </span>
                                             </div>
                                             <div class="flex justify-end items-center text-[10px]">
                                                 <div class="flex gap-2">

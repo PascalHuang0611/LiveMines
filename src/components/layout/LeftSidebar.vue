@@ -36,6 +36,14 @@
                             <span class="text-gray-400">Zone 切換次數</span>
                             <span class="text-gray-200">{{ $game.riskZoneSwitches }}</span>
                         </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">V3 介入/檢查</span>
+                            <span :class="$game.riskV3Interventions > 0 ? 'text-red-400 font-bold' : 'text-gray-200'">{{ $game.riskV3Interventions }} / {{ $game.riskV3Checks }}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-400">V3 省下派彩</span>
+                            <span class="text-gray-200">{{ $game.riskV3Saved.toFixed(2) }}</span>
+                        </div>
                     </div>
                     <p v-else class="text-xs text-gray-500 mt-2">勾選後每局依窗口 RTP 自動切換數值表 (V2 階梯+遲滯)</p>
                 </div>

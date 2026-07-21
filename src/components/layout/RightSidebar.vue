@@ -44,6 +44,7 @@
                     <button @click="$game.historyFilter = 'bonus'" :class="$game.historyFilter === 'bonus' ? 'bg-yellow-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition">有 BONUS</button>
                     <button v-if="$game.simulationMode === 'manual'" @click="$game.historyFilter = 'bonus_pass'" :class="$game.historyFilter === 'bonus_pass' ? 'bg-purple-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700'" class="px-3 py-1.5 rounded text-xs font-bold transition">BONUS 且通關</button>
                     <button @click="$game.historyFilter = 'jp'" :class="[$game.historyFilter === 'jp' ? 'bg-pink-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700', { 'col-span-2': $game.simulationMode === 'manual' }]" class="px-3 py-1.5 rounded text-xs font-bold transition">有 JP</button>
+                    <button @click="$game.historyFilter = 'v3'" :class="[$game.historyFilter === 'v3' ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-400 hover:bg-gray-700', $game.simulationMode === 'manual' ? 'col-span-3' : 'col-span-2']" class="px-3 py-1.5 rounded text-xs font-bold transition">🛡️ V3 介入</button>
                 </div>
                 <!-- 新增局數範圍篩選 -->
                 <div class="flex gap-2 items-center mt-1 border-t border-gray-700 pt-2">
@@ -74,6 +75,7 @@
                     <div class="flex justify-between items-center mb-1">
                         <span class="text-gray-300 font-bold">#{{ record.round }}</span>
                         <div class="flex space-x-2">
+                            <span v-if="record.bonusLevelHistory && record.bonusLevelHistory.some(l => l.intervened)" class="text-[10px] bg-red-600 text-white px-2 py-0.5 rounded shadow-[0_0_8px_rgba(220,38,38,0.6)]" title="V3 JP 強控曾介入此局開獎">🛡️ V3</span>
                             <span v-if="record.jpWin > 0" class="text-[10px] bg-pink-600 text-white px-2 py-0.5 rounded shadow-[0_0_8px_rgba(219,39,119,0.6)]">💎 JP WIN</span>
                             <span v-else-if="record.bonusTriggered && record.bonusSuccess" class="text-[10px] bg-yellow-600 text-white px-2 py-0.5 rounded shadow-[0_0_8px_rgba(202,138,4,0.6)]">BONUS WIN</span>
                             <span v-if="record.bonusTriggered && !record.bonusSuccess" class="text-[10px] bg-red-800 text-white px-2 py-0.5 rounded border border-red-600">BONUS FAIL</span>
