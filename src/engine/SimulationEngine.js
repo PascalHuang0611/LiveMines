@@ -1,5 +1,8 @@
 // src/engine/SimulationEngine.js
 
+import { sampleWeightedWithoutReplacement } from './AgentDecisionEngine.js';
+import { emptyV4Entry } from './RiskScoreEngine.js';
+
 export function sampleWithoutReplacement(arr, n) {
     let result = [...arr];
     for (let i = result.length - 1; i > 0; i--) {
@@ -39,7 +42,8 @@ export function simulateRound(payload) {
         forcedDrops, // [pos1, pos2, pos3] or null
         currentJpPool,
         simulationMode,
-        riskV3 = null // { v3: V3Controller, windowBet, windowPayout } 手動模式 JP 強控用；人流模式由結算引擎處理
+        riskV3 = null, // { v3: V3Controller, windowBet, windowPayout } 手動模式 JP 強控用；人流模式由結算引擎處理
+        gridWeights = null // { free: [9], paid: [9] } V4 位置權重 (上一局重算結果)；null = 均勻
     } = payload;
 
     const allGridIds = [1, 2, 3, 4, 5, 6, 7, 8, 9];
@@ -57,10 +61,27 @@ export function simulateRound(payload) {
     let newJpPool = currentJpPool + jpContribution;
 
     // --- Lightning Feature ---
-    // 免費閃電: 依權重抽一組倍率組合 (如 [1,1])，道數 = 組合長度，依序打到均勻抽出的格子上 (規則與付費閃電相同)
-    const baseCombo = getWeightedRandom(config.lightningFeature.payoutMultipliers);
+    // 落點抽格: V4 權重存在時依權重不放回抽格，否則均勻隨機
+    const drawStrikeIds = (n, weights) => {
+        if (weights && weights.length === 9) {
+            return sampleWeightedWithoutReplacement(allGridIds, weights, n);
+        }
+        return sampleWithoutReplacement(allGridIds, n);
+    };
+    // 倍率組合先洗牌再 1:1 綁定落點 (對齊 rtpsim)：避免組合順序與權重高低產生相關性
+    const shuffledCombo = (combo) => {
+        const c = [...combo];
+        for (let i = c.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [c[i], c[j]] = [c[j], c[i]];
+        }
+        return c;
+    };
+
+    // 免費閃電: 依權重抽一組倍率組合 (如 [1,1])，道數 = 組合長度 (規則與付費閃電相同)
+    const baseCombo = shuffledCombo(getWeightedRandom(config.lightningFeature.payoutMultipliers));
     let numBaseStrikes = baseCombo.length;
-    const baseStrikeIds = sampleWithoutReplacement(allGridIds, numBaseStrikes);
+    const baseStrikeIds = drawStrikeIds(numBaseStrikes, gridWeights ? gridWeights.free : null);
 
     let baseLightningHits = Array(9).fill(0);
     baseStrikeIds.forEach((id, k) => {
@@ -71,10 +92,10 @@ export function simulateRound(payload) {
     let numPurchasedStrikes = 0;
     let purchasedLightningHits = Array(9).fill(0);
     if (buyExtraLightning) {
-        // 付費閃電: 依權重抽一組倍率組合 (如 [1,1,3])，道數 = 組合長度，依序打到均勻抽出的格子上
-        const purchasedCombo = getWeightedRandom(config.purchasedLightningFeature.payoutMultipliers);
+        // 付費閃電: 依權重抽一組倍率組合 (如 [1,1,3])，道數 = 組合長度
+        const purchasedCombo = shuffledCombo(getWeightedRandom(config.purchasedLightningFeature.payoutMultipliers));
         numPurchasedStrikes = purchasedCombo.length;
-        const purchasedStrikeIds = sampleWithoutReplacement(allGridIds, numPurchasedStrikes);
+        const purchasedStrikeIds = drawStrikeIds(numPurchasedStrikes, gridWeights ? gridWeights.paid : null);
         purchasedStrikeIds.forEach((id, k) => {
             localGrids[id - 1].purchasedLightning = purchasedCombo[k];
             purchasedLightningHits[id - 1]++;
@@ -117,6 +138,11 @@ export function simulateRound(payload) {
     let gridHits = Array(9).fill(0);
     let bonusSafeHits = Array(4).fill(0);
 
+    // V4 記帳條目 (手動/單機模式口徑: 整桌 = 單一玩家；人流模式由結算引擎以真實買家口徑重建)
+    const v4Entry = emptyV4Entry();
+    v4Entry.totalBet = currentCost;
+    v4Entry.extraPlayers = buyExtraLightning ? 1 : 0;
+
     // 第一遍: 主遊戲派彩 (base + lightning)。先於 Bonus 計算對齊伺服器順序，
     // V3 強控需要以「本局主遊戲派彩」預估派彩後 RTP
     localGrids.forEach(g => {
@@ -124,6 +150,11 @@ export function simulateRound(payload) {
 
         if (g.balls === 3) hasThreeSame = true;
         if (g.balls === 2) hasTwoSame = true;
+
+        if (g.betAmount > 0) {
+            v4Entry.mainBet[g.id - 1] += g.betAmount;
+            if (buyExtraLightning) v4Entry.extraMainBet[g.id - 1] += g.betAmount;
+        }
 
         // Base Game Payouts
         if (g.betAmount > 0 && g.balls > 0) {
@@ -137,6 +168,16 @@ export function simulateRound(payload) {
             roundBaseWin += baseWinPart;
             roundLightningWin += lightningWinPart;
             totalWin += cellTotalWin;
+
+            // V4 口徑: mainPayout = 基礎 + 免費閃電增量；extraInc = 付費閃電增量；
+            // stack = 免費+付費同格疊加時的付費增量
+            const freeInc = baseWinPart * g.baseLightning;
+            const paidInc = baseWinPart * g.purchasedLightning;
+            v4Entry.mainPayout[g.id - 1] += baseWinPart + freeInc;
+            v4Entry.extraIncPayout[g.id - 1] += paidInc;
+            if (g.baseLightning > 0 && g.purchasedLightning > 0) {
+                v4Entry.stackPayout[g.id - 1] += paidInc;
+            }
 
             details.push({
                 grid: g.id,
@@ -253,6 +294,9 @@ export function simulateRound(payload) {
         
         finalGridsState: localGrids,
         
+        // V4 風險分數記帳 (手動模式口徑；人流模式請改用結算引擎回傳的 v4Entry)
+        v4Entry: v4Entry,
+
         // 供 accumulateStats 使用的內部數據
         gridHits: gridHits,
         baseLightningHits: baseLightningHits,

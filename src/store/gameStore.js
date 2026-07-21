@@ -4,6 +4,7 @@ import { Chart, registerables } from 'chart.js';
 import { DEFAULT_CONFIG, CONFIG_PROFILE_KEYS, configProfileFileName, getEmptyStats, validateConfigFormat, formatConfigJson } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
 import { RTPWindow, V2Decider, createV3Controller, validateRiskControlConfig } from '../engine/RiskControlEngine';
+import { RiskScoreState, neutralWeightOf } from '../engine/RiskScoreEngine';
 import { calculateBatchSettlement } from '../engine/AgentSettlementEngine';
 import { processAgentData, calculatePersonaStats } from '../engine/AgentDataLoader';
 import { buildAgentRoundDecision } from '../engine/AgentDecisionEngine';
@@ -154,6 +155,10 @@ export const useGameStore = defineStore('game', {
         riskV3Checks: 0,             // V3 檢查關數 (UI 顯示)
         riskV3Interventions: 0,      // V3 介入次數 (UI 顯示)
         riskV3Saved: 0,              // V3 預估省下派彩 (UI 顯示)
+        riskToggles: { v2: true, v3: true, v4: true }, // 三層風控獨立開關
+        riskV4NonNeutral: 0,         // V4 非中性局數 (UI 顯示)
+        riskV4TrsRange: '—',         // V4 平滑 TRS 目前範圍 (UI 顯示)
+        riskV4LrsRange: '—',         // V4 平滑 LRS 目前範圍 (UI 顯示)
 
         // Chart instances
         chartInstance: null,
@@ -272,6 +277,9 @@ export const useGameStore = defineStore('game', {
             } else if (this.historyFilter === 'v3') {
                 // V3 JP 強控有介入開獎的局
                 result = result.filter(r => r.bonusLevelHistory && r.bonusLevelHistory.some(l => l.intervened));
+            } else if (this.historyFilter === 'v4') {
+                // V4 以非中性權重偏移閃電落點的局
+                result = result.filter(r => r.v4Weights && r.v4Weights.nonNeutral);
             }
             
             if (this.filterStartRound !== null && this.filterStartRound !== '') {
@@ -374,8 +382,14 @@ export const useGameStore = defineStore('game', {
 
             await Promise.all([this.fetchConfigProfiles(), this.fetchRiskControlConfig()]);
 
-            // 還原風控開關 (需 risk_control.json 載入成功才可啟用)
+            // 還原風控開關 (需 risk_control.json 載入成功才可啟用) 與三層獨立開關
             this.riskControlEnabled = !!this.riskControlConfig && localStorage.getItem('livemines_riskControl') === '1';
+            try {
+                const savedToggles = JSON.parse(localStorage.getItem('livemines_riskToggles') || 'null');
+                if (savedToggles && typeof savedToggles === 'object') {
+                    this.riskToggles = { v2: savedToggles.v2 !== false, v3: savedToggles.v3 !== false, v4: savedToggles.v4 !== false };
+                }
+            } catch (e) { /* 格式壞掉就用預設全開 */ }
             this.resetRiskRuntime();
 
             // 重建各數值表的「本地修改」標記
@@ -1140,6 +1154,17 @@ export const useGameStore = defineStore('game', {
             }
         },
 
+        // 切換單層風控開關 (V2/V3/V4)；切換即重置風控狀態 (冷啟動)
+        setRiskToggle(key, value) {
+            this.riskToggles = { ...this.riskToggles, [key]: !!value };
+            localStorage.setItem('livemines_riskToggles', JSON.stringify(this.riskToggles));
+            this.resetRiskRuntime();
+            if (!this.riskToggles.v2) {
+                // 關掉 V2 → 回到使用者自選的數值表
+                this.applyProfile(this.activeConfigProfile);
+            }
+        },
+
         resetRiskRuntime() {
             this.riskZoneCode = 0;
             this.riskZoneProfile = 'BASE';
@@ -1148,37 +1173,71 @@ export const useGameStore = defineStore('game', {
             this.riskV3Checks = 0;
             this.riskV3Interventions = 0;
             this.riskV3Saved = 0;
+            this.riskV4NonNeutral = 0;
+            this.riskV4TrsRange = '—';
+            this.riskV4LrsRange = '—';
             if (!this.riskControlEnabled || !this.riskControlConfig) {
                 this.riskRuntime = null;
                 return;
             }
             const cfg = this.riskControlConfig;
+            const t = this.riskToggles;
+            const riskScoreCfg = (this.appConfig && this.appConfig.riskScore) || DEFAULT_CONFIG.riskScore;
+
+            // V4 虛擬時鐘 (模擬器專用，非 SERVER 參數；伺服器用真實時間戳):
+            // 人流模式與網頁時間觀對齊 → 每局秒數 = 86400 ÷ 一天局數；手動模式用 risk_control.json 設定值
+            let v4Interval;
+            if (this.simulationMode === 'agentTraffic') {
+                v4Interval = 86400 / (this.trafficScenario.roundsPerDay || 1200);
+            } else {
+                v4Interval = cfg.round_interval_seconds || 30;
+            }
+
+            const v4 = (t.v4 && cfg.risk_score_v4 !== false) ? new RiskScoreState(riskScoreCfg, v4Interval) : null;
+            if (v4) {
+                console.log(`🛡️ V4 虛擬時鐘 ${v4Interval.toFixed(1)} 秒/局 → 窗口: 短 ${v4.shortWin.capacity} 局 / 長 ${v4.longWin.capacity} 局`);
+            }
+
             this.riskRuntime = markRaw({
-                window: new RTPWindow(cfg.rtp_window_rounds || 48000),
-                decider: new V2Decider(cfg.zones, cfg.mode ?? 1),
-                v3: createV3Controller(cfg.jp_protection_v3), // null = V3 未啟用
+                window: new RTPWindow(cfg.rtp_window_rounds || 48000), // V2/V3 共用
+                decider: t.v2 ? new V2Decider(cfg.zones, cfg.mode ?? 1) : null,
+                v3: t.v3 ? createV3Controller(cfg.jp_protection_v3) : null,
+                v4: v4,
+                currentV4Weights: null, // 本局使用的位置權重 (上一局重算結果)
                 currentProfileKey: null,
                 cache: {} // profileKey → 解析後的 math config (避免每局深拷貝)
             });
         },
 
-        // 每局開始：V2 決策本局數值表；zone 換表時切換 this.appConfig
+        // 每局開始：V2 決策本局數值表 (zone 換表時切換 this.appConfig)；V4 取上一局重算的位置權重
         decideRiskRound() {
             const rt = this.riskRuntime;
             if (!rt) return;
             const { rtp, valid } = rt.window.currentRTP();
-            const d = rt.decider.decide(rtp, valid);
-            this.riskZoneCode = d.zoneCode;
-            this.riskZoneProfile = d.profileKey;
             this.riskWindowRtp = valid ? rtp : null;
-            this.riskZoneSwitches = rt.decider.zoneSwitches;
 
-            if (rt.currentProfileKey !== d.profileKey) {
-                if (!rt.cache[d.profileKey]) {
-                    rt.cache[d.profileKey] = this.resolveProfileConfig(d.profileKey).config;
+            if (rt.decider) {
+                const d = rt.decider.decide(rtp, valid);
+                this.riskZoneCode = d.zoneCode;
+                this.riskZoneProfile = d.profileKey;
+                this.riskZoneSwitches = rt.decider.zoneSwitches;
+
+                if (rt.currentProfileKey !== d.profileKey) {
+                    if (!rt.cache[d.profileKey]) {
+                        rt.cache[d.profileKey] = this.resolveProfileConfig(d.profileKey).config;
+                    }
+                    this.appConfig = rt.cache[d.profileKey];
+                    rt.currentProfileKey = d.profileKey;
                 }
-                this.appConfig = rt.cache[d.profileKey];
-                rt.currentProfileKey = d.profileKey;
+            } else {
+                this.riskZoneProfile = this.activeConfigProfile;
+            }
+
+            // V4: 本局位置權重 = 上一局重算結果 (冷啟動 → 中性)；受 math config riskScore.enabled 約束
+            if (rt.v4 && this.appConfig.riskScore && this.appConfig.riskScore.enabled !== false) {
+                rt.currentV4Weights = rt.v4.currentWeights(this.appConfig);
+            } else {
+                rt.currentV4Weights = null;
             }
         },
 
@@ -1550,8 +1609,23 @@ export const useGameStore = defineStore('game', {
                 forcedDrops: forcedDrops,
                 currentJpPool: this.stats.totalJpPool,
                 simulationMode: this.simulationMode,
-                riskV3: this.simulationMode === 'agentTraffic' ? null : riskV3Ctx // 手動模式在開獎引擎內介入
+                riskV3: this.simulationMode === 'agentTraffic' ? null : riskV3Ctx, // 手動模式在開獎引擎內介入
+                gridWeights: (this.riskControlEnabled && this.riskRuntime) ? this.riskRuntime.currentV4Weights : null // V4 位置權重
             };
+
+            // V4 權重快照 (歷史紀錄詳情用)：記錄本局實際使用的落點權重與是否偏離中性
+            let v4WeightsSnapshot = null;
+            if (payload.gridWeights) {
+                const neutralFree = neutralWeightOf(this.appConfig.lightningFeature.gridWeights);
+                const neutralPaid = neutralWeightOf(this.appConfig.purchasedLightningFeature.gridWeights);
+                const free = [...payload.gridWeights.free];
+                const paid = [...payload.gridWeights.paid];
+                v4WeightsSnapshot = {
+                    free, paid,
+                    neutralFree, neutralPaid,
+                    nonNeutral: free.some(w => w !== neutralFree) || paid.some(w => w !== neutralPaid)
+                };
+            }
 
             let result = simulateRound(payload);
 
@@ -1575,7 +1649,8 @@ export const useGameStore = defineStore('game', {
                     bonusLevelStats: settlement.bonusLevelStats,
                     gridStats: settlement.gridStats,
                     bonusLevelHistory: settlement.bonusLevelHistory ?? result.bonusLevelHistory,
-                    bonusSafeHits: settlement.bonusSafeHits ?? result.bonusSafeHits
+                    bonusSafeHits: settlement.bonusSafeHits ?? result.bonusSafeHits,
+                    v4Entry: settlement.v4Entry ?? result.v4Entry // 人流模式用真實買家口徑
                 };
             }
 
@@ -1586,9 +1661,29 @@ export const useGameStore = defineStore('game', {
                 this.riskV3Saved = riskV3Ctx.v3.savedPayout;
             }
 
-            // 風控：局尾把本局 (投注, 派彩) 推入 RTP 滑動窗口 (payout 口徑 = 主遊戲+二級，不含 JP，對齊 LM01 統計)
+            // 風控局尾處理
             if (this.riskControlEnabled && this.riskRuntime) {
-                this.riskRuntime.window.push(result.cost, result.totalWin - (result.jpWin || 0));
+                const rt = this.riskRuntime;
+                // (1) RTP 滑動窗口 (payout 口徑 = 主遊戲+二級，不含 JP，對齊 LM01 統計)
+                rt.window.push(result.cost, result.totalWin - (result.jpWin || 0));
+
+                // (2) V4 風險分數：餵落球 + 局尾重算 (供下一局取權重)
+                if (rt.v4 && result.v4Entry) {
+                    const balls = [];
+                    result.gridHits.forEach((cnt, idx) => {
+                        for (let k = 0; k < cnt; k++) balls.push(idx + 1);
+                    });
+                    rt.v4.ingestBalls(balls);
+                    rt.v4.ingestRoundAndRecompute(result.v4Entry, this.appConfig);
+                    this.riskV4NonNeutral = rt.v4.nonNeutralRounds;
+                    const range = (arr) => {
+                        let mn = Infinity, mx = -Infinity;
+                        arr.forEach(v => { if (v < mn) mn = v; if (v > mx) mx = v; });
+                        return `${mn.toFixed(1)} ~ ${mx.toFixed(1)}`;
+                    };
+                    this.riskV4TrsRange = range(rt.v4.smoothedTRS);
+                    this.riskV4LrsRange = range(rt.v4.smoothedLRS);
+                }
             }
 
             // 準備更新批次數據
@@ -1622,7 +1717,8 @@ export const useGameStore = defineStore('game', {
                 jpWin: result.jpWin, 
                 availableJp: result.availableJp,
                 newJpPool: result.newJpPool,
-                csvInfo: csvInfo, 
+                csvInfo: csvInfo,
+                v4Weights: v4WeightsSnapshot,
                 bonusResultText: result.bonusResultText,
                 bonusLevelHistory: result.bonusLevelHistory, 
                 finalGridsState: result.finalGridsState,

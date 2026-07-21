@@ -19,7 +19,7 @@ import puppeteer from 'puppeteer';
     });
 
     console.log("Navigating to App...");
-    await page.goto('http://localhost:5173/TG001_FinalCheck_V14.html', { waitUntil: 'networkidle2' });
+    await page.goto('http://localhost:5173/TG001_FinalCheck_V14A.html', { waitUntil: 'networkidle2' });
     
     const appElement = await page.$('#app');
     if (!appElement) throw new Error("App failed to mount.");

@@ -22,27 +22,54 @@
                     </label>
                     <p v-if="!$game.riskControlConfig" class="text-xs text-gray-500 mt-2">risk_control.json 載入失敗，功能不可用</p>
                     <div v-else-if="$game.riskControlEnabled" class="mt-3 space-y-1.5 text-sm font-mono animate-fade-in">
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">當前 Zone</span>
+                        <!-- 三層獨立開關 -->
+                        <div class="flex gap-2 pb-2 border-b border-gray-700 text-xs">
+                            <label class="flex items-center gap-1 cursor-pointer select-none" title="依窗口 RTP 自動切換數值表 (階梯+遲滯)">
+                                <input type="checkbox" :checked="$game.riskToggles.v2" @change="$game.setRiskToggle('v2', $event.target.checked)" class="w-3.5 h-3.5 accent-blue-500">
+                                <span class="text-gray-300 font-bold">V2 切表</span>
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer select-none" title="Bonus 每關依預估派彩後 RTP 強改通關為押注最低 2 選項">
+                                <input type="checkbox" :checked="$game.riskToggles.v3" @change="$game.setRiskToggle('v3', $event.target.checked)" class="w-3.5 h-3.5 accent-yellow-500">
+                                <span class="text-gray-300 font-bold">V3 強控</span>
+                            </label>
+                            <label class="flex items-center gap-1 cursor-pointer select-none" title="TRS/LRS 風險分數 → 閃電落點五級權重 (局尾重算、下局生效)">
+                                <input type="checkbox" :checked="$game.riskToggles.v4" @change="$game.setRiskToggle('v4', $event.target.checked)" class="w-3.5 h-3.5 accent-purple-500">
+                                <span class="text-gray-300 font-bold">V4 權重</span>
+                            </label>
+                        </div>
+                        <div class="flex justify-between cursor-help" title="V2 依窗口 RTP 自動選定的數值表。BASE=正常；PRT1~3(紅)=RTP 偏高、殺數學護盤，數字越小力道越強；BST1~3(綠)=RTP 偏低、放水回補，數字越小力道越強。每局最多升降一級。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">當前 Zone</span>
                             <span :class="$game.riskZoneCode === 0 ? 'text-gray-200' : ($game.riskZoneCode >= 200 ? 'text-green-400' : 'text-red-400')" class="font-bold">
                                 {{ $game.riskZoneProfile }}<span class="text-gray-500 text-xs"> ({{ $game.riskZoneCode }})</span>
                             </span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">窗口 RTP</span>
+                        <div class="flex justify-between cursor-help" title="滑動窗口內的 派彩÷投注 (最近 48,000 局，不含 JP 大獎)。V2 據此走階梯換表、V3 據此預估是否要保護 JP。「冷啟動」= 窗口還沒有任何樣本，此時強制使用 BASE。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">窗口 RTP</span>
                             <span class="text-yellow-300">{{ $game.riskWindowRtp === null ? '冷啟動' : $game.riskWindowRtp.toFixed(2) + '%' }}</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">Zone 切換次數</span>
+                        <div class="flex justify-between cursor-help" title="V2 換表的累計次數。前期窗口樣本少、RTP 噪音大時切換頻繁是正常的；樣本足夠後應趨於穩定。若長期高頻切換，代表門檻與遲滯 (trigger/exit) 可能設太近。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">Zone 切換次數</span>
                             <span class="text-gray-200">{{ $game.riskZoneSwitches }}</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">V3 介入/檢查</span>
+                        <div class="flex justify-between cursor-help" title="檢查 = Bonus 每走一關且有人在場，V3 就評估一次「若讓原生開獎成立，派彩後 RTP 會是多少」。介入 = 評估後超過階段門檻且骰中機率，實際把通關格強改為押注最低 2 格的次數。介入/檢查比例低是健康狀態 (保險絲平常不該跳)。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V3 介入/檢查</span>
                             <span :class="$game.riskV3Interventions > 0 ? 'text-red-400 font-bold' : 'text-gray-200'">{{ $game.riskV3Interventions }} / {{ $game.riskV3Checks }}</span>
                         </div>
-                        <div class="flex justify-between">
-                            <span class="text-gray-400">V3 省下派彩</span>
+                        <div class="flex justify-between cursor-help" title="每次 V3 介入時「原生開獎的預測派彩 − 強改後的預測派彩」之累計，即這層風控估計為莊家省下的 Bonus 派彩總額。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V3 省下派彩</span>
                             <span class="text-gray-200">{{ $game.riskV3Saved.toFixed(2) }}</span>
+                        </div>
+                        <div class="flex justify-between cursor-help" title="V4 實際輸出「非等權位置權重」的局數，即閃電落點真的被偏移的局數。注意：BASE 表的五級權重全是 100，就算分數偏離也不會偏移 (shadow mode)——只有 V2 切到 PRT/BST 表且分數離開中性帶 45~55 時才會累積。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V4 非中性局數</span>
+                            <span :class="$game.riskV4NonNeutral > 0 ? 'text-purple-400 font-bold' : 'text-gray-200'">{{ $game.riskV4NonNeutral }}</span>
+                        </div>
+                        <div class="flex justify-between cursor-help" title="9 格 Treasure 風險分數 (EWMA 平滑後) 目前的最小~最大值。50=中性；越高代表該格越「熱」(押注集中/落球偏多/派彩超付/Bonus 曝險大)。分數決定免費閃電的落點權重：PRT 表下高分格閃電變少、BST 表下高分格閃電變多。範圍越寬代表格與格之間的風險差異越大。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V4 TRS 範圍</span>
+                            <span class="text-gray-200 text-xs">{{ $game.riskV4TrsRange }}</span>
+                        </div>
+                        <div class="flex justify-between cursor-help" title="9 格 Lightning 風險分數 (EWMA 平滑後) 的最小~最大值，控制付費閃電落點權重，邏輯同 TRS 但以 Extra 買家的押注為主。長期停在 50.0~50.0 通常是因為 Extra 投注量未達門檻 (局數≥100 且金額≥中位數×100)，依規格失效規則回歸中性——樣本夠了會自然開始波動。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V4 LRS 範圍</span>
+                            <span class="text-gray-200 text-xs">{{ $game.riskV4LrsRange }}</span>
                         </div>
                     </div>
                     <p v-else class="text-xs text-gray-500 mt-2">勾選後每局依窗口 RTP 自動切換數值表 (V2 階梯+遲滯)</p>
@@ -70,7 +97,7 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1">
                                 <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">一天局數</label>
-                                <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" @change="$game.generateDayPlan()" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
+                                <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" @change="$game.generateDayPlan(); $game.resetRiskRuntime()" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold" title="由畫面上方的總模擬次數 ÷ 一天局數 計算得出">模擬天數</label>

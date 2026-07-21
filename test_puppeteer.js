@@ -9,7 +9,7 @@ import puppeteer from 'puppeteer';
     page.on('pageerror', error => console.log('BROWSER ERROR:', error.message));
     page.on('requestfailed', request => console.log('REQUEST FAILED:', request.url(), request.failure()?.errorText));
     
-    await page.goto('http://localhost:5173/TG001_FinalCheck_V14.html', { waitUntil: 'networkidle2' });
+    await page.goto('http://localhost:5173/TG001_FinalCheck_V14A.html', { waitUntil: 'networkidle2' });
     
     console.log("Page loaded. Clicking a grid...");
     

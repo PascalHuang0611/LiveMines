@@ -50,6 +50,41 @@
                         </div>
                     </div>
 
+                    <!-- V4 閃電落點權重 (風控啟用時記錄) -->
+                    <div v-if="$game.selectedHistoryRecord.v4Weights" class="mb-4 p-3 rounded border shrink-0 text-xs font-mono"
+                         :class="$game.selectedHistoryRecord.v4Weights.nonNeutral ? 'bg-purple-900/30 border-purple-700' : 'bg-gray-900/50 border-gray-700'">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="font-bold" :class="$game.selectedHistoryRecord.v4Weights.nonNeutral ? 'text-purple-300' : 'text-gray-400'">
+                                🎲 V4 本局閃電落點權重
+                            </span>
+                            <span v-if="$game.selectedHistoryRecord.v4Weights.nonNeutral" class="text-[10px] bg-purple-600 text-white px-1.5 py-0.5 rounded">非中性 (骰子已偏移)</span>
+                            <span v-else class="text-[10px] bg-gray-700 text-gray-300 px-1.5 py-0.5 rounded">中性 (均勻隨機)</span>
+                        </div>
+                        <div class="space-y-1.5">
+                            <div>
+                                <div class="text-yellow-400 text-[10px] mb-0.5">⚡ 免費閃電 (TRS 控制)</div>
+                                <div class="grid grid-cols-9 gap-0.5">
+                                    <span v-for="(w, i) in $game.selectedHistoryRecord.v4Weights.free" :key="'f' + i"
+                                          class="text-center py-0.5 rounded text-[10px]"
+                                          :class="w > $game.selectedHistoryRecord.v4Weights.neutralFree ? 'bg-green-900/60 text-green-300 font-bold'
+                                                : (w < $game.selectedHistoryRecord.v4Weights.neutralFree ? 'bg-red-900/60 text-red-300 font-bold' : 'bg-gray-800 text-gray-400')"
+                                          :title="'格 ' + (i + 1) + ' 權重 ' + w + (w > $game.selectedHistoryRecord.v4Weights.neutralFree ? ' (閃電偏多)' : (w < $game.selectedHistoryRecord.v4Weights.neutralFree ? ' (閃電偏少)' : ' (中性)'))">{{ w }}</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-purple-400 text-[10px] mb-0.5">⚡ 付費閃電 (LRS 控制)</div>
+                                <div class="grid grid-cols-9 gap-0.5">
+                                    <span v-for="(w, i) in $game.selectedHistoryRecord.v4Weights.paid" :key="'p' + i"
+                                          class="text-center py-0.5 rounded text-[10px]"
+                                          :class="w > $game.selectedHistoryRecord.v4Weights.neutralPaid ? 'bg-green-900/60 text-green-300 font-bold'
+                                                : (w < $game.selectedHistoryRecord.v4Weights.neutralPaid ? 'bg-red-900/60 text-red-300 font-bold' : 'bg-gray-800 text-gray-400')"
+                                          :title="'格 ' + (i + 1) + ' 權重 ' + w + (w > $game.selectedHistoryRecord.v4Weights.neutralPaid ? ' (閃電偏多)' : (w < $game.selectedHistoryRecord.v4Weights.neutralPaid ? ' (閃電偏少)' : ' (中性)'))">{{ w }}</span>
+                                </div>
+                            </div>
+                            <div class="text-[9px] text-gray-500 pt-0.5">格序 1~9 對應九宮格；綠 = 高於中性 (該格閃電機率被調高)、紅 = 低於中性 (被調低)</div>
+                        </div>
+                    </div>
+
                     <!-- 該局結算明細 (Bonus + 總計) -->
                     <div class="flex-1 flex flex-col overflow-hidden">
                         <div class="space-y-3 font-mono text-sm sm:text-base mb-4 overflow-y-auto custom-scrollbar flex-1">

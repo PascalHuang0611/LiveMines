@@ -1,5 +1,27 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
+## [v2.40 / V14A] - 2026-07-21
+### ✨ 新增功能 (Features)
+- **SERVER 風控模擬 (V2+V3+V4 完整移植)**:
+  - 新增「🛡️ SERVER 風控模擬」開關與 V2/V3/V4 三層獨立子開關 (LeftSidebar)，等同 rtpsim 三跑對比的即時操作。
+  - **V2 數值表自動切換** (RiskControlEngine.js): RTP 滑動窗口 (48,000 局、不含 JP) → 階梯 ±1 級 + 進退場遲滯，自動在七份數值表間切換，面板顯示當前 Zone / 窗口 RTP / 切換次數。
+  - **V3 JP 開獎強控**: Bonus 每關依「預估派彩後 RTP」分階段骰介入 (含 GGR 150,000 絕對虧損捷徑)，介入時強改通關為押注最低 2 選項。歷史紀錄有 🛡️ V3 徽章、專屬篩選與逐層標記。
+  - **V4 風險分數** (RiskScoreEngine.js): 依《風險分數計算規格》完整實作 TRS/LRS 雙分數 (雙滑動窗口、樣本收縮、對數分數、EWMA、中性帶、失效回歸)，映射五級權重偏移閃電落點 (局尾重算、下局生效)。歷史紀錄有 🎲 V4 徽章、篩選與「本局九格權重」詳情面板。
+  - V4 時間窗虛擬時鐘與網頁時間觀對齊: 人流模式自動以 86400÷一天局數 推導每局秒數。
+- **七份數值表系統**: public/configs/ 為唯一事實來源 (BASE/PRT1-3/BST1-3)，Config Modal 下拉切換/編輯，修改存 localStorage、可恢復檔案預設。風控參數 (risk_control.json，對齊 gms.xml) 亦同機制。
+- **Bonus 邏輯統一**: 人流模式一律採伺服器「共用逐關開獎」(Agent 先選格 → 聚合押注 → 原生 4選2 → V3 介入 → 判定)，刪除舊「世界線預開+獨立比對」路徑。
+- 風控面板 11 個項目全部支援滑鼠懸停說明。
+
+### 🐛 錯誤修正 (Bug Fixes)
+- 修復 Bet_Amount_Std 常態分佈波動被 currentBetAmount 短路、實際未生效的問題 (v2.36 功能失效)。
+- 修復批次模擬在分頁隱藏時凍結的問題 (rAF 停擺 → 自動改用 setTimeout 驅動)。
+- getWeightedRandom 改用浮點亂數，支援小數權重；移除 simulateRound 重複的 bonusWin key；Martingale 乘數缺欄位時的 NaN 防呆。
+- DEFAULT_CONFIG 同步 2026-07-17 新 BASE (付費閃電 10 組合、lightningIncrementEV 2.032)。
+
+### 📦 其他 (Misc)
+- 入口頁更名 TG001_FinalCheck_V14A.html (原 V14)。
+- 收錄 rtpsim (Go 模擬器) 與《風險分數計算規格.md》至版控。
+
 ## [v2.39] - 2026-07-16
 ### ✨ 新增與優化 (Features & Refactoring)
 - **免費閃電規則對齊付費閃電 (統一組合格式)**:

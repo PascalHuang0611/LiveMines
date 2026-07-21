@@ -1,7 +1,9 @@
 {
-  "comment": "SERVER 風控參數 (對齊 gms.xml / rtpsim sim_config)。mode: 0=強制BASE, 1=自動階梯, 101-103/201-203=強制指定 zone",
+  "comment": "SERVER 風控參數 (zones/jp_protection_v3/risk_score_v4 對齊 gms.xml)。mode: 0=強制BASE, 1=自動階梯, 101-103/201-203=強制指定 zone",
+  "comment_simulator_only": "rtp_window_rounds 與 round_interval_seconds 為模擬器專用參數 (非 SERVER 參數)。round_interval_seconds = V4 時間窗的虛擬時鐘，僅手動模式使用；人流模式自動以 86400÷一天局數 推導，與網頁時間觀對齊",
   "mode": 1,
   "rtp_window_rounds": 48000,
+  "round_interval_seconds": 30,
   "zones": [
     { "code": 101, "trigger_rtp": 101.5, "exit_rtp": 100.5, "mathconfig": "PRT1" },
     { "code": 102, "trigger_rtp": 99.5,  "exit_rtp": 98.8,  "mathconfig": "PRT2" },
@@ -13,7 +15,7 @@
   ],
   "jp_protection_v3": {
     "enabled": true,
-    "ggr_threshold": 0,
+    "ggr_threshold": 150000,
     "phases": [
       { "code": "U_PRT_L1", "rtp_threshold": 110, "levels": [1.0, 1.0, 1.0, 1.0, 1.0] },
       { "code": "U_PRT_L2", "rtp_threshold": 107, "levels": [0.0, 0.1, 0.35, 0.6, 0.8] },

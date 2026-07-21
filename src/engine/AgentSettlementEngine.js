@@ -3,7 +3,9 @@
  * 負責處理 Milestone 7 & 8 中，AI Agent 依據公共開獎結果 (Public Result) 進行獨立結算的邏輯。
  * Bonus 一律採伺服器的「共用逐關開獎」流程 (playSharedBonus)：
  * 逐關收集全場押注 → 原生 4選2 → (風控啟用時) V3 強控介入 → 判定生死與 Cashout。
+ * 同時以真實買家口徑收集 V4 風險分數記帳 (v4Entry)。
  */
+import { emptyV4Entry } from './RiskScoreEngine.js';
 
 /**
  * 共用二級玩法：逐關互動開獎 (V3 為可選介入，v3=null 時即純隨機開獎)
@@ -164,6 +166,10 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
         totalWin: 0
     }));
 
+    // V4 風險分數記帳 (真實買家口徑)
+    const v4Entry = emptyV4Entry();
+    v4Entry.totalBet = publicResult.cost || 0;
+
     // 2. 第一遍掃描：處理基礎派彩與收集 L5 贏家
     agentDecisions.forEach(decision => {
         let agentBaseWin = 0;
@@ -171,6 +177,8 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
         let agentBonusWin = 0;
         let agentJpWin = 0;
         let agentWinDetails = [];
+
+        if (decision.buyLightning) v4Entry.extraPlayers++;
 
         // 遍歷該 Agent 下注的每一格
         Object.entries(decision.legalBetMap || {}).forEach(([gridIdStr, betAmount]) => {
@@ -183,6 +191,10 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
                 actualCost += actualCost * (config.mainGame.extraPurchaseCostPercent || 0.5);
             }
             gridStats[gridId - 1].totalBet += actualCost;
+
+            // V4 記帳: 本金口徑 (不含閃電稅)
+            v4Entry.mainBet[gridId - 1] += betAmount;
+            if (decision.buyLightning) v4Entry.extraMainBet[gridId - 1] += betAmount;
 
             let winBase = 0;
             let winLightning = 0;
@@ -205,6 +217,18 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
                 }
                 winLightning = winBase * lightningMult;
                 agentLightningWin += winLightning;
+
+                // V4 記帳: mainPayout = 基礎 + 免費閃電增量；extraInc = 買家的付費閃電增量；
+                // stack = 免費+付費同格疊加時的付費增量
+                const freeInc = winBase * gridResult.baseL;
+                v4Entry.mainPayout[gridId - 1] += winBase + freeInc;
+                if (decision.buyLightning) {
+                    const paidInc = winBase * gridResult.purchasedL;
+                    v4Entry.extraIncPayout[gridId - 1] += paidInc;
+                    if (gridResult.baseL > 0 && gridResult.purchasedL > 0) {
+                        v4Entry.stackPayout[gridId - 1] += paidInc;
+                    }
+                }
 
                 // Bonus Win (Second Level Play) 計算
                 if (publicResult.bonusTriggered && gridId === triggerGridId) {
@@ -323,6 +347,7 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
         agentDetails,
         bonusLevelStats,
         gridStats,
+        v4Entry,
         // 共用開獎產生的權威世界線 (含 V3 intervened 標記) 與安全號碼統計，覆蓋 publicResult 的暫定版本
         bonusLevelHistory: sharedBonus ? sharedBonus.levelHistory : publicResult.bonusLevelHistory,
         bonusSafeHits: sharedBonus ? sharedBonus.bonusSafeHits : publicResult.bonusSafeHits
