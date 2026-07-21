@@ -1,4 +1,12 @@
-// 預設值同步自 TG001_LM01_BASE_Config.json (新格式: 付費閃電為倍率組合、免費閃電倍率為單元素陣列)
+// 七份 PM 數值表 (public/configs/TG001_LM01_<KEY>_Config.json) 為預設值的唯一事實來源，
+// 啟動時由 gameStore.fetchConfigProfiles() 載入；DEFAULT_CONFIG 僅作為 fetch 失敗 (如 file:// 開啟) 時的 BASE 後備。
+export const CONFIG_PROFILE_KEYS = ['BASE', 'PRT1', 'PRT2', 'PRT3', 'BST1', 'BST2', 'BST3'];
+
+export function configProfileFileName(key) {
+    return `TG001_LM01_${key}_Config.json`;
+}
+
+// 後備預設值，內容同步自 TG001_LM01_BASE_Config.json (2026-07-17 版)
 // gridWeights 與 riskScore 為 SERVER 專用參數，引擎不讀取，僅原樣保留
 export const DEFAULT_CONFIG = {
     "simulationRuns": 1000000000,
@@ -21,8 +29,8 @@ export const DEFAULT_CONFIG = {
     },
     "purchasedLightningFeature": {
         "payoutMultipliers": {
-            "values": [[1, 1, 3], [1, 2, 3], [1, 3, 3], [2, 2, 3], [2, 3, 3], [3, 3, 3]],
-            "weights": [10, 76, 14, 0, 0, 0]
+            "values": [[1, 2, 2], [1, 2, 3], [1, 3, 3], [2, 2, 2], [2, 2, 3], [2, 3, 3], [3, 3, 3], [2, 2, 2], [2, 2, 2], [2, 2, 2]],
+            "weights": [111, 22, 4, 697, 134, 27, 5, 0, 0, 0]
         },
         "gridWeights": {
             "thresholds": [20, 40, 60, 80],
@@ -68,7 +76,7 @@ export const DEFAULT_CONFIG = {
             "expectedMainEV": 0.930668,
             "bonusAEV": 9.8125,
             "baseBallMatchingEV": 0.732169,
-            "lightningIncrementEV": 2.013333,
+            "lightningIncrementEV": 2.032,
             "tripleHitProb": 0.004444,
             "ballBaseline": [0.113016, 0.098095, 0.117778, 0.103492, 0.100635, 0.112381, 0.123492, 0.111429, 0.119683]
         }

@@ -8,7 +8,19 @@
                 </div>
                 
                 <div class="p-4 flex-1 overflow-y-auto">
-                    <p class="text-xs text-gray-400 mb-2">請使用標準 JSON 格式編輯參數。存檔後，下一次開獎將立即採用新設定！</p>
+                    <div class="flex items-center gap-3 mb-3">
+                        <label class="text-sm font-bold text-gray-300 whitespace-nowrap">📋 數值表:</label>
+                        <select :value="$game.tempConfigProfile"
+                                @change="$game.selectTempConfigProfile($event.target.value)"
+                                class="bg-gray-900 text-yellow-300 font-mono text-sm px-3 py-1.5 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500">
+                            <option v-for="key in $game.availableConfigProfiles" :key="key" :value="key">
+                                {{ key }}{{ $game.profileOverrides[key] ? ' ✏️已修改' : '' }}{{ $game.activeConfigProfile === key ? '（使用中）' : '' }}
+                            </option>
+                        </select>
+                        <span v-if="$game.profileOverrides[$game.tempConfigProfile]" class="text-xs text-orange-400">此表有本地修改，「恢復預設」可還原為檔案內容</span>
+                        <span v-else class="text-xs text-gray-500">目前為檔案預設值 (public/configs/)</span>
+                    </div>
+                    <p class="text-xs text-gray-400 mb-2">請使用標準 JSON 格式編輯參數。按「儲存並套用」後，選中的數值表與內容才會生效；修改只存在您的瀏覽器本地。</p>
                     <textarea v-model="$game.tempConfigText" 
                               class="w-full h-[50vh] bg-gray-900 text-green-400 font-mono text-sm p-4 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500 shadow-inner"
                               spellcheck="false"></textarea>
