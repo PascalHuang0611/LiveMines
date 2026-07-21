@@ -1,0 +1,84 @@
+{
+  "simulationRuns": 1000000000,
+  "mainGame": {
+    "numberOfGrids": 9,
+    "numberOfBalls": 3,
+    "extraPurchaseCostPercent": 0.5,
+    "singleAreaBasePayouts": [2.0,5.0,10.0]
+  },
+  "lightningFeature": {
+    "payoutMultipliers": {
+      "values": [[1,1],[1,1,1],[1],[1],[1],[1]],
+      "weights": [78,22,0,0,0,0]
+    },
+    "gridWeights": {
+      "thresholds": [20,40,60,80],
+      "weights": [110,105,100,95,90],
+      "neutralBand": [45,55]
+    }
+  },
+  "purchasedLightningFeature": {
+    "payoutMultipliers": {
+      "values": [[1,2,2],[1,2,3],[1,3,3],[2,2,2],[2,2,3],[2,3,3],[3,3,3],[2,2,2],[2,2,2],[2,2,2]],
+      "weights": [30,100,0,870,0,0,0,0,0,0]
+    },
+    "gridWeights": {
+      "thresholds": [20,40,60,80],
+      "weights": [105,102,100,98,95],
+      "neutralBand": [45,55]
+    }
+  },
+  "riskScore": {
+    "enabled": true,
+    "windows": {
+      "shortMinutes": 30,
+      "shortMaxRounds": 500,
+      "longMinutes": 120,
+      "longMaxRounds": 2000,
+      "ballShort": 300,
+      "ballLong": 3000
+    },
+    "shrink": {
+      "r0": 100,
+      "ballK": 1000,
+      "medianWindowHours": 48
+    },
+    "ewma": {
+      "treasureLambda": 0.2,
+      "lightningLambda": 0.15
+    },
+    "caps": {
+      "bet": 2.0,
+      "physical": 1.5,
+      "payout": 2.0,
+      "bonus": 2.0,
+      "extraBet": 2.0,
+      "extraPayout": 2.0,
+      "stack": 2.0
+    },
+    "minSamples": {
+      "rounds": 50,
+      "extraRounds": 100,
+      "extraVolumeMultiplier": 100,
+      "dataFreshSeconds": 120
+    },
+    "ev": {
+      "expectedMainEV": 0.912771,
+      "bonusAEV": 9.8125,
+      "baseBallMatchingEV": 0.732169,
+      "lightningIncrementEV": 1.99,
+      "tripleHitProb": 0.004444,
+      "ballBaseline": [0.113016,0.098095,0.117778,0.103492,0.100635,0.112381,0.123492,0.111429,0.119683]
+    }
+  },
+  "bonusGame": {
+    "triggerCondition": "Three balls in the same grid",
+    "endLevel": 5,
+    "jp_contribution_rate": 0.005,
+    "levelSettings": {
+      "totalChoices": [4,4,4,4,4],
+      "winChoices": [2,2,2,2,2],
+      "payouts": [15,40,100,250,500]
+    }
+  }
+}
