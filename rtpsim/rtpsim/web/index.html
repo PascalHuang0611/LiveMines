@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LiveMines RTP 模擬器</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: #f4f6f8; color: #1a1a1a; }
+    header { background: #1e3a5f; color: #fff; padding: 14px 20px; }
+    header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+    .wrap { display: grid; grid-template-columns: 380px 1fr; gap: 16px; padding: 16px; min-height: calc(100vh - 52px); }
+    @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+    .card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .card h2 { margin: 0 0 12px; font-size: .95rem; color: #444; }
+    label { display: block; font-size: .82rem; color: #555; margin: 10px 0 4px; }
+    input, select { width: 100%; padding: 7px 9px; border: 1px solid #ccc; border-radius: 4px; font-size: .9rem; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .check { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+    .check input { width: auto; }
+    .asset { font-size: .85rem; line-height: 1.5; white-space: pre-wrap; }
+    .asset.err { color: #c0392b; }
+    .asset.ok { color: #1e7e34; }
+    .actions { display: flex; gap: 8px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+    button { padding: 8px 16px; border: none; border-radius: 4px; font-size: .9rem; cursor: pointer; }
+    button.primary { background: #1e3a5f; color: #fff; }
+    button.primary:disabled { opacity: .5; cursor: not-allowed; }
+    button.secondary { background: #e9ecef; color: #333; }
+    #status { font-size: .85rem; color: #666; flex: 1; }
+    #result { width: 100%; min-height: 420px; font-family: ui-monospace, Consolas, monospace; font-size: .78rem; line-height: 1.4; resize: vertical; border: 1px solid #ccc; border-radius: 4px; padding: 10px; white-space: pre; overflow: auto; }
+  </style>
+</head>
+<body>
+  <header><h1>LiveMines RTP 模擬器</h1></header>
+  <div class="wrap">
+    <div>
+      <div class="card">
+        <h2>資料檔</h2>
+        <div id="asset" class="asset">載入中…</div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <h2>參數</h2>
+        <label>下注人數</label>
+        <input id="player_count" type="number" min="1" step="1">
+        <label>單格下注額</label>
+        <input id="bet_per_position" type="number" min="0" step="0.0001">
+        <label>CSV 循環次數</label>
+        <input id="replay_cycles" type="number" min="1" step="1">
+        <label>EXTRA 購買比例 (%)</label>
+        <input id="extra_rate_percent" type="number" min="0" max="100" step="1">
+        <label>RNG Seed</label>
+        <input id="seed" type="number" step="1">
+        <label>下注策略</label>
+        <select id="betting_strategy">
+          <option value="all9">all9（九格全下）</option>
+          <option value="random">random</option>
+          <option value="optimal">optimal</option>
+        </select>
+        <div class="check">
+          <input id="force_all_extra" type="checkbox">
+          <label for="force_all_extra" style="margin:0">全員強制購買 EXTRA</label>
+        </div>
+        <div class="row2">
+          <div><label>Cashout L1</label><input id="cashout_l1" type="number" min="0" max="1" step="0.001"></div>
+          <div><label>Cashout L2</label><input id="cashout_l2" type="number" min="0" max="1" step="0.001"></div>
+          <div><label>Cashout L3</label><input id="cashout_l3" type="number" min="0" max="1" step="0.001"></div>
+          <div><label>Cashout L4</label><input id="cashout_l4" type="number" min="0" max="1" step="0.001"></div>
+        </div>
+        <div class="actions">
+          <button class="primary" id="runBtn" onclick="startRun()">開始計算</button>
+          <span id="status">就緒</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>結果（Tab 分隔 → 貼到 Excel）</h2>
+      <div class="actions" style="margin-top:0;margin-bottom:10px">
+        <button class="secondary" onclick="copyResult()">複製結果</button>
+      </div>
+      <textarea id="result" readonly placeholder="計算結果將顯示於此…"></textarea>
+    </div>
+  </div>
+  <script>
+    let bundleOK = false;
+    let pollTimer = null;
+
+    function prefsFromForm() {
+      return {
+        player_count: parseInt(document.getElementById('player_count').value, 10),
+        bet_per_position: parseFloat(document.getElementById('bet_per_position').value),
+        replay_cycles: parseInt(document.getElementById('replay_cycles').value, 10),
+        extra_rate_percent: parseFloat(document.getElementById('extra_rate_percent').value),
+        force_all_extra: document.getElementById('force_all_extra').checked,
+        betting_strategy: document.getElementById('betting_strategy').value,
+        seed: parseInt(document.getElementById('seed').value, 10),
+        cashout_l1: parseFloat(document.getElementById('cashout_l1').value),
+        cashout_l2: parseFloat(document.getElementById('cashout_l2').value),
+        cashout_l3: parseFloat(document.getElementById('cashout_l3').value),
+        cashout_l4: parseFloat(document.getElementById('cashout_l4').value),
+      };
+    }
+
+    function fillForm(p) {
+      document.getElementById('player_count').value = p.player_count;
+      document.getElementById('bet_per_position').value = p.bet_per_position;
+      document.getElementById('replay_cycles').value = p.replay_cycles;
+      document.getElementById('extra_rate_percent').value = p.extra_rate_percent;
+      document.getElementById('force_all_extra').checked = p.force_all_extra;
+      document.getElementById('betting_strategy').value = p.betting_strategy;
+      document.getElementById('seed').value = p.seed;
+      document.getElementById('cashout_l1').value = p.cashout_l1;
+      document.getElementById('cashout_l2').value = p.cashout_l2;
+      document.getElementById('cashout_l3').value = p.cashout_l3;
+      document.getElementById('cashout_l4').value = p.cashout_l4;
+    }
+
+    async function loadInfo() {
+      const r = await fetch('/api/info');
+      const d = await r.json();
+      const el = document.getElementById('asset');
+      if (d.error) {
+        el.className = 'asset err';
+        el.textContent = '❌ ' + d.error;
+        bundleOK = false;
+      } else {
+        el.className = 'asset ok';
+        el.textContent = '資料目錄：' + d.dir + '\n機率表：7 份 JSON ✓\n開獎 CSV：' + d.csv_path + '（' + d.csv_rows + ' 局）';
+        bundleOK = true;
+      }
+    }
+
+    async function loadPrefs() {
+      const r = await fetch('/api/prefs');
+      fillForm(await r.json());
+    }
+
+    async function startRun() {
+      if (!bundleOK) { alert('資料檔未就緒'); return; }
+      const btn = document.getElementById('runBtn');
+      btn.disabled = true;
+      document.getElementById('status').textContent = '計算中，請稍候…';
+      document.getElementById('result').value = '';
+      const prefs = prefsFromForm();
+      const r = await fetch('/api/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+      });
+      const d = await r.json();
+      if (!r.ok) {
+        btn.disabled = false;
+        document.getElementById('status').textContent = '失敗';
+        alert(d.error || '啟動失敗');
+        return;
+      }
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(pollJob, 500);
+    }
+
+    async function pollJob() {
+      const r = await fetch('/api/job');
+      const d = await r.json();
+      if (d.running) return;
+      clearInterval(pollTimer);
+      pollTimer = null;
+      document.getElementById('runBtn').disabled = false;
+      if (d.error) {
+        document.getElementById('status').textContent = '失敗';
+        alert(d.error);
+        return;
+      }
+      document.getElementById('result').value = d.report || '';
+      document.getElementById('status').textContent = d.summary || '完成';
+    }
+
+    async function copyResult() {
+      const t = document.getElementById('result').value;
+      if (!t) return;
+      await navigator.clipboard.writeText(t);
+      document.getElementById('status').textContent = '已複製到剪貼簿';
+    }
+
+    (async function init() {
+      await loadPrefs();
+      await loadInfo();
+    })();
+  </script>
+</body>
+</html>

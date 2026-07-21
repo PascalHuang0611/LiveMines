@@ -1,0 +1,45 @@
+{
+  "master_seed": 42,
+  "rounds": 35940,
+  "runs": {
+    "run1_no_control": {
+      "mode": 0,
+      "total_bet": 388128541.5,
+      "main_payout": 360595155,
+      "bonus_payout": 17211730,
+      "grand_payout": 1616130,
+      "rtp_percent_excl_grand": 97.34066027195271,
+      "main_rtp_percent": 92.90611651655615,
+      "bonus_rtp_percent": 4.434543755396561,
+      "grand_rtp_percent": 0.416390403486985,
+      "rtp_percent_incl_grand": 97.7570506754397,
+      "wall_seconds": 1.3519186
+    },
+    "run2_full_control": {
+      "mode": 1,
+      "total_bet": 388128541.5,
+      "main_payout": 360459966,
+      "bonus_payout": 17222215,
+      "grand_payout": 1616130,
+      "rtp_percent_excl_grand": 97.30853071005086,
+      "main_rtp_percent": 92.87128553002846,
+      "bonus_rtp_percent": 4.437245180022402,
+      "grand_rtp_percent": 0.416390403486985,
+      "rtp_percent_incl_grand": 97.72492111353785,
+      "wall_seconds": 1.356919
+    },
+    "run3_only_math_switch": {
+      "mode": 1,
+      "total_bet": 388128541.5,
+      "main_payout": 360474555,
+      "bonus_payout": 17209505,
+      "grand_payout": 1616130,
+      "rtp_percent_excl_grand": 97.30901482801671,
+      "main_rtp_percent": 92.87504433631042,
+      "bonus_rtp_percent": 4.433970491706289,
+      "grand_rtp_percent": 0.416390403486985,
+      "rtp_percent_incl_grand": 97.72540523150369,
+      "wall_seconds": 1.3454338
+    }
+  }
+}

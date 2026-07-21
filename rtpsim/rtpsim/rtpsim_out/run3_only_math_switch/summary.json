@@ -1,0 +1,200 @@
+{
+  "rounds_simulated": 10000000,
+  "wall_seconds": 407.5479496,
+  "mode": 1,
+  "label": "run3_only_math_switch",
+  "overall": {
+    "total_bet": 35999770287,
+    "main_game_payout": 32833193439,
+    "bonus_game_payout": 1217007045,
+    "grand_prize_payout": 149999280,
+    "rtp_percent_excl_grand": 94.58449376910603,
+    "main_rtp_percent": 91.20389707280023,
+    "bonus_rtp_percent": 3.380596696305803,
+    "grand_rtp_percent": 0.4166673253861477,
+    "rtp_percent_incl_grand": 95.00116109449218
+  },
+  "rtp_range_excl_grand": {
+    "min_round_rtp_percent_excl_grand": 49.331103678929765,
+    "max_round_rtp_percent_excl_grand": 514.4837144837145,
+    "min_cumulative_rtp_percent_excl_grand": 92.47818257376368,
+    "max_cumulative_rtp_percent_excl_grand": 153.57905538453005,
+    "window_range_max_rounds": 2400,
+    "min_window_rtp_percent_excl_grand": 92.47818257376368,
+    "max_window_rtp_percent_excl_grand": 153.57905538453005,
+    "window_rtp_samples": 2400,
+    "window_extreme_count_first_2400": 12,
+    "window_extreme_count_total": 12,
+    "window_above_110_count": 12
+  },
+  "rtp_split_by_paid_lightning": {
+    "buyer_subset": {
+      "rounds": 3999846858,
+      "total_bet": 17999310861,
+      "main_payout": 16611497575,
+      "bonus_payout": 487303335,
+      "grand_payout": 60265030.42082862,
+      "rtp_percent_excl_grand": 94.9969753955904
+    },
+    "nonbuyer_subset": {
+      "rounds": 6000153142,
+      "total_bet": 18000459426,
+      "main_payout": 16221695864,
+      "bonus_payout": 729703710,
+      "grand_payout": 89734249.57917242,
+      "rtp_percent_excl_grand": 94.17203846205875
+    }
+  },
+  "jp_pool": {
+    "main_pool_start": 0,
+    "main_pool_end": 720,
+    "sub_pool_start": 0,
+    "sub_pool_end": 0,
+    "total_rake_main": 150000000,
+    "total_rake_sub": 0,
+    "auto_inject_events": 0,
+    "auto_inject_total": 0,
+    "grand_prize_total": 149999280,
+    "max_single_jp_payout": 4755,
+    "max_round_jp_payout": 5160
+  },
+  "per_zone": [
+    {
+      "code": 0,
+      "hits": 9999521,
+      "lightning_triggered": 0,
+      "jp_triggered": 0,
+      "total_bet": 35998045513.5,
+      "main_payout": 32831533988,
+      "bonus_payout": 1216948320,
+      "grand_payout": 149990070,
+      "rtp_percent_excl_grand": 94.58425262346847
+    },
+    {
+      "code": 101,
+      "hits": 28,
+      "lightning_triggered": 0,
+      "jp_triggered": 0,
+      "total_bet": 100603.5,
+      "main_payout": 89998,
+      "bonus_payout": 8665,
+      "grand_payout": 210,
+      "rtp_percent_excl_grand": 98.0711406660802
+    },
+    {
+      "code": 102,
+      "hits": 4,
+      "lightning_triggered": 0,
+      "jp_triggered": 0,
+      "total_bet": 14430,
+      "main_payout": 11154,
+      "bonus_payout": 0,
+      "grand_payout": 0,
+      "rtp_percent_excl_grand": 77.29729729729729
+    },
+    {
+      "code": 103,
+      "hits": 15,
+      "lightning_triggered": 0,
+      "jp_triggered": 0,
+      "total_bet": 53896.5,
+      "main_payout": 49534,
+      "bonus_payout": 0,
+      "grand_payout": 0,
+      "rtp_percent_excl_grand": 91.90578237918974
+    },
+    {
+      "code": 201,
+      "hits": 431,
+      "lightning_triggered": 0,
+      "jp_triggered": 0,
+      "total_bet": 1552248,
+      "main_payout": 1504091,
+      "bonus_payout": 50060,
+      "grand_payout": 9000,
+      "rtp_percent_excl_grand": 100.12259638923678
+    },
+    {
+      "code": 202,
+      "hits": 1,
+      "lightning_triggered": 0,
+      "jp_triggered": 0,
+      "total_bet": 3595.5,
+      "main_payout": 4674,
+      "bonus_payout": 0,
+      "grand_payout": 0,
+      "rtp_percent_excl_grand": 129.99582811848143
+    },
+    {
+      "code": 203,
+      "hits": 0,
+      "lightning_triggered": 0,
+      "jp_triggered": 0,
+      "total_bet": 0,
+      "main_payout": 0,
+      "bonus_payout": 0,
+      "grand_payout": 0,
+      "rtp_percent_excl_grand": 0
+    }
+  ],
+  "old_rtp_trigger_counts": {
+    "lightning_hits": 0,
+    "jp_hits": 0
+  },
+  "ball_results": {
+    "two_same_occurrences": 3967206,
+    "two_same_rate_percent": 39.672059999999995,
+    "three_same_occurrences": 344449,
+    "three_same_rate_percent": 3.44449
+  },
+  "three_same_balls": {
+    "occurrences": 344449,
+    "rate_percent": 3.44449
+  },
+  "bonus_detail": {
+    "qualified_players": 114813459,
+    "cashout_total": 33737708,
+    "grand_total": 1028674,
+    "per_level": [
+      {
+        "level": 1,
+        "enter": 114813459,
+        "pass": 57403412,
+        "fail": 57410047
+      },
+      {
+        "level": 2,
+        "enter": 28701643,
+        "pass": 14350311,
+        "fail": 14351332
+      },
+      {
+        "level": 3,
+        "enter": 10046447,
+        "pass": 5026631,
+        "fail": 5019816
+      },
+      {
+        "level": 4,
+        "enter": 4473099,
+        "pass": 2235577,
+        "fail": 2237522
+      },
+      {
+        "level": 5,
+        "enter": 2057034,
+        "pass": 1028674,
+        "fail": 1028360
+      }
+    ]
+  },
+  "per_player_quantiles": {
+    "min_rtp": 94.39034361429655,
+    "p5": 94.48614008139614,
+    "p25": 94.54562611496428,
+    "p50": 94.58342023978932,
+    "p75": 94.62461004355778,
+    "p95": 94.68149765377636,
+    "max_rtp": 94.75997246588797
+  }
+}

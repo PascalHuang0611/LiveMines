@@ -1,0 +1,222 @@
+{
+  "master_seed": 43,
+  "rounds": 359400,
+  "runs": {
+    "run1_no_control": {
+      "mode": 0,
+      "total_bet": 3234600000,
+      "main_bet_only": 3234600000,
+      "main_payout": 2971158000,
+      "bonus_payout": 208350845,
+      "grand_payout": 16171830,
+      "rtp_percent_excl_grand": 98.29503586223953,
+      "main_rtp_percent": 91.85549990725282,
+      "bonus_rtp_percent": 6.441317164409818,
+      "grand_rtp_percent": 0.4999638286032276,
+      "rtp_percent_incl_grand": 98.79678090026587,
+      "incl_extra_total_bet": 4851900000,
+      "incl_extra_rtp_percent_incl_grand": 98.62834508130835,
+      "wall_seconds": 10.332557,
+      "buyer_extra": {
+        "rounds": 359400000,
+        "total_bet": 4851900000,
+        "main_payout": 4560826000,
+        "bonus_payout": 208350845,
+        "grand_payout": 16171830.000001198,
+        "rtp_percent_excl_grand": 98.29503586223953,
+        "main_rtp_percent": 94.00082441929966,
+        "bonus_rtp_percent": 4.294211442939879,
+        "grand_rtp_percent": 0.3333092190688431,
+        "rtp_percent_incl_grand": 98.62834508130838
+      },
+      "zone_usage": [
+        {
+          "zone_code": 0,
+          "mathconfig": "BASE",
+          "hits": 359400,
+          "hit_rate_percent": 100
+        },
+        {
+          "zone_code": 101,
+          "mathconfig": "PRT1",
+          "hits": 0,
+          "hit_rate_percent": 0
+        },
+        {
+          "zone_code": 102,
+          "mathconfig": "PRT2",
+          "hits": 0,
+          "hit_rate_percent": 0
+        },
+        {
+          "zone_code": 103,
+          "mathconfig": "PRT3",
+          "hits": 0,
+          "hit_rate_percent": 0
+        },
+        {
+          "zone_code": 201,
+          "mathconfig": "BST1",
+          "hits": 0,
+          "hit_rate_percent": 0
+        },
+        {
+          "zone_code": 202,
+          "mathconfig": "BST2",
+          "hits": 0,
+          "hit_rate_percent": 0
+        },
+        {
+          "zone_code": 203,
+          "mathconfig": "BST3",
+          "hits": 0,
+          "hit_rate_percent": 0
+        }
+      ]
+    },
+    "run2_full_control": {
+      "mode": 1,
+      "total_bet": 3234600000,
+      "main_bet_only": 3234600000,
+      "main_payout": 2970202000,
+      "bonus_payout": 208182925,
+      "grand_payout": 16171830,
+      "rtp_percent_excl_grand": 97.93258156598445,
+      "main_rtp_percent": 91.82594447536016,
+      "bonus_rtp_percent": 6.436125796079886,
+      "grand_rtp_percent": 0.4999638286032276,
+      "rtp_percent_incl_grand": 98.76203410004328,
+      "incl_extra_total_bet": 4851900000,
+      "incl_extra_rtp_percent_incl_grand": 98.26589078505327,
+      "wall_seconds": 10.445955,
+      "buyer_extra": {
+        "rounds": 359400000,
+        "total_bet": 4851900000,
+        "main_payout": 4543408000,
+        "bonus_payout": 208182925,
+        "grand_payout": 16171830.000001628,
+        "rtp_percent_excl_grand": 97.93258156598445,
+        "main_rtp_percent": 93.64183103526453,
+        "bonus_rtp_percent": 4.290750530719924,
+        "grand_rtp_percent": 0.3333092190688519,
+        "rtp_percent_incl_grand": 98.26589078505333
+      },
+      "zone_usage": [
+        {
+          "zone_code": 0,
+          "mathconfig": "BASE",
+          "hits": 338938,
+          "hit_rate_percent": 94.30662214802449
+        },
+        {
+          "zone_code": 101,
+          "mathconfig": "PRT1",
+          "hits": 17,
+          "hit_rate_percent": 0.0047301057317751805
+        },
+        {
+          "zone_code": 102,
+          "mathconfig": "PRT2",
+          "hits": 64,
+          "hit_rate_percent": 0.017807456872565384
+        },
+        {
+          "zone_code": 103,
+          "mathconfig": "PRT3",
+          "hits": 20288,
+          "hit_rate_percent": 5.6449638286032275
+        },
+        {
+          "zone_code": 201,
+          "mathconfig": "BST1",
+          "hits": 43,
+          "hit_rate_percent": 0.011964385086254869
+        },
+        {
+          "zone_code": 202,
+          "mathconfig": "BST2",
+          "hits": 20,
+          "hit_rate_percent": 0.005564830272676683
+        },
+        {
+          "zone_code": 203,
+          "mathconfig": "BST3",
+          "hits": 30,
+          "hit_rate_percent": 0.008347245409015025
+        }
+      ]
+    },
+    "run3_only_math_switch": {
+      "mode": 1,
+      "total_bet": 3234600000,
+      "main_bet_only": 3234600000,
+      "main_payout": 2970458000,
+      "bonus_payout": 208387990,
+      "grand_payout": 16171830,
+      "rtp_percent_excl_grand": 97.93482944825739,
+      "main_rtp_percent": 91.83385890063687,
+      "bonus_rtp_percent": 6.442465528968033,
+      "grand_rtp_percent": 0.4999638286032276,
+      "rtp_percent_incl_grand": 98.77628825820813,
+      "incl_extra_total_bet": 4851900000,
+      "incl_extra_rtp_percent_incl_grand": 98.2681386673262,
+      "wall_seconds": 10.3881421,
+      "buyer_extra": {
+        "rounds": 359400000,
+        "total_bet": 4851900000,
+        "main_payout": 4543312000,
+        "bonus_payout": 208387990,
+        "grand_payout": 16171830.00000113,
+        "rtp_percent_excl_grand": 97.93482944825739,
+        "main_rtp_percent": 93.63985242894536,
+        "bonus_rtp_percent": 4.294977019312022,
+        "grand_rtp_percent": 0.3333092190688417,
+        "rtp_percent_incl_grand": 98.26813866732623
+      },
+      "zone_usage": [
+        {
+          "zone_code": 0,
+          "mathconfig": "BASE",
+          "hits": 339698,
+          "hit_rate_percent": 94.5180856983862
+        },
+        {
+          "zone_code": 101,
+          "mathconfig": "PRT1",
+          "hits": 6,
+          "hit_rate_percent": 0.001669449081803005
+        },
+        {
+          "zone_code": 102,
+          "mathconfig": "PRT2",
+          "hits": 1,
+          "hit_rate_percent": 0.0002782415136338341
+        },
+        {
+          "zone_code": 103,
+          "mathconfig": "PRT3",
+          "hits": 19632,
+          "hit_rate_percent": 5.462437395659432
+        },
+        {
+          "zone_code": 201,
+          "mathconfig": "BST1",
+          "hits": 42,
+          "hit_rate_percent": 0.011686143572621035
+        },
+        {
+          "zone_code": 202,
+          "mathconfig": "BST2",
+          "hits": 13,
+          "hit_rate_percent": 0.003617139677239844
+        },
+        {
+          "zone_code": 203,
+          "mathconfig": "BST3",
+          "hits": 8,
+          "hit_rate_percent": 0.002225932109070673
+        }
+      ]
+    }
+  }
+}

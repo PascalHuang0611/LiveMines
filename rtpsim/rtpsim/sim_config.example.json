@@ -1,0 +1,186 @@
+{
+  "simulation": {
+    "rounds": 100000000,
+    "workers": 0,
+    "rng_seed": 0,
+    "rtp_window_rounds": 48000,
+    "initial_rtp": 95.0,
+    "round_interval_seconds": 30
+  },
+  "players": {
+    "count": 1000,
+    "bet_per_position": 1.0,
+    "betting_strategy": "all9",
+    "paid_lightning_purchase_rate": 0.4,
+    "force_all_paid_lightning": false,
+    "bonus_cashout_probability": 0.25,
+    "bonus_cashout_per_level_note": "只有過 L1/L2/L3/L4 後可 cashout（拿 15/40/100/250）。過 L5 直接拿 500+JP 不再骰。",
+    "bonus_cashout_per_level": [
+      0.25,
+      0.15,
+      0.055,
+      0.04
+    ],
+    "bonus_random_pick": true
+  },
+  "math_configs": {
+    "base_dir": "./dist",
+    "files": {
+      "BASE": "TG001_LM01_BASE_Config.json",
+      "PRT1": "TG001_LM01_PRT1_Config.json",
+      "PRT2": "TG001_LM01_PRT2_Config.json",
+      "PRT3": "TG001_LM01_PRT3_Config.json",
+      "BST1": "TG001_LM01_BST1_Config.json",
+      "BST2": "TG001_LM01_BST2_Config.json",
+      "BST3": "TG001_LM01_BST3_Config.json"
+    }
+  },
+  "rtp_control": {
+    "mode": 1,
+    "zones": [
+      {
+        "code": 101,
+        "rtp_min": "101.50",
+        "rtp_max": "inf",
+        "trigger_rtp": 101.5,
+        "exit_rtp": 100.5,
+        "mathconfig": "PRT1"
+      },
+      {
+        "code": 102,
+        "rtp_min": "99.50",
+        "rtp_max": "101.49",
+        "trigger_rtp": 99.5,
+        "exit_rtp": 98.8,
+        "mathconfig": "PRT2"
+      },
+      {
+        "code": 103,
+        "rtp_min": "98.00",
+        "rtp_max": "99.49",
+        "trigger_rtp": 98.0,
+        "exit_rtp": 97.0,
+        "mathconfig": "PRT3"
+      },
+      {
+        "code": 0,
+        "rtp_min": "94.01",
+        "rtp_max": "97.99",
+        "mathconfig": "BASE"
+      },
+      {
+        "code": 203,
+        "rtp_min": "92.01",
+        "rtp_max": "94.00",
+        "trigger_rtp": 94.0,
+        "exit_rtp": 95.0,
+        "mathconfig": "BST3"
+      },
+      {
+        "code": 202,
+        "rtp_min": "88.01",
+        "rtp_max": "92.00",
+        "trigger_rtp": 92.0,
+        "exit_rtp": 93.0,
+        "mathconfig": "BST2"
+      },
+      {
+        "code": 201,
+        "rtp_min": "-inf",
+        "rtp_max": "88.00",
+        "trigger_rtp": 88.0,
+        "exit_rtp": 90.0,
+        "mathconfig": "BST1"
+      }
+    ],
+    "jp_protection_v3": {
+      "enabled": true,
+      "ggr_threshold": 0,
+      "phases": [
+        {
+          "code": "U_PRT_L1",
+          "rtp_threshold": 110,
+          "levels": [
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            1.0
+          ]
+        },
+        {
+          "code": "U_PRT_L2",
+          "rtp_threshold": 107,
+          "levels": [
+            0.0,
+            0.1,
+            0.35,
+            0.6,
+            0.8
+          ]
+        },
+        {
+          "code": "U_PRT_L3",
+          "rtp_threshold": 105,
+          "levels": [
+            0.0,
+            0.05,
+            0.18,
+            0.35,
+            0.55
+          ]
+        },
+        {
+          "code": "U_PRT_L4",
+          "rtp_threshold": 103,
+          "levels": [
+            0.0,
+            0.0,
+            0.05,
+            0.12,
+            0.25
+          ]
+        }
+      ]
+    },
+    "risk_score_v4": true
+  },
+  "egame_data": {
+    "initial_main_pool": 0,
+    "initial_sub_pool": 0,
+    "pool_per_card": 0.005,
+    "fix_pool_per_card": 1,
+    "egame_pool_advance": 100000,
+    "inject_jp_val": 0,
+    "inject_max": 1000000,
+    "jackpot_auto_inject": true,
+    "forbid_jackpot": false
+  },
+  "ball_drop": {
+    "weights_source": "../../../docs/LM_Qualified_test_data20260526.csv",
+    "weights_note": "grid_weights=per-ball marginal counts (13447 valid rows). outcome_weights=[全不同,二同,三同] from LiveMines_Math CSV device data (11619 valid records: 6610/4609/400)",
+    "grid_weights": [
+      4649,
+      4462,
+      4440,
+      4480,
+      4602,
+      4661,
+      4384,
+      4353,
+      4310
+    ],
+    "outcome_weights": [
+      6610,
+      4609,
+      400
+    ]
+  },
+  "output": {
+    "dir": "./rtpsim_out",
+    "summary_json": "summary.json",
+    "per_zone_csv": "per_zone.csv",
+    "per_player_csv": "per_player.csv",
+    "per_player_quantiles": true
+  }
+}
