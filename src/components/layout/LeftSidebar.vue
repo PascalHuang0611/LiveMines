@@ -71,6 +71,40 @@
                             <span class="text-gray-400 border-b border-dotted border-gray-600">V4 LRS 範圍</span>
                             <span class="text-gray-200 text-xs">{{ $game.riskV4LrsRange }}</span>
                         </div>
+
+                        <!-- V4 樣本門檻即時狀態 (獨立區塊) -->
+                        <div v-if="$game.riskV4Gate" class="mt-2 p-2 rounded border border-gray-700 bg-gray-900/60 text-xs space-y-1">
+                            <div class="text-gray-400 font-bold text-[10px] uppercase tracking-wider cursor-help border-b border-dotted border-gray-600 inline-block"
+                                 title="V4 的樣本門檻 (規格失效規則)。任一模組門檻沒過 → 該模組分數鎖 50、權重中性。中位數 = 長期窗口內每局全場總投注的中間值，代表一局正常盤量。">
+                                📏 V4 樣本門檻
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-500">每局盤量中位數</span>
+                                <span class="text-gray-300 font-mono">{{ $game.riskV4Gate.median.toFixed(2) }}</span>
+                            </div>
+                            <div class="flex justify-between" title="TRS 門檻: 長窗口內累積局數 ≥ 50">
+                                <span class="text-gray-500">窗口局數 (TRS)</span>
+                                <span class="font-mono" :class="$game.riskV4Gate.roundsOk ? 'text-green-400' : 'text-orange-400'">
+                                    {{ $game.riskV4Gate.windowRounds }} / 50 {{ $game.riskV4Gate.roundsOk ? '✓' : '✗' }}
+                                </span>
+                            </div>
+                            <div class="flex justify-between" title="LRS 門檻 1: 長窗口內「有 Extra 買家的局數」須達標">
+                                <span class="text-gray-500">Extra 局數 (LRS)</span>
+                                <span class="font-mono" :class="$game.riskV4Gate.extraRoundsOk ? 'text-green-400' : 'text-orange-400'">
+                                    {{ $game.riskV4Gate.extraRounds }} / {{ $game.riskV4Gate.extraRoundsNeed }} {{ $game.riskV4Gate.extraRoundsOk ? '✓' : '✗' }}
+                                </span>
+                            </div>
+                            <div class="flex justify-between" title="LRS 門檻 2: 長窗口內 Extra 買家本金總和 ≥ 中位數 × extraVolumeMultiplier。此為滑動窗口內的總和，跑更多局不會累積突破，只由 Extra 佔比決定。">
+                                <span class="text-gray-500">Extra 金額 (LRS)</span>
+                                <span class="font-mono" :class="$game.riskV4Gate.extraVolumeOk ? 'text-green-400' : 'text-orange-400'">
+                                    {{ Math.round($game.riskV4Gate.extraVolume).toLocaleString() }} / {{ Math.round($game.riskV4Gate.extraVolumeNeed).toLocaleString() }} {{ $game.riskV4Gate.extraVolumeOk ? '✓' : '✗' }}
+                                </span>
+                            </div>
+                            <div v-if="$game.riskV4TrsNote || $game.riskV4LrsNote" class="pt-1 border-t border-gray-700 space-y-0.5">
+                                <div v-if="$game.riskV4TrsNote" class="text-orange-400">⚠ TRS 鎖中性：{{ $game.riskV4TrsNote }}</div>
+                                <div v-if="$game.riskV4LrsNote" class="text-orange-400">⚠ LRS 鎖中性：{{ $game.riskV4LrsNote }}</div>
+                            </div>
+                        </div>
                     </div>
                     <p v-else class="text-xs text-gray-500 mt-2">勾選後每局依窗口 RTP 自動切換數值表 (V2 階梯+遲滯)</p>
                 </div>
@@ -97,7 +131,7 @@
                         <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1">
                                 <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">一天局數</label>
-                                <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" @change="$game.generateDayPlan(); $game.resetRiskRuntime()" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
+                                <input type="number" v-model.number="$game.trafficScenario.roundsPerDay" @change="$game.onRoundsPerDayChanged()" class="w-full bg-gray-900 border border-gray-700 rounded px-2 py-1.5 text-white text-sm outline-none focus:border-blue-500">
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold" title="由畫面上方的總模擬次數 ÷ 一天局數 計算得出">模擬天數</label>

@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.40 / V14A (SERVER Risk Control V2+V3+V4)
+            v2.41 / V14A (V4 Gate Panel & Observability)
         </div>
     </div>
 </template>

@@ -258,10 +258,12 @@ export class RiskScoreState {
         const sMainTotal = sWin.sumMainBet(), lMainTotal = lWin.sumMainBet();
         const sExtraTotal = sWin.sumExtraMainBet(), lExtraTotal = lWin.sumExtraMainBet();
 
-        // 樣本門檻 (失效 → 指標中性 50)
+        // 樣本門檻 (失效 → 指標中性 50)；Extra 拆成局數/金額兩個子條件供 UI 顯示失效原因
         const roundsOk = lWin.count >= (minS.rounds || 50);
-        const extraOk = lWin.extraRounds >= (minS.extraRounds || 100)
-            && (median <= 0 || lWin.extraVolume >= median * (minS.extraVolumeMultiplier || 100));
+        const extraRoundsNeed = minS.extraRounds || 100;
+        const extraRoundsOk = lWin.extraRounds >= extraRoundsNeed;
+        const extraVolumeOk = (median <= 0 || lWin.extraVolume >= median * (minS.extraVolumeMultiplier || 100));
+        const extraOk = extraRoundsOk && extraVolumeOk;
 
         // Lightning 期望值 (供 EPP/STK)
         const expFreeStrikes = expectedComboLength(config.lightningFeature.payoutMultipliers);
@@ -450,6 +452,17 @@ export class RiskScoreState {
         }
         bd.trsFailed = trsFailed;
         bd.lrsFailed = lrsFailed;
+        // 樣本門檻狀態 (UI 顯示失效原因與門檻數字用)
+        bd.roundsOk = roundsOk;
+        bd.extraRoundsOk = extraRoundsOk;
+        bd.extraVolumeOk = extraVolumeOk;
+        bd.extraRounds = lWin.extraRounds;
+        bd.extraRoundsNeed = extraRoundsNeed;
+        bd.windowRounds = lWin.count;
+        bd.windowCapacity = lWin.capacity;
+        bd.median = Math.round(median * 100) / 100;                 // 每局盤量中位數
+        bd.extraVolume = Math.round(lWin.extraVolume * 100) / 100;  // 窗口內 Extra 金額
+        bd.extraVolumeNeed = Math.round(median * (minS.extraVolumeMultiplier || 100) * 100) / 100; // 金額門檻
         bd.freeTable = { thresholds: [...freeCfg.thresholds], weights: [...freeCfg.weights] };
         bd.paidTable = { thresholds: [...paidCfg.thresholds], weights: [...paidCfg.weights] };
         bd.profileKey = null; // 由呼叫端補上 (引擎不知道數值表名稱)

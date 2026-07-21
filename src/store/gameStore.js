@@ -159,6 +159,9 @@ export const useGameStore = defineStore('game', {
         riskV4NonNeutral: 0,         // V4 非中性局數 (UI 顯示)
         riskV4TrsRange: '—',         // V4 平滑 TRS 目前範圍 (UI 顯示)
         riskV4LrsRange: '—',         // V4 平滑 LRS 目前範圍 (UI 顯示)
+        riskV4TrsNote: '',           // TRS 模組失效原因 (UI 顯示，空字串 = 正常)
+        riskV4LrsNote: '',           // LRS 模組失效原因 (UI 顯示，空字串 = 正常)
+        riskV4Gate: null,            // V4 樣本門檻即時數字 { median, extraVolume, extraVolumeNeed, ... }
 
         // Chart instances
         chartInstance: null,
@@ -412,6 +415,10 @@ export const useGameStore = defineStore('game', {
             
             const savedDistBinSize = localStorage.getItem('livemines_distBinSize');
             if (savedDistBinSize) this.distributionBinSize = parseFloat(savedDistBinSize) || 2;
+
+            // 一天局數 (影響 Agent 作息解析度與 V4 虛擬時鐘)；需在 setSimulationMode 之前還原
+            const savedRpd = parseInt(localStorage.getItem('livemines_roundsPerDay'), 10);
+            if (savedRpd >= 24) this.trafficScenario.roundsPerDay = savedRpd;
 
             this.initChart();
             
@@ -1154,6 +1161,16 @@ export const useGameStore = defineStore('game', {
             }
         },
 
+        // 一天局數變更：持久化 + 重排 Agent 作息 + 重建風控狀態 (V4 虛擬時鐘隨之改變)
+        onRoundsPerDayChanged() {
+            const rpd = parseInt(this.trafficScenario.roundsPerDay, 10);
+            if (rpd >= 24) {
+                localStorage.setItem('livemines_roundsPerDay', String(rpd));
+            }
+            this.generateDayPlan();
+            this.resetRiskRuntime();
+        },
+
         // 切換單層風控開關 (V2/V3/V4)；切換即重置風控狀態 (冷啟動)
         setRiskToggle(key, value) {
             this.riskToggles = { ...this.riskToggles, [key]: !!value };
@@ -1176,6 +1193,9 @@ export const useGameStore = defineStore('game', {
             this.riskV4NonNeutral = 0;
             this.riskV4TrsRange = '—';
             this.riskV4LrsRange = '—';
+            this.riskV4TrsNote = '';
+            this.riskV4LrsNote = '';
+            this.riskV4Gate = null;
             if (!this.riskControlEnabled || !this.riskControlConfig) {
                 this.riskRuntime = null;
                 return;
@@ -1692,6 +1712,34 @@ export const useGameStore = defineStore('game', {
                     };
                     this.riskV4TrsRange = range(rt.v4.smoothedTRS);
                     this.riskV4LrsRange = range(rt.v4.smoothedLRS);
+
+                    // 模組失效原因 + 門檻即時數字 (一眼看穿 LRS/TRS 為何不動)
+                    const bd = rt.v4.lastBreakdown;
+                    if (bd) {
+                        this.riskV4TrsNote = bd.trsFailed
+                            ? (!bd.roundsOk ? `窗口局數不足 ${bd.windowRounds}/50` : '指標失效')
+                            : '';
+                        if (bd.lrsFailed) {
+                            if (!bd.extraRoundsOk && !bd.extraVolumeOk) this.riskV4LrsNote = 'Extra 局數與金額皆不足';
+                            else if (!bd.extraRoundsOk) this.riskV4LrsNote = 'Extra 局數不足';
+                            else if (!bd.extraVolumeOk) this.riskV4LrsNote = 'Extra 金額不足';
+                            else this.riskV4LrsNote = '指標失效';
+                        } else {
+                            this.riskV4LrsNote = '';
+                        }
+                        this.riskV4Gate = {
+                            median: bd.median,
+                            extraVolume: bd.extraVolume,
+                            extraVolumeNeed: bd.extraVolumeNeed,
+                            extraVolumeOk: bd.extraVolumeOk,
+                            extraRounds: bd.extraRounds,
+                            extraRoundsNeed: bd.extraRoundsNeed,
+                            extraRoundsOk: bd.extraRoundsOk,
+                            windowRounds: bd.windowRounds,
+                            windowCapacity: bd.windowCapacity,
+                            roundsOk: bd.roundsOk
+                        };
+                    }
                 }
             }
 
@@ -1758,6 +1806,9 @@ export const useGameStore = defineStore('game', {
 
             this.simulationMode = mode;
             this.agentTrafficEnabled = (mode === 'agentTraffic');
+
+            // clearData 時 simulationMode 還是舊值，V4 虛擬時鐘會算錯 → 換模式後重建風控狀態
+            this.resetRiskRuntime();
             
             // 如果切換到人流模式且目前沒有 Agent 資料，則嘗試自動載入
             if (mode === 'agentTraffic') {
