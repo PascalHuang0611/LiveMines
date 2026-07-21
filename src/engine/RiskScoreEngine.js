@@ -166,6 +166,7 @@ export class RiskScoreState {
         // 上次重算輸出的權重 (供下一局取用)；null = 尚未重算 (冷啟動 → 中性)
         this.lastFreeWeights = null;
         this.lastPaidWeights = null;
+        this.lastBreakdown = null; // 上次重算的每格子分數明細 (UI 解釋用)
 
         // 統計
         this.roundsComputed = 0;
@@ -278,6 +279,16 @@ export class RiskScoreState {
         const lrs = new Float64Array(GRID_COUNT);
         let trsFailedCore = 0, lrsFailedCore = 0;
 
+        // 子分數明細收集 (供 UI 解釋權重成因；四捨五入到小數 1 位節省記憶體)
+        const r1 = v => Math.round(v * 10) / 10;
+        const bd = {
+            mbc: new Array(GRID_COUNT), phy: new Array(GRID_COUNT), mpp: new Array(GRID_COUNT), bex: new Array(GRID_COUNT),
+            ebc: new Array(GRID_COUNT), epp: new Array(GRID_COUNT), stk: new Array(GRID_COUNT),
+            trsRaw: new Array(GRID_COUNT), lrsRaw: new Array(GRID_COUNT),
+            trsSmoothed: new Array(GRID_COUNT), lrsSmoothed: new Array(GRID_COUNT),
+            trsFailed: false, lrsFailed: false
+        };
+
         // Bonus 曝險需要全格平均，先算 per-grid exposure
         const bexShort = new Float64Array(GRID_COUNT);
         const bexLong = new Float64Array(GRID_COUNT);
@@ -351,6 +362,8 @@ export class RiskScoreState {
 
             trs[i] = 0.35 * mbcScore + 0.30 * phyScore + 0.20 * mppScore + 0.15 * bexScore;
             if (i === 0) trsFailedCore = (mbcFailed ? 1 : 0) + (mppFailed ? 1 : 0) + (bexFailed ? 1 : 0);
+            bd.mbc[i] = r1(mbcScore); bd.phy[i] = r1(phyScore); bd.mpp[i] = r1(mppScore); bd.bex[i] = r1(bexScore);
+            bd.trsRaw[i] = r1(trs[i]);
 
             // === LRS ===
             // 指標一 EBC：Extra 玩家投注集中度 (0.70 短 + 0.30 長)；樣本不足 → 50
@@ -387,6 +400,8 @@ export class RiskScoreState {
 
             lrs[i] = 0.40 * ebcScore + 0.25 * phyScore + 0.20 * eppScore + 0.15 * stkScore;
             if (i === 0) lrsFailedCore = (ebcFailed ? 1 : 0) + (eppFailed ? 1 : 0) + (stkFailed ? 1 : 0);
+            bd.ebc[i] = r1(ebcScore); bd.epp[i] = r1(eppScore); bd.stk[i] = r1(stkScore);
+            bd.lrsRaw[i] = r1(lrs[i]);
         }
 
         // === 系統失效規則：超過兩個核心指標失效 → 模組全格中性 ===
@@ -426,6 +441,19 @@ export class RiskScoreState {
         const paidWeights = mapWeights(this.smoothedLRS, paidCfg, lrsFailed);
         this.lastFreeWeights = freeWeights;
         this.lastPaidWeights = paidWeights;
+
+        // 明細快照 (供下一局的歷史紀錄解釋權重成因)
+        // 查表脈絡必須取「重算當下」的 gridWeights (下一局 V2 可能已換表，不能用屆時的表解釋)
+        for (let i = 0; i < GRID_COUNT; i++) {
+            bd.trsSmoothed[i] = r1(this.smoothedTRS[i]);
+            bd.lrsSmoothed[i] = r1(this.smoothedLRS[i]);
+        }
+        bd.trsFailed = trsFailed;
+        bd.lrsFailed = lrsFailed;
+        bd.freeTable = { thresholds: [...freeCfg.thresholds], weights: [...freeCfg.weights] };
+        bd.paidTable = { thresholds: [...paidCfg.thresholds], weights: [...paidCfg.weights] };
+        bd.profileKey = null; // 由呼叫端補上 (引擎不知道數值表名稱)
+        this.lastBreakdown = bd;
 
         // === 統計 ===
         this.roundsComputed++;

@@ -65,20 +65,20 @@
                                 <div class="text-yellow-400 text-[10px] mb-0.5">⚡ 免費閃電 (TRS 控制)</div>
                                 <div class="grid grid-cols-9 gap-0.5">
                                     <span v-for="(w, i) in $game.selectedHistoryRecord.v4Weights.free" :key="'f' + i"
-                                          class="text-center py-0.5 rounded text-[10px]"
+                                          class="text-center py-0.5 rounded text-[10px] cursor-help"
                                           :class="w > $game.selectedHistoryRecord.v4Weights.neutralFree ? 'bg-green-900/60 text-green-300 font-bold'
                                                 : (w < $game.selectedHistoryRecord.v4Weights.neutralFree ? 'bg-red-900/60 text-red-300 font-bold' : 'bg-gray-800 text-gray-400')"
-                                          :title="'格 ' + (i + 1) + ' 權重 ' + w + (w > $game.selectedHistoryRecord.v4Weights.neutralFree ? ' (閃電偏多)' : (w < $game.selectedHistoryRecord.v4Weights.neutralFree ? ' (閃電偏少)' : ' (中性)'))">{{ w }}</span>
+                                          :title="v4CellTitle('free', i)">{{ w }}</span>
                                 </div>
                             </div>
                             <div>
                                 <div class="text-purple-400 text-[10px] mb-0.5">⚡ 付費閃電 (LRS 控制)</div>
                                 <div class="grid grid-cols-9 gap-0.5">
                                     <span v-for="(w, i) in $game.selectedHistoryRecord.v4Weights.paid" :key="'p' + i"
-                                          class="text-center py-0.5 rounded text-[10px]"
+                                          class="text-center py-0.5 rounded text-[10px] cursor-help"
                                           :class="w > $game.selectedHistoryRecord.v4Weights.neutralPaid ? 'bg-green-900/60 text-green-300 font-bold'
                                                 : (w < $game.selectedHistoryRecord.v4Weights.neutralPaid ? 'bg-red-900/60 text-red-300 font-bold' : 'bg-gray-800 text-gray-400')"
-                                          :title="'格 ' + (i + 1) + ' 權重 ' + w + (w > $game.selectedHistoryRecord.v4Weights.neutralPaid ? ' (閃電偏多)' : (w < $game.selectedHistoryRecord.v4Weights.neutralPaid ? ' (閃電偏少)' : ' (中性)'))">{{ w }}</span>
+                                          :title="v4CellTitle('paid', i)">{{ w }}</span>
                                 </div>
                             </div>
                             <div class="text-[9px] text-gray-500 pt-0.5">格序 1~9 對應九宮格；綠 = 高於中性 (該格閃電機率被調高)、紅 = 低於中性 (被調低)</div>
@@ -363,6 +363,52 @@ export default {
         }
     },
     methods: {
+        // V4 權重格 tooltip：從子分數到查表的完整推導
+        v4CellTitle(kind, i) {
+            const v4 = this.$game.selectedHistoryRecord?.v4Weights;
+            if (!v4) return '';
+            const isFree = kind === 'free';
+            const w = (isFree ? v4.free : v4.paid)[i];
+            const neutral = isFree ? v4.neutralFree : v4.neutralPaid;
+            const label = isFree ? '免費閃電' : '付費閃電';
+            const scoreName = isFree ? 'TRS' : 'LRS';
+
+            let text = `格 ${i + 1} ${label}權重 ${w}`;
+            if (!v4.nonNeutral) {
+                return text + `\n本局為中性：九格分數皆在中性帶內 (或模組樣本不足)，落點均勻隨機`;
+            }
+            const bd = v4.breakdown;
+            const table = bd ? (isFree ? bd.freeTable : bd.paidTable) : null;
+            if (!bd || !table) return text;
+
+            const failed = isFree ? bd.trsFailed : bd.lrsFailed;
+            if (failed) {
+                return text + `\n${scoreName} 模組失效 (超過兩個核心指標樣本不足)，全格回歸中性 ${neutral}`;
+            }
+
+            const smoothed = (isFree ? bd.trsSmoothed : bd.lrsSmoothed)[i];
+            const raw = (isFree ? bd.trsRaw : bd.lrsRaw)[i];
+            const subs = isFree
+                ? [`├ 押注集中 MBC ${bd.mbc[i]}`, `├ 落球熱度 PHY ${bd.phy[i]}`, `├ 派彩壓力 MPP ${bd.mpp[i]}`, `└ Bonus曝險 BEX ${bd.bex[i]}`]
+                : [`├ Extra集中 EBC ${bd.ebc[i]}`, `├ 落球熱度 PHY ${bd.phy[i]}`, `├ Extra派彩 EPP ${bd.epp[i]}`, `└ 疊加曝險 STK ${bd.stk[i]}`];
+
+            // 查表：thresholds [20,40,60,80] 將分數切五級
+            const th = table.thresholds;
+            let tier = th.length;
+            for (let t = 0; t < th.length; t++) {
+                if (smoothed < th[t]) { tier = t; break; }
+            }
+            const lo = tier === 0 ? 0 : th[tier - 1];
+            const hi = tier === th.length ? 100 : th[tier];
+
+            return [
+                text,
+                `${scoreName} ${smoothed}（上一局收盤重算；各子分數 50=中性）`,
+                ...subs,
+                `本局合成 ${raw} → EWMA 平滑後 ${smoothed}`,
+                `${smoothed} 落在 ${lo}~${hi} → 第 ${tier + 1} 級 → 查 ${bd.profileKey || '?'} 權重表 [${table.weights.join(',')}] → ${w}`
+            ].join('\n');
+        },
         getGridColorClass(grid) {
             const record = this.$game.selectedHistoryRecord;
             if (!record) return 'bg-gray-800 border-gray-600';

@@ -1614,16 +1614,24 @@ export const useGameStore = defineStore('game', {
             };
 
             // V4 權重快照 (歷史紀錄詳情用)：記錄本局實際使用的落點權重與是否偏離中性
+            // 本局權重與查表脈絡皆來自「上一局收盤的重算」(lastBreakdown)，
+            // 不能用本局 appConfig 的表——V2 本局可能已換表
             let v4WeightsSnapshot = null;
             if (payload.gridWeights) {
-                const neutralFree = neutralWeightOf(this.appConfig.lightningFeature.gridWeights);
-                const neutralPaid = neutralWeightOf(this.appConfig.purchasedLightningFeature.gridWeights);
+                const bd = this.riskRuntime?.v4?.lastBreakdown || null;
+                const freeTable = bd ? bd.freeTable : this.appConfig.lightningFeature.gridWeights;
+                const paidTable = bd ? bd.paidTable : this.appConfig.purchasedLightningFeature.gridWeights;
+                const neutralFree = neutralWeightOf(freeTable);
+                const neutralPaid = neutralWeightOf(paidTable);
                 const free = [...payload.gridWeights.free];
                 const paid = [...payload.gridWeights.paid];
+                const nonNeutral = free.some(w => w !== neutralFree) || paid.some(w => w !== neutralPaid);
                 v4WeightsSnapshot = {
                     free, paid,
                     neutralFree, neutralPaid,
-                    nonNeutral: free.some(w => w !== neutralFree) || paid.some(w => w !== neutralPaid)
+                    nonNeutral,
+                    // 子分數明細僅非中性局保存 (節省記憶體)
+                    breakdown: (nonNeutral && bd) ? bd : null
                 };
             }
 
@@ -1675,6 +1683,7 @@ export const useGameStore = defineStore('game', {
                     });
                     rt.v4.ingestBalls(balls);
                     rt.v4.ingestRoundAndRecompute(result.v4Entry, this.appConfig);
+                    if (rt.v4.lastBreakdown) rt.v4.lastBreakdown.profileKey = this.riskZoneProfile;
                     this.riskV4NonNeutral = rt.v4.nonNeutralRounds;
                     const range = (arr) => {
                         let mn = Infinity, mx = -Infinity;
