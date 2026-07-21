@@ -69,7 +69,11 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
             let winLightning = 0;
             let winBonus = 0;
             let isBonus = false;
+            // 目標層數不可超過世界線實際走過的層數，否則會發生「沒玩到的層數也照付獎金」
             let cashoutLevel = decision.plannedCashoutLevel || config.bonusGame.endLevel;
+            if (publicResult.bonusLevelHistory) {
+                cashoutLevel = Math.min(cashoutLevel, publicResult.bonusLevelHistory.length);
+            }
 
             if (gridResult && gridResult.balls > 0) {
                 // Base Win 計算
@@ -122,7 +126,7 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config) {
                         }
                     }
 
-                    if (survived) {
+                    if (survived && cashoutLevel > 0) {
                         let bonusPayoutMult = config.bonusGame.levelSettings.payouts[cashoutLevel - 1];
                         winBonus = betAmount * bonusPayoutMult;
                         agentBonusWin += winBonus;

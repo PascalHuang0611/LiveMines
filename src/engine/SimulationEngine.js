@@ -13,7 +13,7 @@ export function getWeightedRandom(featureConfig) {
     const values = featureConfig.values;
     const weights = featureConfig.weights;
     const totalWeight = weights.reduce((sum, w) => sum + w, 0);
-    let rand = Math.floor(Math.random() * totalWeight);
+    let rand = Math.random() * totalWeight; // 不可取整數：權重若為小數 (如 0.56/0.44)，取整會恆選第一組
     for (let i = 0; i < weights.length; i++) {
         if (rand < weights[i]) return values[i];
         rand -= weights[i];
@@ -228,7 +228,6 @@ export function simulateRound(payload) {
         details: details,
         bonusTriggered: bonusTriggered,
         bonusSuccess: bonusSuccess,
-        bonusWin: bonusWin,
         bonusResultText: bonusResultText,
         bonusLevelHistory: bonusLevelHistory, 
         

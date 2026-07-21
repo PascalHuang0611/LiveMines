@@ -108,11 +108,11 @@ export function decideTotalBetAmount(agentState, scenario) {
     // TODO: 目前 Milestone 5 尚無 settlement 更新 lastRoundNetProfit 狀態，
     // 因此 lastRoundNetProfit 預設為 0，以下邏輯暫時不會觸發，保留為 Milestone 8 使用。
     if (agentState.lastRoundNetProfit < 0) {
-        amount *= agentState.dna.Martingale_Multiplier;
+        amount *= Number(agentState.dna.Martingale_Multiplier) || 1;
     }
 
-    if (agentState.lastRoundNetProfit > agentState.dna.Avg_Bet_Amount * 2) {
-        amount *= agentState.dna.Win_Retrench_Ratio;
+    if (agentState.lastRoundNetProfit > mean * 2) {
+        amount *= Number(agentState.dna.Win_Retrench_Ratio) || 1;
     }
 
     amount *= scenario.betAmountMultiplier || 1;

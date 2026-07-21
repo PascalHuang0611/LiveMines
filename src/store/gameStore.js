@@ -1547,7 +1547,8 @@ export const useGameStore = defineStore('game', {
                     agentId: agentDNA.Account,
                     persona: agentDNA.Player_Persona,
                     dna: agentDNA,
-                    currentBetAmount: Number(agentDNA.Avg_Bet_Amount) || 1,
+                    // currentBetAmount 保留給未來追注/縮注策略覆蓋用；設 null 才會走 DNA 常態分佈取樣 (Avg_Bet_Amount ± Bet_Amount_Std)
+                    currentBetAmount: null,
                     lastRoundNetProfit: 0
                 };
 
