@@ -235,6 +235,39 @@
                     </div>
                 </div>
 
+                <!-- ================= VIP 群體 RTP ================= -->
+                <div v-if="$game.simulationMode === 'agentTraffic'" class="bg-gray-800 rounded-xl p-5 mt-6 border border-gray-700 shadow-lg">
+                    <h3 class="text-lg font-bold text-yellow-400 border-b border-gray-700 pb-2 mb-3 flex items-center justify-between">
+                        <span class="flex items-center gap-2 cursor-help border-b border-dotted border-gray-600"
+                              title="各 VIP 群體的累計 RTP = 總派彩 ÷ 總投注。口徑與上方 GGR 一致：投注含閃電稅、派彩含 JP。滑鼠移到各列可見投注/派彩明細。清除資料時歸零。">
+                            👑 VIP 群體 RTP
+                        </span>
+                        <span class="text-xs text-gray-500 font-normal">綠 ≥100%｜黃 90~100%｜紅 &lt;90%</span>
+                    </h3>
+                    <div v-if="$game.vipRtpList.length === 0" class="text-sm text-gray-500 text-center py-4">
+                        尚無資料——人流模式跑幾局後開始統計
+                    </div>
+                    <div v-else class="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                        <div v-for="v in $game.vipRtpList" :key="v.group"
+                             class="bg-gray-900 rounded-lg p-2.5 border border-gray-700 cursor-help hover:border-gray-500 transition"
+                             :title="v.group + ' 群體\n總投注 (含閃電稅): ' + v.bet.toFixed(2) + '\n總派彩 (含 JP): ' + v.win.toFixed(2) + '\n└ 其中 JP: ' + v.jpWin.toFixed(2) + '\n玩家淨利: ' + (v.win - v.bet >= 0 ? '+' : '') + (v.win - v.bet).toFixed(2) + '\n投注人次: ' + v.entries + '\n不重複玩家: ' + v.players">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs font-bold text-gray-300">{{ v.group }}</span>
+                                <span class="text-[10px] text-gray-500">{{ v.players }} 人</span>
+                            </div>
+                            <div class="font-mono font-bold text-sm"
+                                 :class="v.rtp >= 100 ? 'text-green-400' : (v.rtp >= 90 ? 'text-yellow-400' : 'text-red-400')">
+                                {{ v.rtp.toFixed(2) }}%
+                            </div>
+                            <div class="w-full bg-gray-800 rounded-full h-1 mt-1 overflow-hidden">
+                                <div class="h-1 rounded-full"
+                                     :class="v.rtp >= 100 ? 'bg-green-500' : (v.rtp >= 90 ? 'bg-yellow-500' : 'bg-red-500')"
+                                     :style="{ width: Math.min(100, v.rtp / 120 * 100) + '%' }"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ================= RTP 折線圖 ================= -->
                 <div class="bg-gray-800 rounded-xl p-5 mt-6 border border-gray-700 shadow-lg relative">
                     <div class="flex justify-between items-center mb-3 border-b border-gray-700 pb-2">

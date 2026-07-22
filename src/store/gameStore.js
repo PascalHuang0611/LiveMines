@@ -60,6 +60,8 @@ export const useGameStore = defineStore('game', {
         trafficDaySummaries: [],
         trafficPersonaStats: {},
         trafficAgentStats: {},
+        vipStats: {},   // VIP 群體累計 { V1: {bet, win, jpWin, entries, players}, ... } (每局鏡射一次)
+        vipRaw: null,   // markRaw 累加容器 (含不重複玩家 Set)，避免逐 Agent 觸發響應式
         agentPool: [],
         agentRuntimeMap: null, 
         activeAgentsBucket: null, // [ [agent1, agent2], [agent2, agent3]... ] length = roundsPerDay
@@ -188,6 +190,18 @@ export const useGameStore = defineStore('game', {
             const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
             return `${h}:${m}:${s}`;
         },
+        // VIP 群體 RTP 列表 (依 V1..V8 排序)
+        vipRtpList(state) {
+            return Object.entries(state.vipStats)
+                .map(([group, s]) => ({
+                    group,
+                    bet: s.bet, win: s.win, jpWin: s.jpWin,
+                    entries: s.entries, players: s.players,
+                    rtp: s.bet > 0 ? (s.win / s.bet * 100) : 0
+                }))
+                .sort((a, b) => a.group.localeCompare(b.group, undefined, { numeric: true }));
+        },
+
         // 可供選擇的數值表 (載入成功或有本地修改者；BASE 永遠可選，有內建後備)
         availableConfigProfiles(state) {
             return CONFIG_PROFILE_KEYS.filter(k => k === 'BASE' || state.configProfiles[k] || state.profileOverrides[k]);
@@ -1049,6 +1063,10 @@ export const useGameStore = defineStore('game', {
             // 風控狀態 (RTP 窗口 / zone) 一併歸零重新冷啟動
             this.resetRiskRuntime();
 
+            // VIP 群體統計歸零
+            this.vipStats = {};
+            this.vipRaw = null;
+
             this.balance = 0;
             this.lastResult = null;
             this.selectedHistoryRecord = null;
@@ -1680,6 +1698,30 @@ export const useGameStore = defineStore('game', {
                     bonusSafeHits: settlement.bonusSafeHits ?? result.bonusSafeHits,
                     v4Entry: settlement.v4Entry ?? result.v4Entry // 人流模式用真實買家口徑
                 };
+            }
+
+            // VIP 群體 RTP 統計：累加進 markRaw 容器，局尾鏡射一次到 reactive state
+            if (this.simulationMode === 'agentTraffic' && result.agentDetails && result.agentDetails.length > 0) {
+                if (!this.vipRaw) this.vipRaw = markRaw({});
+                const raw = this.vipRaw;
+                result.agentDetails.forEach(d => {
+                    const vip = d.vipGroup || '未知';
+                    let s = raw[vip];
+                    if (!s) {
+                        s = { bet: 0, win: 0, jpWin: 0, entries: 0, agents: new Set() };
+                        raw[vip] = s;
+                    }
+                    s.bet += d.cost;
+                    s.win += d.totalWin;
+                    s.jpWin += d.jpWin || 0;
+                    s.entries++;
+                    s.agents.add(d.agentId);
+                });
+                const mirror = {};
+                Object.entries(raw).forEach(([k, s]) => {
+                    mirror[k] = { bet: s.bet, win: s.win, jpWin: s.jpWin, entries: s.entries, players: s.agents.size };
+                });
+                this.vipStats = mirror;
             }
 
             // 更新 V3 統計顯示

@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.41 / V14A (V4 Gate Panel & Observability)
+            v2.42 / V14A (VIP Group RTP Panel)
         </div>
     </div>
 </template>
