@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.43 / V14A (Hot-Bias Test DNA)
+            v2.44 / V14A (Test DNA: V5+ Forced Hot)
         </div>
     </div>
 </template>
