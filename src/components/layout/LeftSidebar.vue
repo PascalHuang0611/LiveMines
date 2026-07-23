@@ -154,7 +154,11 @@
                         <div v-if="$game.agentPool && $game.agentPool.length > 0" class="mt-4 p-3 bg-gray-900/50 rounded-lg border border-gray-700 animate-fade-in">
                             <div class="flex flex-col gap-1 mb-3">
                                 <div class="flex justify-between items-center bg-black/20 p-1.5 rounded">
-                                    <span class="text-[11px] text-gray-400">已載入 Agent 總數</span>
+                                    <span class="text-[11px] text-gray-400 flex items-center gap-1">已載入 Agent 總數
+                                        <span v-if="$game.agentPoolIsTest"
+                                              class="text-[9px] bg-amber-900/40 text-amber-300/80 px-1.5 py-0.5 rounded border border-amber-800/40 cursor-help"
+                                              title="此 DNA 帶有 Test_Bias_Group 標記，為測試用資料 (熱區押注偏好實驗：60% 追熱 / 20% 押冷 / 20% 隨機)，非真實玩家行為。還原正式資料請重新載入原版 agents.json。">🧪 測試 DNA</span>
+                                    </span>
                                     <span class="text-xs font-bold text-blue-400">{{ $game.agentPool.length }}</span>
                                 </div>
                                 <div class="flex justify-between items-center bg-black/20 p-1.5 rounded" title="今日排程將會上線的 Agent 數量">

@@ -190,6 +190,11 @@ export const useGameStore = defineStore('game', {
             const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
             return `${h}:${m}:${s}`;
         },
+        // 目前載入的 Agent DNA 是否為測試用資料 (帶 Test_Bias_Group 標記)
+        agentPoolIsTest(state) {
+            return !!(state.agentPool && state.agentPool.length > 0 && state.agentPool[0].Test_Bias_Group);
+        },
+
         // VIP 群體 RTP 列表 (依 V1..V8 排序)
         vipRtpList(state) {
             return Object.entries(state.vipStats)

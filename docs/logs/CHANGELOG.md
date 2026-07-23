@@ -1,5 +1,17 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
+## [v2.43 / V14A] - 2026-07-22
+### 🧪 測試資料 (TEST DATA — 暫時性，測畢需還原)
+- **agents.json 換裝「熱區押注」測試版 DNA** (35,630 筆，僅改寫 Grid_Preferences):
+  依真實落球機率 (ballBaseline) 重新分配押格偏好 — 60% 追熱 (p0^α，α 每人 5~12
+  隨機 + 個人雜訊)、20% 押冷 (取倒數)、20% 隨機。全體聚合後 7 號熱格吃 16.8% 注
+  (均勻的 1.51 倍)，供 PM 驗證 V4 風控對熱區押注的偵測與控制。
+  每筆帶 Test_Bias_Group 標記欄位 (hot/cold/random)，seed 固定可重現。
+  還原正式資料: git checkout 原版 agents.json 或重跑 extract_features 管線。
+### ✨ 新增功能 (Features)
+- 左側「已載入 Agent 總數」旁自動顯示淺色「🧪 測試 DNA」徽章 (偵測
+  Test_Bias_Group 欄位)，懸停可見測試資料說明，避免誤把測試結果當正式數據。
+
 ## [v2.42 / V14A] - 2026-07-22
 ### ✨ 新增功能 (Features)
 - **👑 VIP 群體 RTP 面板** (GameBoard，人流模式限定): 位於落球數據來源與批次 RTP
