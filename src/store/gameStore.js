@@ -164,6 +164,7 @@ export const useGameStore = defineStore('game', {
         riskV4TrsNote: '',           // TRS 模組失效原因 (UI 顯示，空字串 = 正常)
         riskV4LrsNote: '',           // LRS 模組失效原因 (UI 顯示，空字串 = 正常)
         riskV4Gate: null,            // V4 樣本門檻即時數字 { median, extraVolume, extraVolumeNeed, ... }
+        zoneRoundCounts: {},         // 各數值表實際使用局數 { BASE: n, PRT1: n, ... }
 
         // Chart instances
         chartInstance: null,
@@ -190,6 +191,20 @@ export const useGameStore = defineStore('game', {
             const s = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
             return `${h}:${m}:${s}`;
         },
+        // 各數值表使用比例 (依 BASE/PRT/BST 固定順序，只列出現過的)
+        zoneUsageList(state) {
+            const order = ['BASE', 'PRT1', 'PRT2', 'PRT3', 'BST3', 'BST2', 'BST1'];
+            const total = Object.values(state.zoneRoundCounts).reduce((a, b) => a + b, 0);
+            if (total === 0) return [];
+            return order
+                .filter(k => state.zoneRoundCounts[k] > 0)
+                .map(k => ({
+                    key: k,
+                    count: state.zoneRoundCounts[k],
+                    pct: state.zoneRoundCounts[k] / total * 100
+                }));
+        },
+
         // 目前載入的 Agent DNA 是否為測試用資料 (帶 Test_Bias_Group 標記)
         agentPoolIsTest(state) {
             return !!(state.agentPool && state.agentPool.length > 0 && state.agentPool[0].Test_Bias_Group);
@@ -1219,6 +1234,7 @@ export const useGameStore = defineStore('game', {
             this.riskV4TrsNote = '';
             this.riskV4LrsNote = '';
             this.riskV4Gate = null;
+            this.zoneRoundCounts = {};
             if (!this.riskControlEnabled || !this.riskControlConfig) {
                 this.riskRuntime = null;
                 return;
@@ -1568,6 +1584,9 @@ export const useGameStore = defineStore('game', {
             // 風控模擬：每局開始前先由 V2 決定本局數值表 (在 Agent 決策之前，成本參數才會跟著換)
             if (this.riskControlEnabled) {
                 this.decideRiskRound();
+                // 統計各數值表實際使用局數
+                const zk = this.riskZoneProfile || 'BASE';
+                this.zoneRoundCounts[zk] = (this.zoneRoundCounts[zk] || 0) + 1;
             }
 
             // 如果剛好換日，重新產生 Day Plan

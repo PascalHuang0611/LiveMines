@@ -51,6 +51,30 @@
                             <span class="text-gray-400 border-b border-dotted border-gray-600">Zone 切換次數</span>
                             <span class="text-gray-200">{{ $game.riskZoneSwitches }}</span>
                         </div>
+
+                        <!-- 數值表使用比例 -->
+                        <div v-if="$game.zoneUsageList.length > 0" class="pt-1.5 border-t border-gray-700">
+                            <div class="text-gray-400 text-[10px] uppercase tracking-wider font-bold mb-1 cursor-help border-b border-dotted border-gray-600 inline-block"
+                                 title="風控啟用期間，各數值表實際被使用的局數比例 (V2 自動切換的停留分佈)。滑鼠移到色塊或列上可見實際局數。清除資料或重置風控時歸零。">
+                                📊 數值表使用比例
+                            </div>
+                            <div class="flex w-full h-2 rounded overflow-hidden mb-1.5">
+                                <div v-for="z in $game.zoneUsageList" :key="'bar-' + z.key"
+                                     :class="zoneColor(z.key)" :style="{ width: z.pct + '%' }"
+                                     :title="z.key + ': ' + z.count.toLocaleString() + ' 局 (' + z.pct.toFixed(1) + '%)'"></div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                                <div v-for="z in $game.zoneUsageList" :key="'row-' + z.key"
+                                     class="flex justify-between items-center cursor-help"
+                                     :title="z.key + ' 實際使用 ' + z.count.toLocaleString() + ' 局'">
+                                    <span class="flex items-center gap-1">
+                                        <span class="w-2 h-2 rounded-sm inline-block" :class="zoneColor(z.key)"></span>
+                                        <span class="text-gray-300 text-[11px]">{{ z.key }}</span>
+                                    </span>
+                                    <span class="text-gray-200 text-[11px] font-mono">{{ z.pct.toFixed(1) }}%</span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="flex justify-between cursor-help" title="檢查 = Bonus 每走一關且有人在場，V3 就評估一次「若讓原生開獎成立，派彩後 RTP 會是多少」。介入 = 評估後超過階段門檻且骰中機率，實際把通關格強改為押注最低 2 格的次數。介入/檢查比例低是健康狀態 (保險絲平常不該跳)。">
                             <span class="text-gray-400 border-b border-dotted border-gray-600">V3 介入/檢查</span>
                             <span :class="$game.riskV3Interventions > 0 ? 'text-red-400 font-bold' : 'text-gray-200'">{{ $game.riskV3Interventions }} / {{ $game.riskV3Checks }}</span>
@@ -524,6 +548,16 @@
 <script>
 export default {
     name: 'LeftSidebar',
-    inject: ['$game']
+    inject: ['$game'],
+    methods: {
+        // 數值表使用比例的色塊: PRT 紅系 (越強越深)、BST 綠系 (越強越深)、BASE 灰
+        zoneColor(key) {
+            return {
+                BASE: 'bg-gray-500',
+                PRT1: 'bg-red-600', PRT2: 'bg-red-500', PRT3: 'bg-red-400',
+                BST3: 'bg-green-400', BST2: 'bg-green-500', BST1: 'bg-green-600'
+            }[key] || 'bg-gray-600';
+        }
+    }
 }
 </script>
