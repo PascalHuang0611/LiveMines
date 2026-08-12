@@ -70,7 +70,7 @@ export const useGameStore = defineStore('game', {
 
         // --- 🗡️ 刺客玩家 (套利者): 獨立於 DNA 人流，JP 池達門檻才參戰 ---
         assassinEnabled: false,        // 開關 (localStorage 記憶)
-        assassinCount: 32,             // 人數 (可調: 32=保證2人進L5、期望1人通關；64=保證恰好2人通關)
+        assassinCount: 64,             // 人數 (可調: 64=保證恰好2人通關且V3無效；32=期望1人通關但V3介入時L5必死)
         assassinJpThreshold: 100000,   // JP 池參戰門檻 (可調，localStorage 記憶)
         assassinActiveNow: false,      // 本局是否參戰 (UI 顯示)
         assassinRoundsJoined: 0,       // 累計參戰局數 (UI 顯示)
