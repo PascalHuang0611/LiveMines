@@ -11,7 +11,10 @@
                 <div class="flex-1 flex flex-col min-w-[300px]">
                     <h2 class="text-2xl font-bold text-yellow-400 mb-4 border-b border-gray-700 pb-2 flex flex-col sm:flex-row sm:justify-between sm:items-end gap-2 shrink-0">
                         <span>局數 #{{ $game.selectedHistoryRecord.round }} 詳情</span>
-                        <span v-if="$game.selectedHistoryRecord.csvInfo" class="text-xs text-gray-400 font-normal bg-gray-900 px-2 py-1 rounded border border-gray-700 text-right">
+                        <span v-if="$game.selectedHistoryRecord.csvInfo && $game.selectedHistoryRecord.csvInfo.gameCode" class="text-xs text-gray-400 font-normal bg-gray-900 px-2 py-1 rounded border border-gray-700 text-right" title="此局落球來自真實開獎紀錄 (隨機抽取，未合成)">
+                            🎱 真實開獎: {{ $game.selectedHistoryRecord.csvInfo.gameCode }}
+                        </span>
+                        <span v-else-if="$game.selectedHistoryRecord.csvInfo" class="text-xs text-gray-400 font-normal bg-gray-900 px-2 py-1 rounded border border-gray-700 text-right">
                             🗄️ CSV: V{{ $game.selectedHistoryRecord.csvInfo.version }} / R{{ $game.selectedHistoryRecord.csvInfo.round }} / Idx: {{ $game.selectedHistoryRecord.csvInfo.index }}
                         </span>
                         <span v-else class="text-xs text-gray-400 font-normal bg-gray-900 px-2 py-1 rounded border border-gray-700 text-right">

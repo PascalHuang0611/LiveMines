@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LiveMines Simulator V14B (Real Data)</title>
+    <script>
+        // V14B = 真實數據版: 自動載入真實 DNA (agents_real.json) 與真實物理開獎 (game_results.csv)
+        // 落球改為隨機抽取 index (保留每筆的 Game Code 可溯源)
+        window.LIVEMINES_VARIANT = 'V14B';
+    </script>
+</head>
+<body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

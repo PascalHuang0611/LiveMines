@@ -11,6 +11,10 @@ import { buildAgentRoundDecision } from '../engine/AgentDecisionEngine';
 
 Chart.register(...registerables);
 
+// V14B = 真實數據版 (由入口 HTML 設定 window.LIVEMINES_VARIANT)：
+// 自動載入真實 DNA 與真實物理開獎，落球隨機抽取 index (保留 Game Code 可溯源)
+export const IS_V14B = typeof window !== 'undefined' && window.LIVEMINES_VARIANT === 'V14B';
+
 // --- 自定義 Chart.js 插件 ---
 const horizontalLinePlugin = {
     id: 'horizontalLine',
@@ -33,6 +37,7 @@ const horizontalLinePlugin = {
 
 export const useGameStore = defineStore('game', {
     state: () => ({
+        appVariant: IS_V14B ? 'V14B' : 'V14A', // UI 顯示用
         balance: 0,
         buyExtraLightning: false,
         bonusTargetLevel: 1, 
@@ -455,7 +460,12 @@ export const useGameStore = defineStore('game', {
             if (savedRpd >= 24) this.trafficScenario.roundsPerDay = savedRpd;
 
             this.initChart();
-            
+
+            // V14B: 自動載入真實物理開獎資料
+            if (IS_V14B) {
+                await this.fetchRealBallData();
+            }
+
             // 預設啟用人流模式並載入資料
             this.setSimulationMode('agentTraffic');
             this.initDistributionChart();
@@ -1053,6 +1063,67 @@ export const useGameStore = defineStore('game', {
             reader.readAsText(file);
         },
         
+        // V14B: 開頁自動載入真實物理開獎 (game_results.csv)
+        // 每筆保留 Game Code，不做任何合成，落球時隨機抽取仍可溯源到真實局
+        async fetchRealBallData() {
+            try {
+                const resp = await fetch(`${import.meta.env.BASE_URL}realdata/game_results.csv`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const text = await resp.text();
+                const lines = text.split('\n');
+                if (lines.length < 2) throw new Error('檔案無資料');
+
+                // 簡易 CSV 解析 (支援雙引號包住的欄位，如 Result "6,8,8")
+                const parseLine = (line) => {
+                    const cols = [];
+                    let cur = '', inQuote = false;
+                    for (const ch of line) {
+                        if (ch === '"') inQuote = !inQuote;
+                        else if (ch === ',' && !inQuote) { cols.push(cur); cur = ''; }
+                        else cur += ch;
+                    }
+                    cols.push(cur);
+                    return cols;
+                };
+
+                const header = parseLine(lines[0].replace(/^﻿/, ''));
+                const idx = (name) => header.findIndex(h => h.trim() === name);
+                const iCode = idx('Game Code'), iStatus = idx('Game Status'),
+                      iStart = idx('Start Time'), iResult = idx('Result');
+                if (iCode < 0 || iResult < 0) throw new Error('缺少 Game Code / Result 欄位');
+
+                const data = [];
+                for (let i = 1; i < lines.length; i++) {
+                    if (!lines[i].trim()) continue;
+                    const c = parseLine(lines[i]);
+                    if (iStatus >= 0 && c[iStatus]?.trim() !== 'Approved') continue; // 未結算局跳過
+                    const result = (c[iResult] || '').trim();
+                    if (!result) continue;
+                    const balls = result.split(',').map(x => parseInt(x.trim(), 10));
+                    if (balls.length !== 3 || balls.some(b => !(b >= 1 && b <= 9))) continue;
+                    const dateStr = (c[iStart] || '').slice(0, 10).replace(/-/g, '') || 'unknown';
+                    data.push({
+                        version: 'LEMS',
+                        round: dateStr,
+                        balls,
+                        gameCode: (c[iCode] || '').trim()
+                    });
+                }
+                if (data.length === 0) throw new Error('沒有可用的已結算局');
+
+                this.csvData = data;
+                this.availableVersions = [...new Set(data.map(d => d.version))];
+                this.selectedVersions = [...this.availableVersions];
+                this.updateAvailableRounds();
+                this.selectedRounds = [...this.availableRounds]; // 預設全選
+                this.csvDataIndex = 0;
+                this.dataSourceMode = 'csv';
+                console.log(`🎱 V14B 已自動載入真實物理開獎 ${data.length} 局 (隨機抽取模式，保留 Game Code 溯源)`);
+            } catch (e) {
+                console.log(`ℹ️ 無法自動載入真實物理開獎 (${e.message})，維持理論隨機`);
+            }
+        },
+
         updateAvailableRounds() {
             const rounds = this.csvData
                 .filter(d => this.selectedVersions.includes(d.version))
@@ -1645,10 +1716,14 @@ export const useGameStore = defineStore('game', {
             let forcedDrops = null;
             let csvInfo = null;
             if (this.dataSourceMode === 'csv' && this.filteredCsvData.length > 0) {
-                const dataIndex = this.csvDataIndex % this.filteredCsvData.length;
+                // V14B: 隨機抽取一筆真實開獎 (不合成、保留原始索引與 Game Code 可溯源)
+                // V14A: 維持照順序循環讀取
+                const dataIndex = IS_V14B
+                    ? Math.floor(Math.random() * this.filteredCsvData.length)
+                    : (this.csvDataIndex % this.filteredCsvData.length);
                 const dropData = this.filteredCsvData[dataIndex];
                 this.csvDataIndex++;
-                csvInfo = { version: dropData.version, round: dropData.round, index: dataIndex + 1 };
+                csvInfo = { version: dropData.version, round: dropData.round, index: dataIndex + 1, gameCode: dropData.gameCode || null };
                 forcedDrops = dropData.balls;
             }
 
@@ -1894,8 +1969,10 @@ export const useGameStore = defineStore('game', {
 
         async fetchDefaultAgents() {
             try {
-                const response = await fetch(`${import.meta.env.BASE_URL}agents.json`);
-                if (!response.ok) throw new Error('找不到預設 agents.json');
+                // V14B 載入真實上線 DNA；V14A 維持原檔
+                const agentFile = IS_V14B ? 'realdata/agents_real.json' : 'agents.json';
+                const response = await fetch(`${import.meta.env.BASE_URL}${agentFile}`);
+                if (!response.ok) throw new Error(`找不到預設 ${agentFile}`);
                 
                 const rawData = await response.json();
                 const processedAgents = processAgentData(rawData);

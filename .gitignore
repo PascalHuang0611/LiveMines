@@ -11,6 +11,12 @@ agent_analysis/data/
 agent_analysis/*.csv
 agent_analysis/*.json
 
+# 真實上線數據 (含帳號雜湊/餘額等，僅本地保留，不上公開 repo)
+# 注意: public/realdata/ 為 V14B 線上運作所需的去敏版本，會正常上傳
+agent_analysis/Realdata/
+agent_analysis/DNA_v3_real/
+agent_analysis/舊版資料_LKDB推測版/
+
 # 企劃與開發文件 (現在改為推版)
 # live_mines_agent_traffic_sandbox_ai_agent_spec.md
 

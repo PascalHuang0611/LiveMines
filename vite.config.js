@@ -14,7 +14,8 @@ export default defineConfig({
   build: {
     rollupOptions: {
       input: {
-        main: resolve(__dirname, 'TG001_FinalCheck_V14A.html')
+        main: resolve(__dirname, 'TG001_FinalCheck_V14A.html'),
+        v14b: resolve(__dirname, 'TG001_FinalCheck_V14B.html')
       }
     }
   }

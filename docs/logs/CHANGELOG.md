@@ -1,5 +1,22 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
+## [v2.46 / V14A+V14B] - 2026-08-12
+### ✨ 新增功能 (Features)
+- **V14B 真實數據版 (新入口 TG001_FinalCheck_V14B.html)**: 與 V14A 同一套程式碼、
+  獨立入口互不影響 (window.LIVEMINES_VARIANT 旗標)。
+  - 開頁自動載入真實上線 DNA (public/realdata/agents_real.json，931 位玩家，
+    由 V3 萃取管線從正式注單產出: 9 格偏好/閃電購買率/Cashout 行為皆為真實觀察)
+  - 開頁自動載入真實物理開獎 (public/realdata/game_results.csv，僅收 Approved 局)，
+    預設切換至真實數據模式
+  - 落球改為**隨機抽取 index** (V14A 維持照順序循環)；資料不合成，
+    每局歷史紀錄顯示來源 Game Code (🎱)，詳情視窗同步標示
+- **DNA 萃取管線 V3** (agent_analysis/extract_features_V3_realdata.py):
+  讀取正式 bill_records 匯出，Bill No 去重 (RD 匯出重複 bug)，
+  真實化 Grid_Preferences / Buy_Lightning_Prob / Cashout (BGLevel 逐層紀錄)
+  / Target_Grids；每日登入率依 PM 決策固定 1.0；籌碼面額維持合成先驗；
+  VIP 由注單 turnover 直接計算。輸出至 agent_analysis/DNA_v3_real/
+- .gitignore: 原始注單資料 (Realdata/DNA_v3_real/舊版資料) 僅本地保留不上傳
+
 ## [v2.45 / V14A] - 2026-07-22
 ### ✨ 新增功能 (Features)
 - **📊 數值表使用比例** (風控面板，Zone 切換次數下方): 風控啟用期間統計

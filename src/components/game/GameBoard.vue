@@ -226,7 +226,8 @@
                             </div>
                             
                             <div v-if="$game.filteredCsvData.length > 0" class="text-green-400 text-sm mt-1 font-bold">
-                                ✅ 成功篩選出 {{ $game.filteredCsvData.length }} 筆掉落數據！開獎時將依序循環讀取。
+                                ✅ 成功篩選出 {{ $game.filteredCsvData.length }} 筆掉落數據！
+                                {{ $game.appVariant === 'V14B' ? '開獎時將隨機抽取 (每局保留真實 Game Code 溯源)。' : '開獎時將依序循環讀取。' }}
                             </div>
                             <div v-else-if="$game.csvData.length > 0" class="text-red-400 text-sm mt-1">
                                 ⚠️ 查無符合條件的數據，請重新勾選 Version 與 Round。

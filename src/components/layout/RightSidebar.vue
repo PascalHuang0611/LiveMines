@@ -89,8 +89,10 @@
                         <span>淨利: <span :class="record.netProfit >= 0 ? 'text-green-400 font-bold' : 'text-red-400'">{{ record.netProfit >= 0 ? '+' : '' }}{{ Number(record.netProfit || 0).toFixed(2) }}</span></span>
                     </div>
                     <div class="flex justify-between items-center text-[10px] text-gray-500 mt-1">
-                        <span v-if="record.csvInfo" class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-[9px]" title="版本 / 批次 / 索引">
-                            🗄️ V{{ record.csvInfo.version }} | R{{ record.csvInfo.round }} | Idx: {{ record.csvInfo.index }}
+                        <span v-if="record.csvInfo" class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-[9px]"
+                              :title="record.csvInfo.gameCode ? ('真實開獎來源 Game Code: ' + record.csvInfo.gameCode) : '版本 / 批次 / 索引'">
+                            <template v-if="record.csvInfo.gameCode">🎱 {{ record.csvInfo.gameCode }}</template>
+                            <template v-else>🗄️ V{{ record.csvInfo.version }} | R{{ record.csvInfo.round }} | Idx: {{ record.csvInfo.index }}</template>
                         </span>
                         <span v-else class="bg-gray-800 px-2 py-0.5 rounded border border-gray-700 text-[9px]">
                             🎲 理論隨機
