@@ -152,11 +152,31 @@
                     </h3>
 
                     <div v-if="$game.simulationMode === 'agentTraffic'" class="space-y-4 animate-fade-in">
-                        <!-- 🗡️ 刺客玩家 (套利者) -->
-                        <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700" :class="{ 'border-l-4 border-l-red-400': $game.assassinActiveNow }">
+                        <!-- 🔬 玩家人數拓展 (V14B 限定) -->
+                        <div v-if="$game.appVariant === 'V14B'" class="p-3 bg-gray-900/50 rounded-lg border border-gray-700" :class="{ 'border-l-4 border-l-cyan-400': $game.expandPlayersEnabled }"
+                             title="規模實驗開關：把真實 DNA 玩家等比複製 ×10 (931 → 9,310 人，分身 DNA 與本尊完全相同)。
+用途：驗證「刺客套利門檻 ∝ CCU」的關係——拓展後 CCU 約 ×10，觀察損益兩平的 JP 門檻是否也 ×10。
+關閉時 = 純真實資料 (原始資料永不被改動)；切換會清空統計重新開始，避免混合兩種母體的數據。">
                             <label class="flex items-center justify-between cursor-pointer select-none">
-                                <span class="text-sm font-bold text-gray-300 cursor-help border-b border-dotted border-gray-600"
-                                      title="獨立於 DNA 人流的套利團隊：9 格全下、每格 5 元、不買閃電、永不提前收手。Bonus 內聯合作戰——每關均分鋪滿 4 格，必定恰好折半存活。32 人: 保證 2 人進第五關、期望 1 人通關 (1/6 全滅、2/3 出 1 人、1/6 出 2 人)；64 人: 第五關 4 人鋪滿 → 保證恰好 2 人通關 (全程無隨機)。僅在 JP 池達門檻時參戰。">🗡️ 刺客玩家 ({{ $game.assassinCount }} 人)</span>
+                                <span class="text-sm font-bold text-gray-300 cursor-help border-b border-dotted border-gray-600">🔬 玩家人數拓展 ×10</span>
+                                <input type="checkbox" :checked="$game.expandPlayersEnabled" @change="$game.setExpandPlayers($event.target.checked)" class="w-4 h-4 accent-cyan-400 cursor-pointer">
+                            </label>
+                            <div v-if="$game.expandPlayersEnabled" class="mt-1.5 text-[10px] text-cyan-300/70 animate-fade-in">
+                                規模實驗中：{{ $game.agentPoolBase ? $game.agentPoolBase.length : '?' }} 位真實玩家 → {{ $game.agentPool ? $game.agentPool.length : '?' }} 人。關閉即還原純真實資料。
+                            </div>
+                        </div>
+
+                        <!-- 🗡️ 刺客玩家 (套利者) -->
+                        <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700" :class="{ 'border-l-4 border-l-red-400': $game.assassinActiveNow }"
+                             title="🗡️ 刺客玩家 = 專打 JP 的職業套利團隊，獨立於 DNA 人流之外。
+
+【入場時機】只在 JP 池 ≥ 參戰門檻時下注，池不夠肥就完全不玩。
+【下注方式】每人 9 格全下、每格 5 元 (總投入 45/人/局)，不買閃電——9 格全包保證任何三球同格都能進 Bonus。
+【Bonus 戰術】聯合作戰：每一關把人平均鋪滿 4 個選項 → 不論開哪 2 格，必定恰好一半存活；全員永不提前收手，一路衝第五關領 grand + JP 份額。
+【人數的意義】64 人 (預設): 64→32→16→8→4，第五關 4 人鋪滿 4 格 → 保證恰好 2 人通關，連 V3 強控都無法阻止。32 人: 第五關只剩 2 人蓋不滿 → 無 V3 時期望 1 人通關，V3 介入時必遭全滅。
+【戰果】看下方「VIP 群體 RTP」的 ASSASSIN 卡片 (淨利為正 = 套利成立)。">
+                            <label class="flex items-center justify-between cursor-pointer select-none">
+                                <span class="text-sm font-bold text-gray-300 cursor-help border-b border-dotted border-gray-600">🗡️ 刺客玩家 ({{ $game.assassinCount }} 人)</span>
                                 <input type="checkbox" :checked="$game.assassinEnabled" @change="$game.setAssassinEnabled($event.target.checked)" class="w-4 h-4 accent-red-400 cursor-pointer">
                             </label>
                             <div v-if="$game.assassinEnabled" class="mt-2 space-y-1.5 text-xs animate-fade-in">
@@ -216,8 +236,16 @@
                                         <span v-if="$game.agentPoolIsTest"
                                               class="text-[9px] bg-amber-900/40 text-amber-300/80 px-1.5 py-0.5 rounded border border-amber-800/40 cursor-help"
                                               title="此 DNA 帶有 Test_Bias_Group 標記，為測試用資料 (熱區押注偏好實驗：60% 追熱 / 20% 押冷 / 20% 隨機)，非真實玩家行為。還原正式資料請重新載入原版 agents.json。">🧪 測試 DNA</span>
+                                        <span v-if="$game.expandPlayersEnabled && $game.agentPoolBase"
+                                              class="text-[9px] bg-cyan-900/40 text-cyan-300/80 px-1.5 py-0.5 rounded border border-cyan-800/40 cursor-help"
+                                              :title="'玩家人數拓展已啟用：原始 ' + $game.agentPoolBase.length + ' 位真實玩家等比複製 ×10 (DNA 完全相同的分身)。此為規模實驗數據，非原始盤量；關閉開關即還原純真實資料。'">🔬 ×10 拓展</span>
                                     </span>
                                     <span class="text-xs font-bold text-blue-400">{{ $game.agentPool.length }}</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-black/20 p-1.5 rounded cursor-help"
+                                     title="模擬期間實際測得的平均同時在線人數 (Σ每局在線 ÷ 局數，不含刺客)。刺客套利的 JP 損益兩平門檻與 CCU 大致成正比——CCU 越高、JP 份額被稀釋越多，需要更肥的池才有利可圖。清除資料時歸零。">
+                                    <span class="text-[11px] text-gray-400 border-b border-dotted border-gray-600">實測平均 CCU</span>
+                                    <span class="text-xs font-bold text-cyan-400">{{ $game.ccuRounds > 0 ? $game.avgCcu.toFixed(1) : '—' }}</span>
                                 </div>
                                 <div class="flex justify-between items-center bg-black/20 p-1.5 rounded" title="今日排程將會上線的 Agent 數量">
                                     <span class="text-[11px] text-gray-400">今日預估活躍人數</span>

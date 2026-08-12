@@ -251,7 +251,8 @@
                     <div v-else class="grid grid-cols-2 lg:grid-cols-4 gap-2">
                         <div v-for="v in $game.vipRtpList" :key="v.group"
                              class="bg-gray-900 rounded-lg p-2.5 border border-gray-700 cursor-help hover:border-gray-500 transition"
-                             :title="v.group + ' 群體\n總投注 (含閃電稅): ' + v.bet.toFixed(2) + '\n總派彩 (含 JP): ' + v.win.toFixed(2) + '\n└ 其中 JP: ' + v.jpWin.toFixed(2) + '\n玩家淨利: ' + (v.win - v.bet >= 0 ? '+' : '') + (v.win - v.bet).toFixed(2) + '\n投注人次: ' + v.entries + '\n不重複玩家: ' + v.players">
+                             :class="{ 'border-red-800/60': v.group === 'ASSASSIN' }"
+                             :title="(v.group === 'ASSASSIN' ? '🗡️ 刺客 (JP 套利團隊)\n行為: JP 池達門檻才參戰、9 格全下各 5 元、不買閃電、\nBonus 聯合鋪滿 4 格必定折半存活、永不提前收手衝 L5 領 JP。\n淨利為正 = 套利成立 (門檻設定夠高)、為負 = 被抽水吃掉。\n─────────────\n' : v.group + ' 群體\n') + '總投注 (含閃電稅): ' + v.bet.toFixed(2) + '\n總派彩 (含 JP): ' + v.win.toFixed(2) + '\n└ 其中 JP: ' + v.jpWin.toFixed(2) + '\n玩家淨利: ' + (v.win - v.bet >= 0 ? '+' : '') + (v.win - v.bet).toFixed(2) + '\n投注人次: ' + v.entries + '\n不重複玩家: ' + v.players">
                             <div class="flex justify-between items-center mb-1">
                                 <span class="text-xs font-bold text-gray-300">{{ v.group }}</span>
                                 <span class="text-[10px] text-gray-500">{{ v.players }} 人</span>

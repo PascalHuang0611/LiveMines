@@ -68,6 +68,12 @@ export const useGameStore = defineStore('game', {
         vipStats: {},   // VIP 群體累計 { V1: {bet, win, jpWin, entries, players}, ... } (每局鏡射一次)
         vipRaw: null,   // markRaw 累加容器 (含不重複玩家 Set)，避免逐 Agent 觸發響應式
 
+        // --- 🔬 玩家人數拓展 (V14B): 真實 DNA 等比複製 ×10，開關保持原始資料清澈 ---
+        expandPlayersEnabled: false,   // 開關 (localStorage 記憶)；關 = 純真實資料
+        agentPoolBase: null,           // markRaw 原始 (未拓展) agent pool，切換開關時重建用
+        ccuSum: 0,                     // 實測 CCU 累計 (Σ 每局在線人數)
+        ccuRounds: 0,                  // 實測 CCU 取樣局數
+
         // --- 🗡️ 刺客玩家 (套利者): 獨立於 DNA 人流，JP 池達門檻才參戰 ---
         assassinEnabled: false,        // 開關 (localStorage 記憶)
         assassinCount: 64,             // 人數 (可調: 64=保證恰好2人通關且V3無效；32=期望1人通關但V3介入時L5必死)
@@ -215,6 +221,11 @@ export const useGameStore = defineStore('game', {
                     count: state.zoneRoundCounts[k],
                     pct: state.zoneRoundCounts[k] / total * 100
                 }));
+        },
+
+        // 實測平均 CCU (模擬期間每局在線人數的平均；刺客套利門檻與此成正比)
+        avgCcu(state) {
+            return state.ccuRounds > 0 ? state.ccuSum / state.ccuRounds : 0;
         },
 
         // 目前載入的 Agent DNA 是否為測試用資料 (帶 Test_Bias_Group 標記)
@@ -465,6 +476,9 @@ export const useGameStore = defineStore('game', {
             // 一天局數 (影響 Agent 作息解析度與 V4 虛擬時鐘)；需在 setSimulationMode 之前還原
             const savedRpd = parseInt(localStorage.getItem('livemines_roundsPerDay'), 10);
             if (savedRpd >= 24) this.trafficScenario.roundsPerDay = savedRpd;
+
+            // 🔬 玩家人數拓展設定還原 (需在 setSimulationMode/fetchDefaultAgents 之前)
+            this.expandPlayersEnabled = localStorage.getItem('livemines_expandPlayers') === '1';
 
             // 🗡️ 刺客玩家設定還原
             this.assassinEnabled = localStorage.getItem('livemines_assassin') === '1';
@@ -1176,6 +1190,10 @@ export const useGameStore = defineStore('game', {
             this.assassinActiveNow = false;
             this.assassinRoundsJoined = 0;
 
+            // 實測 CCU 歸零
+            this.ccuSum = 0;
+            this.ccuRounds = 0;
+
             this.balance = 0;
             this.lastResult = null;
             this.selectedHistoryRecord = null;
@@ -1718,6 +1736,10 @@ export const useGameStore = defineStore('game', {
 
                 // 刺客參戰局數只在真正模擬的局計數 (批次結束的 UI 重繪不算)
                 if (this.assassinActiveNow) this.assassinRoundsJoined++;
+
+                // 實測 CCU 累計 (一般 DNA 玩家的每局在線人數，不含刺客)
+                this.ccuSum += this.currentActiveAgents.length;
+                this.ccuRounds++;
                 
                 // Milestone 6: 由 Agent Decision 獨立計算總成本 (包含他們各自的 Lightning)
                 currentCost = totalAgentCost || 0;
@@ -2014,15 +2036,46 @@ export const useGameStore = defineStore('game', {
                 const agentFile = IS_V14B ? 'realdata/agents_real.json' : 'agents.json';
                 const response = await fetch(`${import.meta.env.BASE_URL}${agentFile}`);
                 if (!response.ok) throw new Error(`找不到預設 ${agentFile}`);
-                
+
                 const rawData = await response.json();
                 const processedAgents = processAgentData(rawData);
-                this.agentPool = markRaw(processedAgents);
-                this.trafficPersonaStats = calculatePersonaStats(processedAgents);
+                this.agentPoolBase = markRaw(processedAgents);
+                this.applyAgentPool();
                 this.generateDayPlan();
                 console.log("🤖 已自動載入預設 Agent 資料");
             } catch (e) {
                 console.log("ℹ️ 無法自動載入預設 Agent (正常現象，可手動上傳)", e.message);
+            }
+        },
+
+        // 依拓展開關從原始 pool 建立實際使用的 agentPool (原始資料永不被改動)
+        applyAgentPool() {
+            if (!this.agentPoolBase) return;
+            const EXPAND_FACTOR = 10;
+            let pool = this.agentPoolBase;
+            if (IS_V14B && this.expandPlayersEnabled) {
+                const expanded = [];
+                this.agentPoolBase.forEach(a => {
+                    expanded.push(a); // 本尊
+                    for (let k = 2; k <= EXPAND_FACTOR; k++) {
+                        expanded.push({ ...a, Account: `${a.Account}#x${k}` }); // 等比分身 (DNA 完全相同)
+                    }
+                });
+                pool = expanded;
+                console.log(`🔬 玩家人數拓展 ×${EXPAND_FACTOR}: ${this.agentPoolBase.length} → ${pool.length} 人`);
+            }
+            this.agentPool = markRaw(pool);
+            this.trafficPersonaStats = calculatePersonaStats(pool);
+        },
+
+        // 🔬 拓展開關: 切換即重建 pool + 重排作息 + 清空統計 (避免混合兩種母體的數據)
+        setExpandPlayers(v) {
+            this.expandPlayersEnabled = !!v;
+            localStorage.setItem('livemines_expandPlayers', this.expandPlayersEnabled ? '1' : '0');
+            if (this.agentPoolBase) {
+                this.clearData(true);
+                this.applyAgentPool();
+                this.generateDayPlan();
             }
         },
 
@@ -2041,17 +2094,15 @@ export const useGameStore = defineStore('game', {
             try {
                 const text = await file.text();
                 const rawData = JSON.parse(text);
-                
+
                 // 1. 處理與標準化 DNA 資料
                 const processedAgents = processAgentData(rawData);
-                
-                // 2. 存入 Store (使用 markRaw 避免效能問題)
-                this.agentPool = markRaw(processedAgents);
-                
-                // 3. 計算並更新 Persona 統計
-                this.trafficPersonaStats = calculatePersonaStats(processedAgents);
-                
-                // 4. Milestone 3: 產生 Day Plan
+
+                // 2. 存入原始 pool，依拓展開關建立實際 pool
+                this.agentPoolBase = markRaw(processedAgents);
+                this.applyAgentPool();
+
+                // 3. Milestone 3: 產生 Day Plan
                 this.generateDayPlan();
                 
                 console.log(`✅ 成功載入 ${processedAgents.length} 位 Agent`);
