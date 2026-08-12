@@ -127,6 +127,9 @@ export const useGameStore = defineStore('game', {
         filterEndRound: null,   // 局數篩選 (迄)
         historySortMethod: 'time_desc', // 'time_desc', 'value_desc', 'value_asc'
         historyDisplayLimit: 60,
+        // 歷史紀錄記憶體保留上限 (筆)。每筆含全部在線玩家的結算明細，體積大 —
+        // 拓展 ×10 時每筆 ~50KB，舊上限 100 萬筆會吃到數 GB。統計聚合不依賴 history，砍舊紀錄無損分析。
+        historyRetention: 2000,
         currentRound: 0,
         
         // 全域統計資料
@@ -1622,9 +1625,9 @@ export const useGameStore = defineStore('game', {
             setTimeout(() => {
                 let newRecord = this.simulateSingleRound(currentCost, false);
                 this.history.unshift(newRecord);
-                
-                if (this.history.length > 1000000) {
-                    this.history.pop();
+
+                if (this.history.length > this.historyRetention) {
+                    this.history.length = this.historyRetention;
                 }
                 
                 this.applyResultToUI(newRecord);
@@ -1663,6 +1666,12 @@ export const useGameStore = defineStore('game', {
                     this.simulatedCount++;
                 }
 
+                // 滾動修剪: buffer 只保留最新 historyRetention 筆，避免長批次期間記憶體無上限成長
+                // (每筆 record 含全部在線玩家明細，拓展 ×10 時 12 萬局的完整 buffer 會吃數 GB)
+                if (newRecordsBuffer.length > this.historyRetention) {
+                    newRecordsBuffer.splice(0, newRecordsBuffer.length - this.historyRetention);
+                }
+
                 this.progressPercent = (this.simulatedCount / this.totalSimToRun) * 100;
 
                 if (this.simulatedCount < this.totalSimToRun) {
@@ -1687,8 +1696,8 @@ export const useGameStore = defineStore('game', {
         finishBatchSimulations(newRecordsBuffer) {
             if (newRecordsBuffer.length > 0) {
                 this.history = newRecordsBuffer.reverse().concat(this.history);
-                if (this.history.length > 1000000) {
-                    this.history.length = 1000000;
+                if (this.history.length > this.historyRetention) {
+                    this.history.length = this.historyRetention;
                 }
                 this.applyResultToUI(newRecordsBuffer[0]);
                 

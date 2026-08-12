@@ -33,6 +33,8 @@
                 <div class="flex items-center gap-2">
                     <label class="text-xs text-gray-400" title="顯示過多筆數可能導致畫面卡頓">顯示筆數:</label>
                     <input type="number" v-model.number="$game.historyDisplayLimit" min="10" step="50" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 w-16 text-center shadow-inner">
+                    <label class="text-xs text-gray-400 cursor-help border-b border-dotted border-gray-600" title="記憶體中保留的歷史紀錄上限 (每筆含全部在線玩家明細，體積大)。超過即淘汰最舊。統計聚合不依賴歷史紀錄，調低不影響任何分析數字，只影響能回看多少局的詳情。拓展 ×10 時建議 ≤ 2000。">保留:</label>
+                    <input type="number" v-model.number="$game.historyRetention" min="100" step="500" class="bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-xs outline-none focus:border-blue-500 w-20 text-center shadow-inner">
                 </div>
             </div>
             
