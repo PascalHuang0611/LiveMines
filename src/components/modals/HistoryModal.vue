@@ -291,8 +291,14 @@
                                         <span v-if="agent.buyLightning" class="bg-yellow-900/50 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-700/50">
                                             ⚡ 付費閃電
                                         </span>
-                                        <span v-if="agent.isBonusGrid" class="bg-purple-900/50 text-purple-400 px-1.5 py-0.5 rounded border border-purple-700/50">
-                                            🎯 目標: L{{ agent.cashoutLevel }}
+                                        <span v-if="agent.isBonusGrid && agent.cashoutType === 'grand'" class="bg-pink-900/50 text-pink-300 px-1.5 py-0.5 rounded border border-pink-700/50" title="通關最終關，領取全額獎金與 JP 分潤資格">
+                                            👑 L5 通關
+                                        </span>
+                                        <span v-else-if="agent.isBonusGrid && agent.cashoutType === 'cashout'" class="bg-blue-900/50 text-blue-300 px-1.5 py-0.5 rounded border border-blue-700/50" title="過關後選擇收手落袋">
+                                            💰 L{{ agent.cashoutLevel }} 收手
+                                        </span>
+                                        <span v-else-if="agent.isBonusGrid && agent.cashoutType === 'bomb'" class="bg-red-900/50 text-red-400 px-1.5 py-0.5 rounded border border-red-700/50" title="該層踩雷陣亡">
+                                            💀 L{{ agent.cashoutLevel }} 陣亡
                                         </span>
                                     </div>
                                     <div class="text-right">
@@ -357,7 +363,8 @@ export default {
                         win: gridDetail.winBase + gridDetail.winLightning + (gridDetail.winBonus || 0),
                         isBonus: gridDetail.isBonus,
                         isBonusGrid: isBonusTriggerGrid,
-                        cashoutLevel: gridDetail.cashoutLevel
+                        cashoutLevel: gridDetail.cashoutLevel,
+                        cashoutType: gridDetail.cashoutType
                     });
                 }
             });

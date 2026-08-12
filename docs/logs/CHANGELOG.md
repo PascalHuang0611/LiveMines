@@ -1,5 +1,20 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
+## [v2.47 / V14A+V14B] - 2026-08-12
+### ⚠️ 行為變更 (Behavior Changes — 影響 Bonus RTP 分佈，對帳時需知悉)
+- **Bonus Cashout 改為「逐層機率模型」(兩版皆適用)**: Agent 過每一關後以 DNA 的
+  Cashout_Propensity (真實收手傾向) 決定落袋或續闖，一路通關 L5 = grand
+  (領 500 倍 + JP 分潤)。取代 v2.34 起的固定計畫層 (Cashout_Stop_Level)——
+  舊模型下幾乎無人計畫 L5，JP 永遠開不出 (V14B 真實 DNA 下為 0 人)。
+  新模型下 V14A 約每 673 次進 Bonus 出一次 grand、V14B 約 1/816，JP 恢復真實運作。
+  驗證: prop=0 通關率 ≈1/32 與舊 planned=5 數學等價；JP 守恆；20000 局實測 JP 派發 111 次。
+- **七份數值表同步官方現行版**: 唯一差異為 riskScore.ev.ballBaseline 由真實賭具
+  分佈改為均勻 1/9 (官方決策)。影響 V4 PHY 口徑: 真實開獎資料下賭具自然偏態
+  將被視為風險訊號 (與正式伺服器行為一致)。
+### ✨ UI (Features)
+- Agent 詳情/格子詳情改顯示「每關收手率 %」(取代「停扣目標 Lx」)
+- 歷史詳情 Bonus 參與者改標**實際結果**: 👑 L5 通關 / 💰 Lx 收手 / 💀 Lx 陣亡
+
 ## [v2.46 / V14A+V14B] - 2026-08-12
 ### ✨ 新增功能 (Features)
 - **V14B 真實數據版 (新入口 TG001_FinalCheck_V14B.html)**: 與 V14A 同一套程式碼、

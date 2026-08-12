@@ -9,7 +9,9 @@ import { emptyV4Entry } from './RiskScoreEngine.js';
 
 /**
  * 共用二級玩法：逐關互動開獎 (V3 為可選介入，v3=null 時即純隨機開獎)
- * @param {Array} entrants [{agentId, bet, plannedLevel}] 押中觸發格的 Agent
+ * Cashout 採「逐層機率模型」：過關後以 Agent 的收手傾向 (prop) 決定落袋或續闖，
+ * 續闖到底通關 L5 = grand (領 500 倍 + JP 分潤)。對齊 rtpsim 的 bonus_cashout 模型。
+ * @param {Array} entrants [{agentId, bet, prop}] 押中觸發格的 Agent (prop = 每關收手機率)
  * @param {Object} config math config
  * @param {Object} riskV3Ctx { v3: V3Controller|null, windowBet, windowPayout }
  * @param {number} roundBet 本局全場總投注 (含閃電稅)
@@ -25,8 +27,10 @@ function playSharedBonusV3(entrants, config, riskV3Ctx, roundBet, roundMainPayou
 
     // 每人狀態
     const states = entrants.map(e => ({ ...e, alive: true, pick: 0 }));
-    const perAgent = new Map(); // agentId → { bonusWin, isBonus, isGrand }
-    entrants.forEach(e => perAgent.set(e.agentId, { bonusWin: 0, isBonus: false, isGrand: false }));
+    const perAgent = new Map(); // agentId → { bonusWin, isBonus, isGrand, exitLevel, exitType }
+    entrants.forEach(e => perAgent.set(e.agentId, {
+        bonusWin: 0, isBonus: false, isGrand: false, exitLevel: null, exitType: null
+    }));
 
     const levelHistory = [];
     const bonusLevelStats = [];
@@ -71,23 +75,37 @@ function playSharedBonusV3(entrants, config, riskV3Ctx, roundBet, roundMainPayou
         safeSorted.forEach(spot => { if (spot - 1 < bonusSafeHits.length) bonusSafeHits[spot - 1]++; });
         levelHistory.push({ level: level + 1, pick: null, safe: safeSorted, passed: true, intervened, phaseCode });
 
-        // 4. 各玩家判定 + 依 DNA 計畫 cashout
+        // 4. 各玩家判定 + 逐層機率 cashout (過關後依收手傾向決定落袋或續闖)
         states.forEach(st => {
             if (!st.alive) return;
             const hit = survivors.includes(st.pick);
+            const rec = perAgent.get(st.agentId);
             if (!hit) {
                 st.alive = false;
                 stat.crashedCount++;
+                rec.exitLevel = level + 1;
+                rec.exitType = 'bomb';
                 return;
             }
             const passLevel = level + 1;
-            if (passLevel === st.plannedLevel || passLevel === endLevel) {
-                // 抵達目標層 (或最終關) → 領獎離場
-                const win = st.bet * payouts[passLevel - 1];
-                const rec = perAgent.get(st.agentId);
+            if (passLevel === endLevel) {
+                // 通關最終關 → grand (自動領獎，不再骰收手)
+                const win = st.bet * payouts[endLevel - 1];
                 rec.bonusWin = win;
                 rec.isBonus = true;
-                rec.isGrand = passLevel === endLevel;
+                rec.isGrand = true;
+                rec.exitLevel = endLevel;
+                rec.exitType = 'grand';
+                bonusPaidSoFar += win;
+                st.alive = false;
+                stat.cashedOutCount++;
+            } else if (Math.random() < st.prop) {
+                // 骰中收手 → 領本層獎落袋
+                const win = st.bet * payouts[passLevel - 1];
+                rec.bonusWin = win;
+                rec.isBonus = true;
+                rec.exitLevel = passLevel;
+                rec.exitType = 'cashout';
                 bonusPaidSoFar += win;
                 st.alive = false;
                 stat.cashedOutCount++;
@@ -145,9 +163,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
                     }
                 }
                 if (gridId === triggerGridId) {
-                    let planned = decision.plannedCashoutLevel || endLevel;
-                    planned = Math.max(1, Math.min(endLevel, planned));
-                    entrants.push({ agentId: decision.agentId, bet: betAmount, plannedLevel: planned });
+                    let prop = Number(decision.cashoutPropensity);
+                    if (!Number.isFinite(prop)) prop = 0.5;
+                    entrants.push({ agentId: decision.agentId, bet: betAmount, prop: Math.max(0, Math.min(1, prop)) });
                 }
             });
         });
@@ -200,9 +218,9 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
             let winLightning = 0;
             let winBonus = 0;
             let isBonus = false;
-            // 顯示用的預計收手層 (實際判定在共用開獎 playSharedBonusV3 內完成)
-            let cashoutLevel = decision.plannedCashoutLevel || config.bonusGame.endLevel;
-            cashoutLevel = Math.max(1, Math.min(config.bonusGame.endLevel, cashoutLevel));
+            // 實際結果層 (由共用開獎判定): cashout/grand = 領獎層、bomb = 陣亡層
+            let cashoutLevel = null;
+            let cashoutType = null;
 
             if (gridResult && gridResult.balls > 0) {
                 // Base Win 計算
@@ -238,12 +256,16 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
                     // 共用逐關開獎已判定，直接取結果
                     if (sharedBonus) {
                         const rec = sharedBonus.perAgent.get(decision.agentId);
-                        if (rec && rec.isBonus) {
-                            winBonus = rec.bonusWin;
-                            agentBonusWin += winBonus;
-                            isBonus = true;
-                            if (rec.isGrand) {
-                                l5Winners.push({ agentId: decision.agentId, betAmount: betAmount });
+                        if (rec) {
+                            cashoutLevel = rec.exitLevel;
+                            cashoutType = rec.exitType;
+                            if (rec.isBonus) {
+                                winBonus = rec.bonusWin;
+                                agentBonusWin += winBonus;
+                                isBonus = true;
+                                if (rec.isGrand) {
+                                    l5Winners.push({ agentId: decision.agentId, betAmount: betAmount });
+                                }
                             }
                         }
                     }
@@ -255,7 +277,7 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
 
             // 紀錄明細 (不管有沒有中獎都要紀錄，才能在 UI 點擊格子時顯示投資名單)
             agentWinDetails.push({
-                gridId, betAmount, winBase, winLightning, winBonus, isBonus, cashoutLevel
+                gridId, betAmount, winBase, winLightning, winBonus, isBonus, cashoutLevel, cashoutType
             });
         });
 
@@ -275,7 +297,7 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
             vipGroup: decision.vipGroup,
             dna: decision.dna,
             buyLightning: decision.buyLightning,
-            plannedCashoutLevel: decision.plannedCashoutLevel, // ADDED for the modal
+            cashoutPropensity: decision.cashoutPropensity, // 逐層收手傾向 (UI 顯示)
             cost: totalCost,
             baseWin: agentBaseWin,
             lightningWin: agentLightningWin,

@@ -160,15 +160,15 @@ export function decideLightning(agentState) {
 }
 
 /**
- * 決定 Cashout 策略
- * @returns {Number|null} 1~5 代表預計在該階段停扣，null 代表不提早 Cashout
+ * 決定 Cashout 傾向 (逐層機率模型)
+ * 過每一關後，以此機率決定「收手落袋」，否則續闖下一關。
+ * 取代舊的固定計畫層 (Cashout_Stop_Level)——舊模型下沒人會賭到 L5，JP 永遠開不出。
+ * @returns {Number} 0.02~0.98 的收手機率
  */
-export function decideCashoutStrategy(agentState) {
-    let stopLevel = Number(agentState.dna.Cashout_Stop_Level) || 5;
-    
-    // 嚴格遵守 DNA 設定的 Cashout_Stop_Level 作為收手目標基準
-    // 確保不會發生錯誤衝到最後一關的 Bug
-    return Math.max(1, Math.min(5, Math.round(stopLevel)));
+export function decideCashoutPropensity(agentState) {
+    let p = Number(agentState.dna.Cashout_Propensity);
+    if (!Number.isFinite(p)) p = 0.5;
+    return Math.max(0.02, Math.min(0.98, p));
 }
 
 /**
@@ -253,7 +253,7 @@ export function buildAgentRoundDecision(agentState, scenario, appConfig) {
     const rawBetMap = distributeBetAmountRaw(agentState, selectedGrids, totalBetAmountRaw);
 
     const buyLightning = decideLightning(agentState);
-    const plannedCashoutLevel = decideCashoutStrategy(agentState);
+    const cashoutPropensity = decideCashoutPropensity(agentState);
 
     // 把 rawBetMap 轉成 legalBetMap 與 chipMap
     const legalBetMap = {};
@@ -308,6 +308,6 @@ export function buildAgentRoundDecision(agentState, scenario, appConfig) {
         fullChipMap,
         legalTotalBetAmount,
         buyLightning,
-        plannedCashoutLevel
+        cashoutPropensity
     };
 }

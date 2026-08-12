@@ -38,8 +38,8 @@
                         </span>
                     </div>
                     <div class="bg-gray-800 border border-gray-700 p-3 rounded-lg flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
-                        <span class="text-xs text-gray-500 mb-1">Bonus 停扣目標</span>
-                        <span class="text-lg font-bold text-purple-400">L{{ agent.plannedCashoutLevel || 1 }}</span>
+                        <span class="text-xs text-gray-500 mb-1" title="逐層機率模型: 每過一關以此機率收手落袋，否則續闖">Bonus 每關收手率</span>
+                        <span class="text-lg font-bold text-purple-400">{{ ((agent.cashoutPropensity ?? 0.5) * 100).toFixed(0) }}%</span>
                         <!-- 背景浮水印效果 -->
                         <span class="absolute -right-2 -bottom-2 text-4xl opacity-10">🎯</span>
                     </div>

@@ -40,8 +40,8 @@
                                 <span v-if="agent.buyLightning" class="text-red-400 text-xs font-bold bg-red-900/30 px-1 rounded border border-red-500/30">⚡ 買閃電</span>
                             </div>
                             <div class="flex items-center gap-4">
-                                <div v-if="agent.plannedCashoutLevel" class="text-xs text-gray-400">
-                                    二級停扣: <span class="text-green-400 font-bold">L{{ agent.plannedCashoutLevel }}</span>
+                                <div v-if="agent.cashoutPropensity != null" class="text-xs text-gray-400" title="逐層機率模型: 每過一關以此機率收手落袋">
+                                    每關收手率: <span class="text-green-400 font-bold">{{ (agent.cashoutPropensity * 100).toFixed(0) }}%</span>
                                 </div>
                                 <div class="text-lg font-bold" :class="agent.buyLightning ? 'text-yellow-300' : 'text-gray-200'">
                                     {{ agent.finalAmount }}
@@ -125,7 +125,7 @@ export default {
                         baseAmount: baseAmount,
                         finalAmount: Math.round(finalAmount * 100) / 100,
                         chipMap: decision.fullChipMap ? decision.fullChipMap[gridId] : {},
-                        plannedCashoutLevel: decision.plannedCashoutLevel
+                        cashoutPropensity: decision.cashoutPropensity
                     });
                 }
             });
