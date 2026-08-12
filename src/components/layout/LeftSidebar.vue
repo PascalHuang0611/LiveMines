@@ -133,6 +133,25 @@
                     <p v-else class="text-xs text-gray-500 mt-2">勾選後每局依窗口 RTP 自動切換數值表 (V2 階梯+遲滯)</p>
                 </div>
 
+                <!-- 💎 JP 池初始值 -->
+                <div class="bg-gray-800 rounded-xl p-4 border border-gray-700 shadow-lg"
+                     title="設定 JP 池的起始金額：清除資料或重新整理後，JP 池會以此值起跳 (而非 0)。「套用」按鈕則直接改寫當前池，不重置其他統計——適合快速測試刺客參戰門檻。注意：初始池屬外部注入的假設情境，被領走時會推高 JP RTP。數值會記憶在本地。">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-sm font-bold text-gray-300 cursor-help border-b border-dotted border-gray-600 whitespace-nowrap">💎 JP 池初始值</span>
+                        <div class="flex items-center gap-1.5">
+                            <input type="number" :value="$game.jpInitial" @change="$game.setJpInitial($event.target.value)" min="0"
+                                   class="w-28 bg-gray-900 border border-gray-600 rounded px-2 py-1 text-white text-xs text-right outline-none focus:border-pink-400">
+                            <button @click="$game.applyJpInitialNow()"
+                                    class="bg-pink-700 hover:bg-pink-600 text-white text-[10px] font-bold px-2 py-1 rounded transition whitespace-nowrap"
+                                    title="立即把當前 JP 池改寫為此值 (不重置其他統計)">套用</button>
+                        </div>
+                    </div>
+                    <div class="flex justify-between mt-1.5 text-xs">
+                        <span class="text-gray-500">目前 JP 池</span>
+                        <span class="font-mono text-pink-300">{{ $game.stats.totalJpPool.toFixed(2) }}</span>
+                    </div>
+                </div>
+
                 <!-- 🧬 Agent 人流模式控制區 (Milestone 1) -->
                 <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 shadow-lg border-l-4 border-l-blue-500 mb-6">
                     <h3 class="text-xl font-bold text-white mb-4 flex justify-between items-center">

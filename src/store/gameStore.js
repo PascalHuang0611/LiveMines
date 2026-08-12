@@ -68,6 +68,9 @@ export const useGameStore = defineStore('game', {
         vipStats: {},   // VIP 群體累計 { V1: {bet, win, jpWin, entries, players}, ... } (每局鏡射一次)
         vipRaw: null,   // markRaw 累加容器 (含不重複玩家 Set)，避免逐 Agent 觸發響應式
 
+        // --- 💎 JP 池初始值: 清除資料/重載後 JP 池以此值起跳 (localStorage 記憶) ---
+        jpInitial: 0,
+
         // --- 🔬 玩家人數拓展 (V14B): 真實 DNA 等比複製 ×10，開關保持原始資料清澈 ---
         expandPlayersEnabled: false,   // 開關 (localStorage 記憶)；關 = 純真實資料
         agentPoolBase: null,           // markRaw 原始 (未拓展) agent pool，切換開關時重建用
@@ -482,6 +485,11 @@ export const useGameStore = defineStore('game', {
 
             // 🔬 玩家人數拓展設定還原 (需在 setSimulationMode/fetchDefaultAgents 之前)
             this.expandPlayersEnabled = localStorage.getItem('livemines_expandPlayers') === '1';
+
+            // 💎 JP 池初始值還原並套用 (此時尚未開始模擬)
+            const savedJpInit = parseFloat(localStorage.getItem('livemines_jpInitial'));
+            if (Number.isFinite(savedJpInit) && savedJpInit >= 0) this.jpInitial = savedJpInit;
+            this.stats.totalJpPool = this.jpInitial;
 
             // 🗡️ 刺客玩家設定還原
             this.assassinEnabled = localStorage.getItem('livemines_assassin') === '1';
@@ -1208,6 +1216,7 @@ export const useGameStore = defineStore('game', {
             this.csvDataIndex = 0;
 
             this.stats = getEmptyStats();
+            this.stats.totalJpPool = this.jpInitial; // 💎 JP 池以使用者設定的初始值起跳
             this.batches = [];
             this.currentBatchStats = getEmptyStats();
             this.hourlyStats = [];
@@ -2075,6 +2084,18 @@ export const useGameStore = defineStore('game', {
             }
             this.agentPool = markRaw(pool);
             this.trafficPersonaStats = calculatePersonaStats(pool);
+        },
+
+        // 💎 JP 池初始值 (localStorage 記憶)；「立即套用」直接改寫當前池
+        setJpInitial(v) {
+            const t = parseFloat(v);
+            if (Number.isFinite(t) && t >= 0) {
+                this.jpInitial = t;
+                localStorage.setItem('livemines_jpInitial', String(t));
+            }
+        },
+        applyJpInitialNow() {
+            this.stats.totalJpPool = this.jpInitial;
         },
 
         // 🔬 拓展開關: 切換即重建 pool + 重排作息 + 清空統計 (避免混合兩種母體的數據)
