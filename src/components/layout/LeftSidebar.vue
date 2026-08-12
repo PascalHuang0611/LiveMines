@@ -152,6 +152,40 @@
                     </h3>
 
                     <div v-if="$game.simulationMode === 'agentTraffic'" class="space-y-4 animate-fade-in">
+                        <!-- 🗡️ 刺客玩家 (套利者) -->
+                        <div class="p-3 bg-gray-900/50 rounded-lg border border-gray-700" :class="{ 'border-l-4 border-l-red-400': $game.assassinActiveNow }">
+                            <label class="flex items-center justify-between cursor-pointer select-none">
+                                <span class="text-sm font-bold text-gray-300 cursor-help border-b border-dotted border-gray-600"
+                                      title="獨立於 DNA 人流的套利團隊：9 格全下、每格 5 元、不買閃電、永不提前收手。Bonus 內聯合作戰——每關均分鋪滿 4 格，必定恰好折半存活。32 人: 保證 2 人進第五關、期望 1 人通關 (1/6 全滅、2/3 出 1 人、1/6 出 2 人)；64 人: 第五關 4 人鋪滿 → 保證恰好 2 人通關 (全程無隨機)。僅在 JP 池達門檻時參戰。">🗡️ 刺客玩家 ({{ $game.assassinCount }} 人)</span>
+                                <input type="checkbox" :checked="$game.assassinEnabled" @change="$game.setAssassinEnabled($event.target.checked)" class="w-4 h-4 accent-red-400 cursor-pointer">
+                            </label>
+                            <div v-if="$game.assassinEnabled" class="mt-2 space-y-1.5 text-xs animate-fade-in">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-gray-400 whitespace-nowrap cursor-help border-b border-dotted border-gray-600" title="團隊人數。32 = 期望每場 Bonus 1 人通關；64 = 保證恰好 2 人通關 (第五關 4 人鋪滿 4 格)">人數</span>
+                                    <input type="number" :value="$game.assassinCount" @change="$game.setAssassinCount($event.target.value)"
+                                           class="w-28 bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-white text-xs text-right outline-none focus:border-red-400">
+                                </div>
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="text-gray-400 whitespace-nowrap cursor-help border-b border-dotted border-gray-600" title="JP 池 ≥ 此金額時，刺客團隊每局參戰">JP 池參戰門檻</span>
+                                    <input type="number" :value="$game.assassinJpThreshold" @change="$game.setAssassinJpThreshold($event.target.value)"
+                                           class="w-28 bg-gray-800 border border-gray-600 rounded px-2 py-0.5 text-white text-xs text-right outline-none focus:border-red-400">
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">目前 JP 池</span>
+                                    <span class="font-mono" :class="$game.stats.totalJpPool >= $game.assassinJpThreshold ? 'text-red-400 font-bold' : 'text-gray-300'">{{ $game.stats.totalJpPool.toFixed(2) }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">狀態</span>
+                                    <span :class="$game.assassinActiveNow ? 'text-red-400 font-bold' : 'text-gray-500'">{{ $game.assassinActiveNow ? '⚔️ 參戰中' : '💤 待命 (池未達門檻)' }}</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-400">累計參戰局數</span>
+                                    <span class="text-gray-200 font-mono">{{ $game.assassinRoundsJoined }}</span>
+                                </div>
+                                <div class="text-[10px] text-gray-500">戰果看「VIP 群體 RTP」的 ASSASSIN 卡片 (投入/派彩/JP 明細)</div>
+                            </div>
+                        </div>
+
                         <div class="grid grid-cols-2 gap-3">
                             <div class="space-y-1">
                                 <label class="text-[10px] text-gray-400 uppercase tracking-wider font-bold">一天局數</label>

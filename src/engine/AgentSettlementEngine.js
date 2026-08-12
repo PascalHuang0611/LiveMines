@@ -43,11 +43,25 @@ function playSharedBonusV3(entrants, config, riskV3Ctx, roundBet, roundMainPayou
         if (nTotal <= 0 || nWin <= 0) break;
 
         // 1. 存活者先選格，聚合各選項押注
+        // 協同玩家 (刺客) 聯合作戰: 均分鋪滿全部選項 → 每關必定恰好折半存活
+        // (人數 ≥ nTotal 時保證覆蓋，V3 強改通關格也無法讓他們全滅)
         const optionBets = [0, 0, 0, 0, 0];
         const stat = { level: level + 1, cashedOutCount: 0, crashedCount: 0, continuedCount: 0, totalArrived: 0 };
+
+        const coordAlive = states.filter(st => st.alive && st.coordinated);
+        if (coordAlive.length > 0) {
+            for (let i = coordAlive.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [coordAlive[i], coordAlive[j]] = [coordAlive[j], coordAlive[i]];
+            }
+            coordAlive.forEach((st, k) => { st.pick = (k % nTotal) + 1; });
+        }
+
         states.forEach(st => {
             if (!st.alive) return;
-            st.pick = Math.floor(Math.random() * nTotal) + 1;
+            if (!st.coordinated) {
+                st.pick = Math.floor(Math.random() * nTotal) + 1;
+            }
             optionBets[st.pick] += st.bet;
             stat.totalArrived++;
         });
@@ -165,7 +179,12 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
                 if (gridId === triggerGridId) {
                     let prop = Number(decision.cashoutPropensity);
                     if (!Number.isFinite(prop)) prop = 0.5;
-                    entrants.push({ agentId: decision.agentId, bet: betAmount, prop: Math.max(0, Math.min(1, prop)) });
+                    entrants.push({
+                        agentId: decision.agentId,
+                        bet: betAmount,
+                        prop: Math.max(0, Math.min(1, prop)),
+                        coordinated: !!decision.coordinated // 協同玩家 (刺客聯合作戰)
+                    });
                 }
             });
         });

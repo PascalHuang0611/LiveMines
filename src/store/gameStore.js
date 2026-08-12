@@ -67,6 +67,13 @@ export const useGameStore = defineStore('game', {
         trafficAgentStats: {},
         vipStats: {},   // VIP 群體累計 { V1: {bet, win, jpWin, entries, players}, ... } (每局鏡射一次)
         vipRaw: null,   // markRaw 累加容器 (含不重複玩家 Set)，避免逐 Agent 觸發響應式
+
+        // --- 🗡️ 刺客玩家 (套利者): 獨立於 DNA 人流，JP 池達門檻才參戰 ---
+        assassinEnabled: false,        // 開關 (localStorage 記憶)
+        assassinCount: 32,             // 人數 (可調: 32=保證2人進L5、期望1人通關；64=保證恰好2人通關)
+        assassinJpThreshold: 100000,   // JP 池參戰門檻 (可調，localStorage 記憶)
+        assassinActiveNow: false,      // 本局是否參戰 (UI 顯示)
+        assassinRoundsJoined: 0,       // 累計參戰局數 (UI 顯示)
         agentPool: [],
         agentRuntimeMap: null, 
         activeAgentsBucket: null, // [ [agent1, agent2], [agent2, agent3]... ] length = roundsPerDay
@@ -458,6 +465,13 @@ export const useGameStore = defineStore('game', {
             // 一天局數 (影響 Agent 作息解析度與 V4 虛擬時鐘)；需在 setSimulationMode 之前還原
             const savedRpd = parseInt(localStorage.getItem('livemines_roundsPerDay'), 10);
             if (savedRpd >= 24) this.trafficScenario.roundsPerDay = savedRpd;
+
+            // 🗡️ 刺客玩家設定還原
+            this.assassinEnabled = localStorage.getItem('livemines_assassin') === '1';
+            const savedThreshold = parseFloat(localStorage.getItem('livemines_assassinThreshold'));
+            if (Number.isFinite(savedThreshold) && savedThreshold >= 0) this.assassinJpThreshold = savedThreshold;
+            const savedCount = parseInt(localStorage.getItem('livemines_assassinCount'), 10);
+            if (Number.isFinite(savedCount) && savedCount >= 1 && savedCount <= 1000) this.assassinCount = savedCount;
 
             this.initChart();
 
@@ -1158,6 +1172,10 @@ export const useGameStore = defineStore('game', {
             this.vipStats = {};
             this.vipRaw = null;
 
+            // 刺客參戰統計歸零
+            this.assassinActiveNow = false;
+            this.assassinRoundsJoined = 0;
+
             this.balance = 0;
             this.lastResult = null;
             this.selectedHistoryRecord = null;
@@ -1267,6 +1285,26 @@ export const useGameStore = defineStore('game', {
             if (!this.riskControlEnabled) {
                 // 關閉風控 → 回到使用者自選的數值表
                 this.applyProfile(this.activeConfigProfile);
+            }
+        },
+
+        // 🗡️ 刺客玩家開關/門檻 (localStorage 記憶)
+        setAssassinEnabled(v) {
+            this.assassinEnabled = !!v;
+            localStorage.setItem('livemines_assassin', this.assassinEnabled ? '1' : '0');
+        },
+        setAssassinJpThreshold(v) {
+            const t = parseFloat(v);
+            if (Number.isFinite(t) && t >= 0) {
+                this.assassinJpThreshold = t;
+                localStorage.setItem('livemines_assassinThreshold', String(t));
+            }
+        },
+        setAssassinCount(v) {
+            const n = parseInt(v, 10);
+            if (Number.isFinite(n) && n >= 1 && n <= 1000) {
+                this.assassinCount = n;
+                localStorage.setItem('livemines_assassinCount', String(n));
             }
         },
 
@@ -1677,6 +1715,9 @@ export const useGameStore = defineStore('game', {
                 const { decisions, virtualGrids, totalAgentCost } = this.generateCurrentAgentDecisions(isBatch);
                 currentDecisions = decisions;
                 currentGrids = virtualGrids;
+
+                // 刺客參戰局數只在真正模擬的局計數 (批次結束的 UI 重繪不算)
+                if (this.assassinActiveNow) this.assassinRoundsJoined++;
                 
                 // Milestone 6: 由 Agent Decision 獨立計算總成本 (包含他們各自的 Lightning)
                 currentCost = totalAgentCost || 0;
@@ -2110,12 +2151,8 @@ export const useGameStore = defineStore('game', {
         generateCurrentAgentDecisions(isBatch = false) {
             if (this.simulationMode !== 'agentTraffic') return { decisions: [], virtualGrids: this.grids };
             
-            const activeAgents = this.currentActiveAgents;
-            if (!activeAgents || activeAgents.length === 0) {
-                if (!isBatch) this.grids.forEach(g => g.betAmount = 0);
-                const virtualGrids = this.grids.map(g => ({ ...g, betAmount: 0 }));
-                return { decisions: [], virtualGrids };
-            }
+            // 注意: 即使沒有一般玩家在線也不能提早 return —— 刺客玩家獨立於 DNA 人流，仍可能參戰
+            const activeAgents = this.currentActiveAgents || [];
 
             const decisions = [];
             const scenario = this.trafficScenario;
@@ -2158,6 +2195,40 @@ export const useGameStore = defineStore('game', {
                 totalAgentCost += Math.round(agentCost * 100) / 100;
             });
             
+            // 🗡️ 刺客玩家注入: JP 池達門檻時 32 人參戰 — 9 格全下各 5 元、不買閃電、
+            // 收手傾向 0 (永不提前落袋，固定衝 L5 領 grand + JP 份額)
+            this.assassinActiveNow = false;
+            if (this.assassinEnabled && this.stats.totalJpPool >= this.assassinJpThreshold) {
+                this.assassinActiveNow = true;
+                const ASSASSIN_COUNT = this.assassinCount;
+                const BET_PER_GRID = 5;
+                for (let i = 1; i <= ASSASSIN_COUNT; i++) {
+                    const betMap = {};
+                    const chipMap = {};
+                    for (let g = 1; g <= 9; g++) {
+                        betMap[g] = BET_PER_GRID;
+                        chipMap[g] = { [BET_PER_GRID]: 1 };
+                        aggregateBetMap[g] += BET_PER_GRID;
+                    }
+                    decisions.push({
+                        agentId: `ASSASSIN_${String(i).padStart(2, '0')}`,
+                        persona: 'assassin_arbitrager',
+                        vipGroup: 'ASSASSIN',
+                        dna: { Persona_Name_ZH: '🗡️ 刺客 (套利)', VIP_Group: 'ASSASSIN', Cashout_Propensity: 0 },
+                        selectedGrids: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                        rawBetMap: betMap,
+                        totalBetAmountRaw: BET_PER_GRID * 9,
+                        legalBetMap: betMap,
+                        fullChipMap: chipMap,
+                        legalTotalBetAmount: BET_PER_GRID * 9,
+                        buyLightning: false,
+                        cashoutPropensity: 0,
+                        coordinated: true // 聯合作戰: Bonus 每關均分鋪滿 4 格 → 必定折半存活
+                    });
+                    totalAgentCost += BET_PER_GRID * 9;
+                }
+            }
+
             // 建立供本局模擬使用的虛擬 grids 陣列，避免在 batch 時觸發 Vue Reactivity
             const virtualGrids = this.grids.map(g => ({ ...g, betAmount: Math.round(aggregateBetMap[g.id] || 0) }));
 
