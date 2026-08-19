@@ -9,6 +9,16 @@
                 
                 <div class="p-4 flex-1 overflow-y-auto">
                     <div class="flex items-center gap-3 mb-3">
+                        <label class="text-sm font-bold text-gray-300 whitespace-nowrap cursor-help"
+                               title="選擇整組數值表的版本 (public/configs/<版本>/ 下的 7 份表)。切換立即生效並記憶在本地；各版本的本地修改互相獨立。風控參數不分版本。">🗂️ 參數版本:</label>
+                        <select :value="$game.activeConfigSet"
+                                @change="$game.setConfigSet($event.target.value)"
+                                class="bg-gray-900 text-cyan-300 font-mono text-sm px-3 py-1.5 rounded-lg border border-gray-600 focus:outline-none focus:border-blue-500">
+                            <option v-for="s in $game.configSetOptions" :key="s.id" :value="s.id">{{ s.label }}</option>
+                        </select>
+                        <span class="text-xs text-gray-500">切換版本會重新載入 7 份表並套用 (風控狀態冷啟動)</span>
+                    </div>
+                    <div class="flex items-center gap-3 mb-3">
                         <label class="text-sm font-bold text-gray-300 whitespace-nowrap">📋 數值表:</label>
                         <select :value="$game.tempConfigProfile"
                                 @change="$game.selectTempConfigProfile($event.target.value)"

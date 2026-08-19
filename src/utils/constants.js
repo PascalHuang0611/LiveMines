@@ -1,6 +1,13 @@
-// 七份 PM 數值表 (public/configs/TG001_LM01_<KEY>_Config.json) 為預設值的唯一事實來源，
+// 七份 PM 數值表 (public/configs/<版本>/TG001_LM01_<KEY>_Config.json) 為預設值的唯一事實來源，
 // 啟動時由 gameStore.fetchConfigProfiles() 載入；DEFAULT_CONFIG 僅作為 fetch 失敗 (如 file:// 開啟) 時的 BASE 後備。
 export const CONFIG_PROFILE_KEYS = ['BASE', 'PRT1', 'PRT2', 'PRT3', 'BST1', 'BST2', 'BST3'];
+
+// 數值表版本組：新增版本 = 在 public/configs/ 建立同名資料夾放入 7 份表，並在此加一筆
+export const CONFIG_SETS = [
+    { id: '20260805', label: '20260805 (原版)' },
+    { id: '20260819', label: '20260819' },
+];
+export const DEFAULT_CONFIG_SET = '20260805';
 
 export function configProfileFileName(key) {
     return `TG001_LM01_${key}_Config.json`;

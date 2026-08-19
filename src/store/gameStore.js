@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { nextTick, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
-import { DEFAULT_CONFIG, CONFIG_PROFILE_KEYS, configProfileFileName, getEmptyStats, validateConfigFormat, formatConfigJson } from '../utils/constants';
+import { DEFAULT_CONFIG, CONFIG_PROFILE_KEYS, CONFIG_SETS, DEFAULT_CONFIG_SET, configProfileFileName, getEmptyStats, validateConfigFormat, formatConfigJson } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
 import { RTPWindow, V2Decider, createV3Controller, validateRiskControlConfig } from '../engine/RiskControlEngine';
 import { RiskScoreState, neutralWeightOf } from '../engine/RiskScoreEngine';
@@ -163,8 +163,9 @@ export const useGameStore = defineStore('game', {
         // 整合設定檔 
         appConfig: JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
 
-        // --- 七份 PM 數值表 (public/configs/) ---
+        // --- 七份 PM 數值表 (public/configs/<版本>/) ---
         configProfiles: {},          // key (BASE/PRT1/...) → 檔案預設內容 (唯一事實來源)
+        activeConfigSet: DEFAULT_CONFIG_SET, // 數值表版本 (20260805/20260819/...)，本地修改依版本各自獨立
         activeConfigProfile: 'BASE', // 目前套用中的數值表
         tempConfigProfile: 'BASE',   // Config Modal 內選擇中的數值表 (按儲存才套用)
         profileOverrides: {},        // key → 是否存在本地修改 (localStorage)
@@ -254,6 +255,11 @@ export const useGameStore = defineStore('game', {
         // 可供選擇的數值表 (載入成功或有本地修改者；BASE 永遠可選，有內建後備)
         availableConfigProfiles(state) {
             return CONFIG_PROFILE_KEYS.filter(k => k === 'BASE' || state.configProfiles[k] || state.profileOverrides[k]);
+        },
+
+        // 可供選擇的數值表版本組
+        configSetOptions() {
+            return CONFIG_SETS;
         },
 
         currentActiveAgents(state) {
@@ -445,6 +451,22 @@ export const useGameStore = defineStore('game', {
                 }
                 localStorage.removeItem('livemines_config');
             }
+            // 未分版本的本地修改 (livemines_config_<KEY>) 遷移為 20260805 版專屬 key
+            CONFIG_PROFILE_KEYS.forEach(k => {
+                const old = localStorage.getItem('livemines_config_' + k);
+                if (old) {
+                    if (!localStorage.getItem(`livemines_config_${DEFAULT_CONFIG_SET}_${k}`)) {
+                        localStorage.setItem(`livemines_config_${DEFAULT_CONFIG_SET}_${k}`, old);
+                    }
+                    localStorage.removeItem('livemines_config_' + k);
+                }
+            });
+
+            // 還原數值表版本選擇 (需在 fetchConfigProfiles 之前)
+            const savedSet = localStorage.getItem('livemines_configSet');
+            if (savedSet && CONFIG_SETS.some(s => s.id === savedSet)) {
+                this.activeConfigSet = savedSet;
+            }
 
             await Promise.all([this.fetchConfigProfiles(), this.fetchRiskControlConfig()]);
 
@@ -459,11 +481,7 @@ export const useGameStore = defineStore('game', {
             this.resetRiskRuntime();
 
             // 重建各數值表的「本地修改」標記
-            const overrides = {};
-            CONFIG_PROFILE_KEYS.forEach(k => {
-                overrides[k] = !!localStorage.getItem('livemines_config_' + k);
-            });
-            this.profileOverrides = overrides;
+            this.refreshProfileOverrideFlags();
 
             const savedProfile = localStorage.getItem('livemines_activeProfile');
             const startProfile = (savedProfile && (this.configProfiles[savedProfile] || overrides[savedProfile] || savedProfile === 'BASE'))
@@ -1439,11 +1457,40 @@ export const useGameStore = defineStore('game', {
             }
         },
 
-        // 從 public/configs/ 載入七份 PM 數值表 (唯一事實來源)；file:// 等 fetch 失敗時 BASE 退回內建 DEFAULT_CONFIG
+        // 數值表本地修改的 localStorage key (依版本組各自獨立；RISKCTL 不分版本，不經此函式)
+        profileStorageKey(key) {
+            return `livemines_config_${this.activeConfigSet}_${key}`;
+        },
+
+        // 重建各數值表的「本地修改」標記 (保留 RISKCTL 既有標記)
+        refreshProfileOverrideFlags() {
+            const overrides = { ...this.profileOverrides };
+            CONFIG_PROFILE_KEYS.forEach(k => {
+                overrides[k] = !!localStorage.getItem(this.profileStorageKey(k));
+            });
+            this.profileOverrides = overrides;
+        },
+
+        // 切換數值表版本組：重新載入 7 份表 + 重解析本地修改 + 重套用當前表 + 風控冷啟動
+        async setConfigSet(id) {
+            if (id === this.activeConfigSet || !CONFIG_SETS.some(s => s.id === id)) return;
+            this.activeConfigSet = id;
+            localStorage.setItem('livemines_configSet', id);
+            await this.fetchConfigProfiles();
+            this.refreshProfileOverrideFlags();
+            this.applyProfile(this.activeConfigProfile);
+            this.resetRiskRuntime(); // V2 zone 快取存有舊版本解析結果，需冷啟動
+            // Config Modal 開啟中：同步刷新編輯區內容
+            if (this.showConfigModal && this.tempConfigProfile !== 'RISKCTL') {
+                this.selectTempConfigProfile(this.tempConfigProfile);
+            }
+        },
+
+        // 從 public/configs/<版本>/ 載入七份 PM 數值表 (唯一事實來源)；file:// 等 fetch 失敗時 BASE 退回內建 DEFAULT_CONFIG
         async fetchConfigProfiles() {
             const results = await Promise.all(CONFIG_PROFILE_KEYS.map(async key => {
                 try {
-                    const resp = await fetch(`${import.meta.env.BASE_URL}configs/${configProfileFileName(key)}`);
+                    const resp = await fetch(`${import.meta.env.BASE_URL}configs/${this.activeConfigSet}/${configProfileFileName(key)}`);
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const cfg = await resp.json();
                     validateConfigFormat(cfg);
@@ -1465,7 +1512,7 @@ export const useGameStore = defineStore('game', {
 
         // 取得某數值表目前生效的內容 (本地修改優先，其次檔案預設)；本地修改格式不符時自動清除
         resolveProfileConfig(key) {
-            const overrideRaw = localStorage.getItem('livemines_config_' + key);
+            const overrideRaw = localStorage.getItem(this.profileStorageKey(key));
             if (overrideRaw) {
                 try {
                     const parsed = JSON.parse(overrideRaw);
@@ -1473,7 +1520,7 @@ export const useGameStore = defineStore('game', {
                     return { config: parsed, isOverride: true };
                 } catch (e) {
                     console.warn(`本地 ${key} 參數不符合新格式，已清除並改用預設: ` + e.message);
-                    localStorage.removeItem('livemines_config_' + key);
+                    localStorage.removeItem(this.profileStorageKey(key));
                     this.profileOverrides = { ...this.profileOverrides, [key]: false };
                 }
             }
@@ -1551,10 +1598,10 @@ export const useGameStore = defineStore('game', {
                 const def = this.configProfiles[key];
                 // 與檔案預設完全相同就不留本地修改，維持「檔案為唯一事實來源」
                 if (def && JSON.stringify(newConfig) === JSON.stringify(def)) {
-                    localStorage.removeItem('livemines_config_' + key);
+                    localStorage.removeItem(this.profileStorageKey(key));
                     this.profileOverrides = { ...this.profileOverrides, [key]: false };
                 } else {
-                    localStorage.setItem('livemines_config_' + key, JSON.stringify(newConfig));
+                    localStorage.setItem(this.profileStorageKey(key), JSON.stringify(newConfig));
                     this.profileOverrides = { ...this.profileOverrides, [key]: true };
                 }
 
@@ -1592,7 +1639,7 @@ export const useGameStore = defineStore('game', {
 
             const key = this.tempConfigProfile || 'BASE';
             if (confirm(`確定要將數值表 ${key} 恢復為檔案預設值嗎？此表的本地修改將會被清除。`)) {
-                localStorage.removeItem('livemines_config_' + key);
+                localStorage.removeItem(this.profileStorageKey(key));
                 this.profileOverrides = { ...this.profileOverrides, [key]: false };
 
                 const def = this.configProfiles[key] || DEFAULT_CONFIG;
