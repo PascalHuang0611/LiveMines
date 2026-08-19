@@ -4,27 +4,27 @@
         "numberOfGrids": 9,
         "numberOfBalls": 3,
         "extraPurchaseCostPercent": 0.5,
-        "singleAreaBasePayouts": [1.932787818, 4.831969545, 9.663939091]
+        "singleAreaBasePayouts": [2.0, 5.0, 10.0]
     },
     "lightningFeature": {
         "payoutMultipliers": {
             "values": [[1, 1], [1, 1, 1], [1], [1], [1], [1]],
-            "weights": [990, 10, 0, 0, 0, 0]
+            "weights": [995, 5, 0, 0, 0, 0]
         },
         "gridWeights": {
             "thresholds": [20, 40, 60, 80],
-            "weights": [120, 110, 100, 90, 80],
+            "weights": [135, 118, 100, 82, 70],
             "neutralBand": [45, 55]
         }
     },
     "purchasedLightningFeature": {
         "payoutMultipliers": {
             "values": [[1, 2, 2], [1, 2, 3], [1, 3, 3], [2, 2, 2], [2, 2, 3], [2, 3, 3], [3, 3, 3], [2, 2, 2], [2, 2, 2], [2, 2, 2]],
-            "weights": [139, 60, 0, 801, 0, 0, 0, 0, 0, 0]
+            "weights": [701, 80, 0, 219, 0, 0, 0, 0, 0, 0]
         },
         "gridWeights": {
             "thresholds": [20, 40, 60, 80],
-            "weights": [110, 105, 100, 95, 90],
+            "weights": [135, 118, 100, 82, 65],
             "neutralBand": [45, 55]
         }
     },
@@ -63,10 +63,10 @@
             "dataFreshSeconds": 120
         },
         "ev": {
-            "expectedMainEV": 0.865586,
+            "expectedMainEV": 0.89528,
             "bonusAEV": 9.8125,
-            "baseBallMatchingEV": 0.707563662,
-            "lightningIncrementEV": 1.953666667,
+            "baseBallMatchingEV": 0.732169,
+            "lightningIncrementEV": 1.766333,
             "tripleHitProb": 0.004444,
             "ballBaseline": [0.111111, 0.111111, 0.111111, 0.111111, 0.111111, 0.111111, 0.111111, 0.111111, 0.111111]
         }

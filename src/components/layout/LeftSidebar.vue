@@ -117,7 +117,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="flex justify-between cursor-help" title="V4 實際輸出「非等權位置權重」的局數，即閃電落點真的被偏移的局數。注意：BASE 表的五級權重全是 100，就算分數偏離也不會偏移 (shadow mode)——只有 V2 切到 PRT/BST 表且分數離開中性帶 45~55 時才會累積。">
+                        <div class="flex justify-between cursor-help" title="V4 實際輸出「非等權位置權重」的局數，即閃電落點真的被偏移的局數。是否偏移取決於數值表的 gridWeights 五級權重：全 100 的表 (如 0805/0819 版) 為 shadow mode 不偏移；帶梯度的表 (如 0819 V2 版 135/118/100/82/70) 只要分數離開中性帶 45~55 就會偏移。">
                             <span class="text-gray-400 border-b border-dotted border-gray-600">V4 非中性局數</span>
                             <span :class="$game.riskV4NonNeutral > 0 ? 'text-purple-400 font-bold' : 'text-gray-200'">{{ $game.riskV4NonNeutral }}</span>
                         </div>
