@@ -20,7 +20,7 @@
 
         <!-- 版本標示 -->
         <div class="fixed bottom-2 right-2 text-xs text-gray-500 opacity-50 pointer-events-none z-50">
-            v2.54 / {{ game.appVariant }}{{ game.appVariant === 'V14B' ? ' (Real Data)' : '' }} · 參數 {{ game.activeConfigSet }}
+            {{ APP_VERSION }} / {{ game.appVariant }}{{ game.appVariant === 'V14B' ? ' (Real Data)' : '' }} · 參數 {{ game.activeConfigSet }}
         </div>
     </div>
 </template>
@@ -39,6 +39,7 @@ import ActiveAgentsModal from './components/game/ActiveAgentsModal.vue';
 import GridDetailsModal from './components/game/GridDetailsModal.vue';
 import AgentInfoModal from './components/modals/AgentInfoModal.vue';
 import { useGameStore } from './store/gameStore';
+import { APP_VERSION } from './utils/constants';
 
 export default {
     components: {
@@ -57,7 +58,7 @@ export default {
     },
     setup() {
         const game = useGameStore();
-        return { game };
+        return { game, APP_VERSION };
     },
     provide() {
         return {

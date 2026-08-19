@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { nextTick, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
-import { DEFAULT_CONFIG, CONFIG_PROFILE_KEYS, CONFIG_SETS, DEFAULT_CONFIG_SET, configProfileFileName, getEmptyStats, validateConfigFormat, formatConfigJson } from '../utils/constants';
+import { DEFAULT_CONFIG, CONFIG_PROFILE_KEYS, CONFIG_SETS, DEFAULT_CONFIG_SET, APP_VERSION, configProfileFileName, getEmptyStats, validateConfigFormat, formatConfigJson } from '../utils/constants';
 import { simulateRound, accumulateStats } from '../engine/SimulationEngine';
 import { RTPWindow, V2Decider, createV3Controller, validateRiskControlConfig } from '../engine/RiskControlEngine';
 import { RiskScoreState, neutralWeightOf } from '../engine/RiskScoreEngine';
@@ -1124,7 +1124,7 @@ export const useGameStore = defineStore('game', {
         // 每筆保留 Game Code，不做任何合成，落球時隨機抽取仍可溯源到真實局
         async fetchRealBallData() {
             try {
-                const resp = await fetch(`${import.meta.env.BASE_URL}realdata/game_results.csv`);
+                const resp = await fetch(`${import.meta.env.BASE_URL}realdata/game_results.csv?v=${APP_VERSION}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const text = await resp.text();
                 const lines = text.split('\n');
@@ -1294,7 +1294,7 @@ export const useGameStore = defineStore('game', {
         // --- SERVER 風控模擬 actions ---
         async fetchRiskControlConfig() {
             try {
-                const resp = await fetch(`${import.meta.env.BASE_URL}configs/risk_control.json`);
+                const resp = await fetch(`${import.meta.env.BASE_URL}configs/risk_control.json?v=${APP_VERSION}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const cfg = await resp.json();
                 validateRiskControlConfig(cfg);
@@ -1490,7 +1490,7 @@ export const useGameStore = defineStore('game', {
         async fetchConfigProfiles() {
             const results = await Promise.all(CONFIG_PROFILE_KEYS.map(async key => {
                 try {
-                    const resp = await fetch(`${import.meta.env.BASE_URL}configs/${this.activeConfigSet}/${configProfileFileName(key)}`);
+                    const resp = await fetch(`${import.meta.env.BASE_URL}configs/${this.activeConfigSet}/${configProfileFileName(key)}?v=${APP_VERSION}`);
                     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                     const cfg = await resp.json();
                     validateConfigFormat(cfg);
@@ -2099,7 +2099,7 @@ export const useGameStore = defineStore('game', {
             try {
                 // V14B 載入真實上線 DNA (gzip 壓縮，65k 玩家 100MB → 6MB)；V14A 維持原檔
                 const agentFile = IS_V14B ? 'realdata/agents_real.json.gz' : 'agents.json';
-                const response = await fetch(`${import.meta.env.BASE_URL}${agentFile}`);
+                const response = await fetch(`${import.meta.env.BASE_URL}${agentFile}?v=${APP_VERSION}`);
                 if (!response.ok) throw new Error(`找不到預設 ${agentFile}`);
 
                 let rawData;
