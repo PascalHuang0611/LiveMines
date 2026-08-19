@@ -1,5 +1,5 @@
 // 應用版本 (右下角顯示 + 資料檔 cache-busting)：每次推版 +0.01
-export const APP_VERSION = 'v2.60';
+export const APP_VERSION = 'v2.61';
 
 // 七份 PM 數值表 (public/configs/<版本>/TG001_LM01_<KEY>_Config.json) 為預設值的唯一事實來源，
 // 啟動時由 gameStore.fetchConfigProfiles() 載入；DEFAULT_CONFIG 僅作為 fetch 失敗 (如 file:// 開啟) 時的 BASE 後備。
@@ -9,6 +9,7 @@ export const CONFIG_PROFILE_KEYS = ['BASE', 'PRT1', 'PRT2', 'PRT3', 'BST1', 'BST
 export const CONFIG_SETS = [
     { id: '20260805', label: '20260805 (原版)' },
     { id: '20260819', label: '20260819' },
+    { id: '20260819_V2', label: '20260819 V2 (Rebased)' },
 ];
 export const DEFAULT_CONFIG_SET = '20260805';
 
