@@ -186,6 +186,9 @@ export const useGameStore = defineStore('game', {
         riskV3WhaleRounds: 0,        // 大戶評估局數 (UI 顯示)
         riskV3WhaleFlagged: 0,       // 集中度旗標成立局數 (UI 顯示)
         riskV3LastWhale: null,       // 最近一次大戶評估 (UI 顯示)
+        riskGgrValue: null,          // V3 GGR 專用窗口目前盈虧 (下注−派彩，UI 顯示)
+        riskGgrThreshold: null,      // GGR 門檻 (UI 顯示)
+        riskGgrWindowRounds: 0,      // GGR 窗口局數 (UI 顯示)
         riskToggles: { v2: true, v3: true, v4: true }, // 三層風控獨立開關
         riskV4NonNeutral: 0,         // V4 非中性局數 (UI 顯示)
         riskV4TrsRange: '—',         // V4 平滑 TRS 目前範圍 (UI 顯示)
@@ -1395,6 +1398,9 @@ export const useGameStore = defineStore('game', {
             this.riskV3WhaleRounds = 0;
             this.riskV3WhaleFlagged = 0;
             this.riskV3LastWhale = null;
+            this.riskGgrValue = null;
+            this.riskGgrThreshold = null;
+            this.riskGgrWindowRounds = 0;
             this.riskV4NonNeutral = 0;
             this.riskV4TrsRange = '—';
             this.riskV4LrsRange = '—';
@@ -1444,6 +1450,16 @@ export const useGameStore = defineStore('game', {
             if (!rt) return;
             const { rtp, valid } = rt.window.currentRTP();
             this.riskWindowRtp = valid ? rtp : null;
+
+            // V3 GGR 專用窗口狀態 (UI 顯示)
+            if (rt.ggrWindow && rt.v3) {
+                const g = rt.ggrWindow.sums();
+                this.riskGgrValue = g.bet - g.payout;
+                this.riskGgrThreshold = rt.v3.ggrThreshold;
+                this.riskGgrWindowRounds = rt.v3.ggrWindowRounds;
+            } else {
+                this.riskGgrValue = null;
+            }
 
             if (rt.decider) {
                 const d = rt.decider.decide(rtp, valid);
