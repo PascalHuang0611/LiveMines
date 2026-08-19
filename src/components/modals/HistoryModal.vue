@@ -117,7 +117,7 @@
                                             <span class="text-gray-200">第{{ lvl.level }}層</span>
                                             <span class="text-gray-200">選[{{ lvl.pick }}]</span>
                                             <span class="text-gray-300">安全:{{ lvl.safe.join(',') }}</span>
-                                            <span v-if="lvl.intervened" class="text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded" title="V3 JP 強控介入：通關格被強改為押注最低 2 選項">🛡️ V3</span>
+                                            <span v-if="lvl.intervened" class="text-[10px] px-1.5 py-0.5 rounded text-white" :class="v3BadgeClass(lvl)" :title="v3BadgeTitle(lvl)">{{ v3BadgeText(lvl) }}</span>
                                             <span :class="lvl.passed ? 'text-green-300' : 'text-red-400'">{{ lvl.passed ? '✔ 過關' : '✖ 觸雷' }}</span>
                                         </div>
                                     </div>
@@ -156,7 +156,7 @@
                                             <div class="flex justify-between items-center mb-1">
                                                 <span class="text-gray-200 font-bold">第 {{ stat.level }} 層 <span class="text-yellow-400 ml-1 text-[11px]">({{ $game.appConfig.bonusGame.levelSettings.payouts[stat.level - 1] }}倍)</span> <span class="text-gray-400 font-normal ml-1">(抵達: {{ stat.totalArrived }} 人)</span></span>
                                                 <span class="flex items-center gap-1">
-                                                    <span v-if="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].intervened" class="text-[10px] bg-red-600 text-white px-1.5 py-0.5 rounded" title="V3 JP 強控介入：通關格被強改為押注最低 2 選項">🛡️ V3</span>
+                                                    <span v-if="$game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].intervened" class="text-[10px] px-1.5 py-0.5 rounded text-white" :class="v3BadgeClass($game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1])" :title="v3BadgeTitle($game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1])">{{ v3BadgeText($game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1]) }}</span>
                                                     <span class="text-gray-300 bg-gray-800 px-1.5 py-0.5 rounded">安全: {{ $game.selectedHistoryRecord.bonusLevelHistory[stat.level - 1].safe.join(',') }}</span>
                                                 </span>
                                             </div>
@@ -373,6 +373,24 @@ export default {
         }
     },
     methods: {
+        // V3 介入徽章：依觸發原因區分樣式與文字 (大戶條件 = 橘色 🐋)
+        v3BadgeText(lvl) {
+            if (lvl.reason === 'WHALE') return '🐋 V3 大戶';
+            if (lvl.reason === 'BOTH') return '🛡️🐋 V3 雙重';
+            if (lvl.reason === 'GGR') return '🛡️ V3 GGR';
+            return '🛡️ V3';
+        },
+        v3BadgeClass(lvl) {
+            return (lvl.reason === 'WHALE' || lvl.reason === 'BOTH') ? 'bg-orange-600' : 'bg-red-600';
+        },
+        v3BadgeTitle(lvl) {
+            let t = 'V3 JP 強控介入：通關格被強改為押注最低 2 選項';
+            const reasonMap = { RTP: '預估 RTP 門檻 (條件 A)', WHALE: '大戶群體集中度 + 存活大戶 ΔRTP (條件 B)', BOTH: 'RTP 條件與大戶條件同時命中，取較嚴階段', GGR: 'GGR 捷徑 (派彩後 GGR 窗口低於門檻，凌駕四階與大戶條件)' };
+            if (lvl.reason) t += `\n觸發原因: ${reasonMap[lvl.reason] || lvl.reason}`;
+            if (lvl.phaseCode) t += `\n階段: ${lvl.phaseCode}`;
+            if (lvl.whale) t += `\n大戶 ${lvl.whale.whaleCount} 人 (存活 ${lvl.whale.aliveCount})、群體佔比 ${(lvl.whale.share * 100).toFixed(1)}%、N*=${lvl.whale.nStar ?? '—'}、存活 ΔRTP ${lvl.whale.deltaRtp.toFixed(3)}pp、存活大戶主玩法賠付 ${lvl.whale.whaleGroupPayout.toFixed(0)}`;
+            return t;
+        },
         // V4 權重格 tooltip：從子分數到查表的完整推導
         v4CellTitle(kind, i) {
             const v4 = this.$game.selectedHistoryRecord?.v4Weights;

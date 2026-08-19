@@ -83,6 +83,16 @@
                             <span class="text-gray-400 border-b border-dotted border-gray-600">V3 省下派彩</span>
                             <span class="text-gray-200">{{ $game.riskV3Saved.toFixed(2) }}</span>
                         </div>
+                        <div v-if="$game.riskV3WhaleRounds > 0" class="flex justify-between cursor-help"
+                             :title="'大戶群體集中度條件 (條件 B，與 RTP 條件 OR)。大戶 = 三同格下注 ≥ 注碼門檻；集中度旗標 = 全部大戶合計佔該格 ≥ 集中度門檻；再需 ΔRTP (大戶主玩法賠付 ÷ 48h 窗口總下注) 達該階門檻才命中。\n集中度旗標成立: ' + $game.riskV3WhaleFlagged + ' / ' + $game.riskV3WhaleRounds + ' 局' + whaleLastLine">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V3 大戶介入</span>
+                            <span :class="whaleHits > 0 ? 'text-orange-400 font-bold' : 'text-gray-200'">{{ whaleHits }} 次 (旗標 {{ $game.riskV3WhaleFlagged }} 局)</span>
+                        </div>
+                        <div v-if="$game.riskV3Interventions > 0" class="flex justify-between cursor-help"
+                             title="V3 介入的觸發原因分佈。RTP = 預估 RTP 門檻 (條件 A)；大戶 = 集中度+ΔRTP (條件 B)；雙重 = 兩者同時命中；GGR = 預估虧損捷徑。">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V3 介入原因</span>
+                            <span class="text-gray-200 text-right">RTP {{ $game.riskV3Reasons.RTP }}｜大戶 {{ $game.riskV3Reasons.WHALE }}｜雙重 {{ $game.riskV3Reasons.BOTH }}｜GGR {{ $game.riskV3Reasons.GGR }}</span>
+                        </div>
                         <div class="flex justify-between cursor-help" title="V4 實際輸出「非等權位置權重」的局數，即閃電落點真的被偏移的局數。注意：BASE 表的五級權重全是 100，就算分數偏離也不會偏移 (shadow mode)——只有 V2 切到 PRT/BST 表且分數離開中性帶 45~55 時才會累積。">
                             <span class="text-gray-400 border-b border-dotted border-gray-600">V4 非中性局數</span>
                             <span :class="$game.riskV4NonNeutral > 0 ? 'text-purple-400 font-bold' : 'text-gray-200'">{{ $game.riskV4NonNeutral }}</span>
@@ -630,6 +640,19 @@
 export default {
     name: 'LeftSidebar',
     inject: ['$game'],
+    computed: {
+        // V3 大戶條件參與的介入次數 (單獨命中 + 與 RTP 雙重命中)
+        whaleHits() {
+            const r = this.$game.riskV3Reasons || {};
+            return (r.WHALE || 0) + (r.BOTH || 0);
+        },
+        // 最近一次大戶評估摘要 (tooltip 尾行)
+        whaleLastLine() {
+            const w = this.$game.riskV3LastWhale;
+            if (!w) return '';
+            return `\n最近一局: 大戶 ${w.whaleCount} 人、群體佔比 ${(w.share * 100).toFixed(1)}%、N*=${w.nStar ?? '—'}、ΔRTP ${w.deltaRtp.toFixed(3)}pp`;
+        }
+    },
     methods: {
         // 數值表使用比例的色塊: PRT 紅系 (越強越深)、BST 綠系 (越強越深)、BASE 灰
         zoneColor(key) {

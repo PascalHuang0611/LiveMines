@@ -1,0 +1,32 @@
+{
+  "comment": "SERVER 風控參數 (對齊 prod_gms.xml 20260819)。mode: 0=強制BASE, 1=自動階梯, 101-103/201-203=強制指定 zone",
+  "comment_simulator_only": "rtp_window_rounds 與 round_interval_seconds 為模擬器專用參數 (非 SERVER 參數)。round_interval_seconds = V4 時間窗的虛擬時鐘，僅手動模式使用；人流模式自動以 86400÷一天局數 推導",
+  "mode": 1,
+  "rtp_window_rounds": 48000,
+  "round_interval_seconds": 30,
+  "zones": [
+    { "code": 101, "trigger_rtp": 101.5, "exit_rtp": 100.5, "mathconfig": "PRT1" },
+    { "code": 102, "trigger_rtp": 99.5,  "exit_rtp": 98.8,  "mathconfig": "PRT2" },
+    { "code": 103, "trigger_rtp": 98.0,  "exit_rtp": 97.0,  "mathconfig": "PRT3" },
+    { "code": 0,   "mathconfig": "BASE" },
+    { "code": 203, "trigger_rtp": 94.0,  "exit_rtp": 95.0,  "mathconfig": "BST3" },
+    { "code": 202, "trigger_rtp": 92.0,  "exit_rtp": 93.0,  "mathconfig": "BST2" },
+    { "code": 201, "trigger_rtp": 88.0,  "exit_rtp": 90.0,  "mathconfig": "BST1" }
+  ],
+  "comment_ggr": "GGR 捷徑 (prod_gms): 派彩後 GGR 專用窗口的 GGR (下注−派彩) < ggr_threshold → 強制 U_PRT_L1，凌駕四階與大戶條件。0 = 不能虧損 (由盈轉虧即介入)，可負/正。ggr_window_rounds 為模擬器局數制，對應 server ggr_window_hours=24 (24h ≈ 24000 局)，與 rtp_window_rounds 互相獨立。兩參數必填",
+  "comment_whale": "大戶群體集中度條件 (條件 B，與 RTP 條件 OR)：大戶 = 三同格下注 ≥ whale_bet_threshold；集中度 = 全部大戶合計佔該格 ≥ whale_group_share_threshold；且存活大戶 ΔRTP ≥ 該階 delta_rtp_threshold (兩者 AND；已淘汰/已收手大戶不計入，五關遞減)。whale_* 兩參數同刪 = 停用 (刪時 delta_rtp_threshold 也要一併刪除)。⚠️ 集中度門檻放寬時四階 delta 門檻必須同批重算",
+  "jp_protection_v3": {
+    "enabled": true,
+    "ggr_window_rounds": 24000,
+    "ggr_threshold": 0,
+    "whale_bet_threshold": 3000,
+    "whale_group_share_threshold": 0.50,
+    "phases": [
+      { "code": "U_PRT_L1", "rtp_threshold": 110, "delta_rtp_threshold": 4.0, "levels": [1.0, 1.0, 1.0, 1.0, 1.0] },
+      { "code": "U_PRT_L2", "rtp_threshold": 107, "delta_rtp_threshold": 2.0, "levels": [0.0, 0.1, 0.35, 0.6, 0.8] },
+      { "code": "U_PRT_L3", "rtp_threshold": 105, "delta_rtp_threshold": 1.5, "levels": [0.0, 0.05, 0.18, 0.35, 0.55] },
+      { "code": "U_PRT_L4", "rtp_threshold": 103, "delta_rtp_threshold": 0.5, "levels": [0.0, 0.0, 0.05, 0.12, 0.25] }
+    ]
+  },
+  "risk_score_v4": true
+}

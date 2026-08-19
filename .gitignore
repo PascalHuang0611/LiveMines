@@ -21,3 +21,7 @@ agent_analysis/舊版資料_LKDB推測版/
 # live_mines_agent_traffic_sandbox_ai_agent_spec.md
 
 agent_analysis/PlayerData/PlayerData.csv
+
+# SERVER 原始設定與內部企劃文件 (含 webhook/內部主機位址，僅本地參考，不上公開 repo)
+prod_gms.xml
+PRD_LM01_*.md

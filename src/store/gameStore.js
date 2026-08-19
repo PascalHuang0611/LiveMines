@@ -182,6 +182,10 @@ export const useGameStore = defineStore('game', {
         riskV3Checks: 0,             // V3 檢查關數 (UI 顯示)
         riskV3Interventions: 0,      // V3 介入次數 (UI 顯示)
         riskV3Saved: 0,              // V3 預估省下派彩 (UI 顯示)
+        riskV3Reasons: { RTP: 0, WHALE: 0, BOTH: 0, GGR: 0 }, // V3 介入原因分佈 (UI 顯示)
+        riskV3WhaleRounds: 0,        // 大戶評估局數 (UI 顯示)
+        riskV3WhaleFlagged: 0,       // 集中度旗標成立局數 (UI 顯示)
+        riskV3LastWhale: null,       // 最近一次大戶評估 (UI 顯示)
         riskToggles: { v2: true, v3: true, v4: true }, // 三層風控獨立開關
         riskV4NonNeutral: 0,         // V4 非中性局數 (UI 顯示)
         riskV4TrsRange: '—',         // V4 平滑 TRS 目前範圍 (UI 顯示)
@@ -1292,9 +1296,10 @@ export const useGameStore = defineStore('game', {
         closeAgentInfoModal() { this.selectedAgentInfo = null; },
         
         // --- SERVER 風控模擬 actions ---
+        // 風控參數與七份數值表同屬版本組 (configs/<版本>/risk_control.json)，本地修改依版本各自獨立
         async fetchRiskControlConfig() {
             try {
-                const resp = await fetch(`${import.meta.env.BASE_URL}configs/risk_control.json?v=${APP_VERSION}`);
+                const resp = await fetch(`${import.meta.env.BASE_URL}configs/${this.activeConfigSet}/risk_control.json?v=${APP_VERSION}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const cfg = await resp.json();
                 validateRiskControlConfig(cfg);
@@ -1306,7 +1311,8 @@ export const useGameStore = defineStore('game', {
 
             // 本地修改優先 (與數值表同一套機制)，格式不符自動清除
             let effective = this.riskControlDefault;
-            const overrideRaw = localStorage.getItem('livemines_config_RISKCTL');
+            this.profileOverrides = { ...this.profileOverrides, RISKCTL: false };
+            const overrideRaw = localStorage.getItem(this.profileStorageKey('RISKCTL'));
             if (overrideRaw) {
                 try {
                     const parsed = JSON.parse(overrideRaw);
@@ -1315,7 +1321,7 @@ export const useGameStore = defineStore('game', {
                     this.profileOverrides = { ...this.profileOverrides, RISKCTL: true };
                 } catch (e) {
                     console.warn("本地風控參數不符合格式，已清除並改用檔案預設: " + e.message);
-                    localStorage.removeItem('livemines_config_RISKCTL');
+                    localStorage.removeItem(this.profileStorageKey('RISKCTL'));
                 }
             }
             this.riskControlConfig = effective;
@@ -1385,6 +1391,10 @@ export const useGameStore = defineStore('game', {
             this.riskV3Checks = 0;
             this.riskV3Interventions = 0;
             this.riskV3Saved = 0;
+            this.riskV3Reasons = { RTP: 0, WHALE: 0, BOTH: 0, GGR: 0 };
+            this.riskV3WhaleRounds = 0;
+            this.riskV3WhaleFlagged = 0;
+            this.riskV3LastWhale = null;
             this.riskV4NonNeutral = 0;
             this.riskV4TrsRange = '—';
             this.riskV4LrsRange = '—';
@@ -1414,8 +1424,11 @@ export const useGameStore = defineStore('game', {
                 console.log(`🛡️ V4 虛擬時鐘 ${v4Interval.toFixed(1)} 秒/局 → 窗口: 短 ${v4.shortWin.capacity} 局 / 長 ${v4.longWin.capacity} 局`);
             }
 
+            // GGR 專用窗口 (prod_gms: 與 RTP 窗口互相獨立；24h ≈ 24000 局)
+            const ggrRounds = cfg.jp_protection_v3?.ggr_window_rounds;
             this.riskRuntime = markRaw({
-                window: new RTPWindow(cfg.rtp_window_rounds || 48000), // V2/V3 共用
+                window: new RTPWindow(cfg.rtp_window_rounds || 48000), // V2/V3 RTP 條件共用
+                ggrWindow: (t.v3 && ggrRounds >= 1) ? new RTPWindow(ggrRounds) : null,
                 decider: t.v2 ? new V2Decider(cfg.zones, cfg.mode ?? 1) : null,
                 v3: t.v3 ? createV3Controller(cfg.jp_protection_v3) : null,
                 v4: v4,
@@ -1471,12 +1484,12 @@ export const useGameStore = defineStore('game', {
             this.profileOverrides = overrides;
         },
 
-        // 切換數值表版本組：重新載入 7 份表 + 重解析本地修改 + 重套用當前表 + 風控冷啟動
+        // 切換數值表版本組：重新載入 7 份表 + 風控參數 + 重解析本地修改 + 重套用當前表 + 風控冷啟動
         async setConfigSet(id) {
             if (id === this.activeConfigSet || !CONFIG_SETS.some(s => s.id === id)) return;
             this.activeConfigSet = id;
             localStorage.setItem('livemines_configSet', id);
-            await this.fetchConfigProfiles();
+            await Promise.all([this.fetchConfigProfiles(), this.fetchRiskControlConfig()]);
             this.refreshProfileOverrideFlags();
             this.applyProfile(this.activeConfigProfile);
             this.resetRiskRuntime(); // V2 zone 快取存有舊版本解析結果，需冷啟動
@@ -1579,10 +1592,10 @@ export const useGameStore = defineStore('game', {
                     validateRiskControlConfig(newConfig);
                     const def = this.riskControlDefault;
                     if (def && JSON.stringify(newConfig) === JSON.stringify(def)) {
-                        localStorage.removeItem('livemines_config_RISKCTL');
+                        localStorage.removeItem(this.profileStorageKey('RISKCTL'));
                         this.profileOverrides = { ...this.profileOverrides, RISKCTL: false };
                     } else {
-                        localStorage.setItem('livemines_config_RISKCTL', JSON.stringify(newConfig));
+                        localStorage.setItem(this.profileStorageKey('RISKCTL'), JSON.stringify(newConfig));
                         this.profileOverrides = { ...this.profileOverrides, RISKCTL: true };
                     }
                     this.riskControlConfig = markRaw(newConfig);
@@ -1627,7 +1640,7 @@ export const useGameStore = defineStore('game', {
                     return;
                 }
                 if (confirm("確定要將風控參數恢復為檔案預設值嗎？您的本地修改將會被清除。")) {
-                    localStorage.removeItem('livemines_config_RISKCTL');
+                    localStorage.removeItem(this.profileStorageKey('RISKCTL'));
                     this.profileOverrides = { ...this.profileOverrides, RISKCTL: false };
                     this.riskControlConfig = this.riskControlDefault;
                     this.resetRiskRuntime();
@@ -1859,7 +1872,11 @@ export const useGameStore = defineStore('game', {
             let riskV3Ctx = null;
             if (this.riskControlEnabled && this.riskRuntime && this.riskRuntime.v3) {
                 const sums = this.riskRuntime.window.sums();
-                riskV3Ctx = { v3: this.riskRuntime.v3, windowBet: sums.bet, windowPayout: sums.payout };
+                const ggrSums = this.riskRuntime.ggrWindow ? this.riskRuntime.ggrWindow.sums() : { bet: 0, payout: 0 };
+                riskV3Ctx = {
+                    v3: this.riskRuntime.v3, windowBet: sums.bet, windowPayout: sums.payout,
+                    ggrBet: ggrSums.bet, ggrPayout: ggrSums.payout
+                };
             }
 
             const payload = {
@@ -1956,6 +1973,10 @@ export const useGameStore = defineStore('game', {
                 this.riskV3Checks = riskV3Ctx.v3.checks;
                 this.riskV3Interventions = riskV3Ctx.v3.interventionTotal;
                 this.riskV3Saved = riskV3Ctx.v3.savedPayout;
+                this.riskV3Reasons = { ...riskV3Ctx.v3.reasonCounts };
+                this.riskV3WhaleRounds = riskV3Ctx.v3.whaleRounds;
+                this.riskV3WhaleFlagged = riskV3Ctx.v3.whaleFlagged;
+                this.riskV3LastWhale = riskV3Ctx.v3.lastWhale ? { ...riskV3Ctx.v3.lastWhale } : null;
             }
 
             // 風控局尾處理
@@ -1963,6 +1984,8 @@ export const useGameStore = defineStore('game', {
                 const rt = this.riskRuntime;
                 // (1) RTP 滑動窗口 (payout 口徑 = 主遊戲+二級，不含 JP，對齊 LM01 統計)
                 rt.window.push(result.cost, result.totalWin - (result.jpWin || 0));
+                // GGR 專用窗口 (同口徑，窗長獨立)
+                if (rt.ggrWindow) rt.ggrWindow.push(result.cost, result.totalWin - (result.jpWin || 0));
 
                 // (2) V4 風險分數：餵落球 + 局尾重算 (供下一局取權重)
                 if (rt.v4 && result.v4Entry) {

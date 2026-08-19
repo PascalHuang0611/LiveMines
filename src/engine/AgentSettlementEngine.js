@@ -37,6 +37,11 @@ function playSharedBonusV3(entrants, config, riskV3Ctx, roundBet, roundMainPayou
     const bonusSafeHits = [0, 0, 0, 0];
     let bonusPaidSoFar = 0;
 
+    // 大戶群體集中度評估: 每局一次 (大戶身分/集中度/N* 由下注時點決定)。
+    // 傳入 states 活引用 → 逐關 ΔRTP 只計「仍存活」大戶 (已淘汰/已收手不計入，prod_gms 口徑)。
+    // 三球同格時其他格都是 0 球，大戶主玩法派彩 = 三同格派彩 (mainPayout)
+    const whaleEval = v3 ? v3.evaluateWhales(states, riskV3Ctx.windowBet) : null;
+
     for (let level = 0; level < endLevel; level++) {
         const nTotal = totalChoices[level];
         const nWin = winChoices[level];
@@ -75,19 +80,25 @@ function playSharedBonusV3(entrants, config, riskV3Ctx, roundBet, roundMainPayou
         let survivors = opts.slice(0, nWin);
 
         // 3. V3 強控檢查 (本關派彩倍數 = payouts[level])
-        let intervened = false, phaseCode = null;
+        let intervened = false, phaseCode = null, reason = null, whaleSnap = null;
         if (v3 && stat.totalArrived > 0) {
             const res = v3.maybeIntervene(level, [survivors[0], survivors[1]], optionBets,
-                payouts[level] || 0, riskV3Ctx.windowBet, riskV3Ctx.windowPayout,
-                roundBet, roundMainPayout, bonusPaidSoFar);
+                payouts[level] || 0, {
+                    windowBet: riskV3Ctx.windowBet, windowPayout: riskV3Ctx.windowPayout,
+                    ggrBet: riskV3Ctx.ggrBet || 0, ggrPayout: riskV3Ctx.ggrPayout || 0,
+                    roundBet, roundMainPayout, bonusPaidSoFar, whaleEval
+                });
             survivors = res.survivors;
             intervened = res.intervened;
             phaseCode = res.phaseCode;
+            reason = res.reason;
+            // 大戶評估快照 (僅介入且大戶條件參與時記錄；ΔRTP 為本關存活大戶口徑)
+            if (intervened && res.whale && (reason === 'WHALE' || reason === 'BOTH')) whaleSnap = { ...res.whale };
         }
 
         const safeSorted = [...survivors].sort((a, b) => a - b);
         safeSorted.forEach(spot => { if (spot - 1 < bonusSafeHits.length) bonusSafeHits[spot - 1]++; });
-        levelHistory.push({ level: level + 1, pick: null, safe: safeSorted, passed: true, intervened, phaseCode });
+        levelHistory.push({ level: level + 1, pick: null, safe: safeSorted, passed: true, intervened, phaseCode, reason, whale: whaleSnap });
 
         // 4. 各玩家判定 + 逐層機率 cashout (過關後依收手傾向決定落袋或續闖)
         states.forEach(st => {
@@ -179,11 +190,17 @@ export function calculateBatchSettlement(publicResult, agentDecisions, config, r
                 if (gridId === triggerGridId) {
                     let prop = Number(decision.cashoutPropensity);
                     if (!Number.isFinite(prop)) prop = 0.5;
+                    // 三同格主玩法派彩 (基礎 + 閃電)；大戶 ΔRTP 分子用 (V3 條件 B)
+                    const tg = publicResult.details.find(d => d.grid === triggerGridId);
+                    let tgMult = tg ? tg.baseL : 0;
+                    if (decision.buyLightning && tg) tgMult += tg.purchasedL;
+                    const mainPayout = tg ? betAmount * tg.basePayout * (1 + tgMult) : 0;
                     entrants.push({
                         agentId: decision.agentId,
                         bet: betAmount,
                         prop: Math.max(0, Math.min(1, prop)),
-                        coordinated: !!decision.coordinated // 協同玩家 (刺客聯合作戰)
+                        coordinated: !!decision.coordinated, // 協同玩家 (刺客聯合作戰)
+                        mainPayout
                     });
                 }
             });

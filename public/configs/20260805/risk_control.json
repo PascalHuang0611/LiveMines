@@ -1,6 +1,6 @@
 {
-  "comment": "SERVER 風控參數 (zones/jp_protection_v3/risk_score_v4 對齊 gms.xml)。mode: 0=強制BASE, 1=自動階梯, 101-103/201-203=強制指定 zone",
-  "comment_simulator_only": "rtp_window_rounds 與 round_interval_seconds 為模擬器專用參數 (非 SERVER 參數)。round_interval_seconds = V4 時間窗的虛擬時鐘，僅手動模式使用；人流模式自動以 86400÷一天局數 推導，與網頁時間觀對齊",
+  "comment": "SERVER 風控參數 (20260805 原版設定，以新格式表示)。mode: 0=強制BASE, 1=自動階梯, 101-103/201-203=強制指定 zone",
+  "comment_simulator_only": "rtp_window_rounds 與 round_interval_seconds 為模擬器專用參數 (非 SERVER 參數)。round_interval_seconds = V4 時間窗的虛擬時鐘，僅手動模式使用；人流模式自動以 86400÷一天局數 推導",
   "mode": 1,
   "rtp_window_rounds": 48000,
   "round_interval_seconds": 30,
@@ -13,9 +13,11 @@
     { "code": 202, "trigger_rtp": 92.0,  "exit_rtp": 93.0,  "mathconfig": "BST2" },
     { "code": 201, "trigger_rtp": 88.0,  "exit_rtp": 90.0,  "mathconfig": "BST1" }
   ],
+  "comment_ggr": "20260805 原版 GGR 意圖: 莊家虧損逾 150,000 才介入 (= GGR < -150000)，統計窗與 RTP 窗同長 (48000 局)。無大戶條件",
   "jp_protection_v3": {
     "enabled": true,
-    "ggr_threshold": 150000,
+    "ggr_window_rounds": 48000,
+    "ggr_threshold": -150000,
     "phases": [
       { "code": "U_PRT_L1", "rtp_threshold": 110, "levels": [1.0, 1.0, 1.0, 1.0, 1.0] },
       { "code": "U_PRT_L2", "rtp_threshold": 107, "levels": [0.0, 0.1, 0.35, 0.6, 0.8] },

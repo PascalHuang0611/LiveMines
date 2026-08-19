@@ -217,9 +217,21 @@ export function simulateRound(payload) {
                 const optionBets = [0, 0, 0, 0, 0];
                 optionBets[userPick] = g.betAmount;
                 const payoutMult = config.bonusGame.levelSettings.payouts[lvl] || 0;
+                // 大戶條件: 單機模式 = 單一下注者，三同格主玩法派彩 = 該格基礎+閃電
+                // (檢查時玩家必然仍存活，存活大戶口徑下 ΔRTP 五關不變)
+                if (lvl === 0 && riskV3.v3.whaleEnabled) {
+                    const tgBase = g.betAmount * config.mainGame.singleAreaBasePayouts[2];
+                    riskV3.whaleEval = riskV3.v3.evaluateWhales(
+                        [{ bet: g.betAmount, mainPayout: tgBase * (1 + g.baseLightning + g.purchasedLightning), alive: true }],
+                        riskV3.windowBet);
+                }
                 const res = riskV3.v3.maybeIntervene(lvl, [winningSpots[0], winningSpots[1]], optionBets,
-                    payoutMult, riskV3.windowBet, riskV3.windowPayout,
-                    currentCost, roundBaseWin + roundLightningWin, 0);
+                    payoutMult, {
+                        windowBet: riskV3.windowBet, windowPayout: riskV3.windowPayout,
+                        ggrBet: riskV3.ggrBet || 0, ggrPayout: riskV3.ggrPayout || 0,
+                        roundBet: currentCost, roundMainPayout: roundBaseWin + roundLightningWin,
+                        bonusPaidSoFar: 0, whaleEval: riskV3.whaleEval || null
+                    });
                 winningSpots = res.survivors;
                 intervened = res.intervened;
             }
