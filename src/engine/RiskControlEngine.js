@@ -179,11 +179,11 @@ export class V3Controller {
         // GGR 捷徑 (prod_gms 語意): 派彩後 GGR 專用窗口的 GGR (下注−派彩)
         // 低於 ggr_threshold → 強制 U_PRT_L1，凌駕四階與大戶條件。兩參數皆必填才啟用。
         // 0 是有效門檻 (不能虧損，由盈轉虧即介入)，停用請填極端負值或關閉 enabled。
-        // ggr_window_rounds = 模擬器局數制窗口，對應 server 的 ggr_window_hours (24h ≈ 24000 局)，
-        // 與 rtp_window_rounds (48h RTP 窗口) 互相獨立。
-        this.ggrWindowRounds = Number.isFinite(spec.ggr_window_rounds) ? spec.ggr_window_rounds : null;
+        // ggr_window_hours = GGR 專用統計區間 (小時，與 server 欄位 1:1)，與 RTP 窗口互相獨立；
+        // 模擬器以虛擬時鐘換算成局數 (人流模式 = 86400÷一天局數 秒/局，換算由 gameStore 處理)。
+        this.ggrWindowHours = Number.isFinite(spec.ggr_window_hours) ? spec.ggr_window_hours : null;
         this.ggrThreshold = Number.isFinite(spec.ggr_threshold) ? spec.ggr_threshold : null;
-        this.ggrEnabled = this.ggrWindowRounds !== null && this.ggrThreshold !== null;
+        this.ggrEnabled = this.ggrWindowHours !== null && this.ggrThreshold !== null;
 
         // 大戶群體集中度條件 (條件 B)；兩參數同設才啟用，缺省 = 整組停用 (向後相容)
         this.whaleBetThreshold = Number.isFinite(spec.whale_bet_threshold) ? spec.whale_bet_threshold : null;
@@ -374,7 +374,7 @@ export function validateRiskControlConfig(cfg) {
         });
 
         // GGR 捷徑 (prod_gms): 兩參數必填，缺任一即拒絕 (0 是有效門檻，不提供隱含預設)
-        if (!(v3.ggr_window_rounds >= 1)) throw new Error("jp_protection_v3.ggr_window_rounds 必填且 ≥ 1 (GGR 專用窗口局數，對應 server ggr_window_hours；停用 GGR 請填極端負值的 ggr_threshold)");
+        if (!(v3.ggr_window_hours >= 0.25 && v3.ggr_window_hours <= 72)) throw new Error("jp_protection_v3.ggr_window_hours 必填且落在 [0.25, 72] 小時 (GGR 專用統計區間，與 server 欄位相同；停用 GGR 請填極端負值的 ggr_threshold)");
         if (!Number.isFinite(v3.ggr_threshold)) throw new Error("jp_protection_v3.ggr_threshold 必填 (可負/0/正；GGR 低於此值即強制 U_PRT_L1)");
 
         // 大戶群體集中度條件 (PRD 防呆規則)

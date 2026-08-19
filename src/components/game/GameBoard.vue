@@ -202,7 +202,7 @@
                                     </div>
                                     <div class="max-h-[120px] overflow-y-auto bg-gray-800 border border-gray-600 rounded-lg p-2 flex flex-col gap-1 custom-scrollbar">
                                         <label v-for="v in $game.availableVersions" :key="'v-'+v" class="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-1.5 rounded transition">
-                                            <input type="checkbox" :value="v" v-model="$game.selectedVersions" @change="$game.updateAvailableRounds" class="form-checkbox text-blue-500 w-4 h-4 rounded">
+                                            <input type="checkbox" :value="v" v-model="$game.selectedVersions" @change="$game.onVersionSelectionChange" class="form-checkbox text-blue-500 w-4 h-4 rounded">
                                             <span class="text-sm text-gray-300 font-bold">Version {{ v }}</span>
                                         </label>
                                         <div v-if="$game.availableVersions.length === 0" class="text-xs text-gray-500 text-center py-2">尚未載入資料</div>
@@ -217,7 +217,7 @@
                                     </div>
                                     <div class="max-h-[120px] overflow-y-auto bg-gray-800 border border-gray-600 rounded-lg p-2 flex flex-col gap-1 custom-scrollbar">
                                         <label v-for="r in $game.availableRounds" :key="'r-'+r" class="flex items-center space-x-2 cursor-pointer hover:bg-gray-700 p-1.5 rounded transition">
-                                            <input type="checkbox" :value="r" v-model="$game.selectedRounds" @change="$game.resetCsvIndex" class="form-checkbox text-green-500 w-4 h-4 rounded">
+                                            <input type="checkbox" :value="r" v-model="$game.selectedRounds" @change="$game.onRoundSelectionChange" class="form-checkbox text-green-500 w-4 h-4 rounded">
                                             <span class="text-sm text-gray-300 font-bold">Round {{ r }}</span>
                                         </label>
                                         <div v-if="$game.availableRounds.length === 0" class="text-xs text-gray-500 text-center py-2">尚未載入資料</div>

@@ -43,13 +43,16 @@
                                 {{ $game.riskZoneProfile }}<span class="text-gray-500 text-xs"> ({{ $game.riskZoneCode }})</span>
                             </span>
                         </div>
-                        <div class="flex justify-between cursor-help" :title="'RTP 滑動窗口內的 派彩÷投注 (最近 ' + ($game.riskControlConfig?.rtp_window_rounds ?? 48000).toLocaleString() + ' 局，不含 JP 大獎)。V2 據此走階梯換表、V3 的 RTP 條件據此預估是否保護 JP。GGR 捷徑不用此窗，另有專用窗 (見下行)。「冷啟動」= 窗口還沒有任何樣本，此時強制使用 BASE。'">
-                            <span class="text-gray-400 border-b border-dotted border-gray-600">窗口 RTP</span>
+                        <div class="flex justify-between cursor-help" :title="'V2 換表專用滑動窗口的 派彩÷投注 (最近 ' + ($game.riskControlConfig?.rtp_window_rounds ?? 48000).toLocaleString() + ' 局 ≈ 48 小時，不含 JP 大獎)。V2 據此走階梯換表。三個控制手段窗口各自獨立：V3 用下方 24h 專用窗、V4 用數值表內的 30 分/2 小時風險分數窗。「冷啟動」= 窗口還沒有任何樣本，此時強制使用 BASE。'">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V2 窗口 RTP <span class="text-gray-500 text-[10px]">(48h)</span></span>
                             <span class="text-yellow-300">{{ $game.riskWindowRtp === null ? '冷啟動' : $game.riskWindowRtp.toFixed(2) + '%' }}</span>
                         </div>
-                        <div v-if="$game.riskGgrValue !== null" class="flex justify-between cursor-help" :title="'V3 GGR 捷徑專用窗口 (最近 ' + ($game.riskGgrWindowRounds || 0).toLocaleString() + ' 局，與上方 RTP 窗口互相獨立)。GGR = 下注 − 派彩 (正 = 莊家賺)。本局派彩後若 GGR 低於門檻 ' + $game.riskGgrThreshold + ' → 強制 U_PRT_L1，凌駕四階與大戶條件。'">
-                            <span class="text-gray-400 border-b border-dotted border-gray-600">V3 GGR 窗口</span>
-                            <span :class="$game.riskGgrValue < ($game.riskGgrThreshold ?? 0) ? 'text-red-400 font-bold' : 'text-gray-200'">{{ Math.round($game.riskGgrValue).toLocaleString() }} <span class="text-gray-500 text-[10px]">/ 門檻 {{ $game.riskGgrThreshold }}</span></span>
+                        <div v-if="$game.riskGgrValue !== null" class="flex justify-between cursor-help" :title="'V3 專用窗口 (最近 ' + $game.riskGgrWindowHours + ' 小時，依模擬器虛擬時鐘換算 ≈ ' + ($game.riskGgrWindowRounds || 0).toLocaleString() + ' 局)。V3 整組都用此窗：RTP 條件 (目前 ' + ($game.riskV3WindowRtp === null ? '冷啟動' : $game.riskV3WindowRtp.toFixed(2) + '%') + ')、大戶 ΔRTP 分母、GGR 捷徑。GGR = 下注 − 派彩 (正 = 莊家賺)，本局派彩後若低於門檻 ' + $game.riskGgrThreshold + ' → 強制 U_PRT_L1，凌駕四階與大戶條件。'">
+                            <span class="text-gray-400 border-b border-dotted border-gray-600">V3 窗口 <span class="text-gray-500 text-[10px]">({{ $game.riskGgrWindowHours }}h)</span></span>
+                            <span :class="$game.riskGgrValue < ($game.riskGgrThreshold ?? 0) ? 'text-red-400 font-bold' : 'text-gray-200'">
+                                <span class="text-yellow-300">{{ $game.riskV3WindowRtp === null ? '冷啟動' : $game.riskV3WindowRtp.toFixed(2) + '%' }}</span>
+                                <span class="text-gray-500 text-[10px]"> · GGR </span>{{ Math.round($game.riskGgrValue).toLocaleString() }}<span class="text-gray-500 text-[10px]"> / {{ $game.riskGgrThreshold }}</span>
+                            </span>
                         </div>
                         <div class="flex justify-between cursor-help" title="V2 換表的累計次數。前期窗口樣本少、RTP 噪音大時切換頻繁是正常的；樣本足夠後應趨於穩定。若長期高頻切換，代表門檻與遲滯 (trigger/exit) 可能設太近。">
                             <span class="text-gray-400 border-b border-dotted border-gray-600">Zone 切換次數</span>

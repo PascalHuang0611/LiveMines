@@ -188,7 +188,9 @@ export const useGameStore = defineStore('game', {
         riskV3LastWhale: null,       // 最近一次大戶評估 (UI 顯示)
         riskGgrValue: null,          // V3 GGR 專用窗口目前盈虧 (下注−派彩，UI 顯示)
         riskGgrThreshold: null,      // GGR 門檻 (UI 顯示)
-        riskGgrWindowRounds: 0,      // GGR 窗口局數 (UI 顯示)
+        riskGgrWindowHours: 0,       // V3 專用窗口小時數 (UI 顯示)
+        riskGgrWindowRounds: 0,      // V3 專用窗口換算局數 (UI 顯示)
+        riskV3WindowRtp: null,       // V3 專用窗口 RTP (UI 顯示；RTP 條件用的口徑)
         riskToggles: { v2: true, v3: true, v4: true }, // 三層風控獨立開關
         riskV4NonNeutral: 0,         // V4 非中性局數 (UI 顯示)
         riskV4TrsRange: '—',         // V4 平滑 TRS 目前範圍 (UI 顯示)
@@ -1122,7 +1124,8 @@ export const useGameStore = defineStore('game', {
                     this.selectedVersions = [this.availableVersions[0]];
                     this.updateAvailableRounds();
                 }
-                this.csvDataIndex = 0; 
+                this.restoreCsvSelection(); // 還原使用者上次勾選 (對不上就維持上面的預設)
+                this.csvDataIndex = 0;
             };
             reader.readAsText(file);
         },
@@ -1180,6 +1183,7 @@ export const useGameStore = defineStore('game', {
                 this.selectedVersions = [...this.availableVersions];
                 this.updateAvailableRounds();
                 this.selectedRounds = [...this.availableRounds]; // 預設全選
+                this.restoreCsvSelection(); // 還原使用者上次勾選 (對不上就維持全選預設)
                 this.csvDataIndex = 0;
                 this.dataSourceMode = 'csv';
                 console.log(`🎱 V14B 已自動載入真實物理開獎 ${data.length} 局 (隨機抽取模式，保留 Game Code 溯源)`);
@@ -1203,6 +1207,35 @@ export const useGameStore = defineStore('game', {
         },
         
         resetCsvIndex() { this.csvDataIndex = 0; },
+
+        // --- CSV 勾選記憶 (Version/Round)：記錄使用者最後操作，載入時還原；對不上現有資料就回歸預設 ---
+        saveCsvSelection() {
+            localStorage.setItem('livemines_csvSelection', JSON.stringify({
+                versions: this.selectedVersions, rounds: this.selectedRounds
+            }));
+        },
+        restoreCsvSelection() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('livemines_csvSelection') || 'null');
+                if (!saved) return;
+                const vs = (saved.versions || []).filter(v => this.availableVersions.includes(v));
+                if (vs.length === 0) return; // 找不到任何對應 Version → 維持預設
+                this.selectedVersions = vs;
+                this.updateAvailableRounds();
+                const rs = (saved.rounds || []).filter(r => this.availableRounds.includes(r));
+                if (rs.length > 0) this.selectedRounds = rs; // Round 全對不上 → 維持 updateAvailableRounds 的預設
+                this.csvDataIndex = 0;
+            } catch (e) { /* 記錄格式壞掉就用預設 */ }
+        },
+        // UI 勾選變更入口 (與載入時的預設設定分離，載入流程不會覆寫記錄)
+        onVersionSelectionChange() {
+            this.updateAvailableRounds();
+            this.saveCsvSelection();
+        },
+        onRoundSelectionChange() {
+            this.resetCsvIndex();
+            this.saveCsvSelection();
+        },
 
         clearData(skipConfirm = false) {
             if (!skipConfirm && !confirm("確定要清除所有的統計資料與歷史紀錄嗎？")) return;
@@ -1401,6 +1434,7 @@ export const useGameStore = defineStore('game', {
             this.riskGgrValue = null;
             this.riskGgrThreshold = null;
             this.riskGgrWindowRounds = 0;
+            this.riskV3WindowRtp = null;
             this.riskV4NonNeutral = 0;
             this.riskV4TrsRange = '—';
             this.riskV4LrsRange = '—';
@@ -1430,11 +1464,18 @@ export const useGameStore = defineStore('game', {
                 console.log(`🛡️ V4 虛擬時鐘 ${v4Interval.toFixed(1)} 秒/局 → 窗口: 短 ${v4.shortWin.capacity} 局 / 長 ${v4.longWin.capacity} 局`);
             }
 
-            // GGR 專用窗口 (prod_gms: 與 RTP 窗口互相獨立；24h ≈ 24000 局)
-            const ggrRounds = cfg.jp_protection_v3?.ggr_window_rounds;
+            // V3 專用窗口 (ggr_window_hours，24h)：V3 整組 (RTP 條件 / ΔRTP 分母 / GGR) 都用此窗，
+            // 與 V2 的 48h 換表窗、V4 的 30m/2h 風險分數窗互相獨立 (三個控制手段各自獨立)。
+            // 以虛擬時鐘換算成局數: 人流模式 = 86400÷一天局數 秒/局；手動模式 = round_interval_seconds
+            const v3Hours = cfg.jp_protection_v3?.ggr_window_hours;
+            const v3Rounds = (v3Hours > 0) ? Math.max(1, Math.round(v3Hours * 3600 / v4Interval)) : 0;
+            if (t.v3 && v3Rounds > 0) {
+                console.log(`🛡️ V3 專用窗口 ${v3Hours} 小時 → 以虛擬時鐘 ${v4Interval.toFixed(1)} 秒/局換算 = ${v3Rounds.toLocaleString()} 局 (RTP 條件/ΔRTP/GGR 共用)`);
+            }
             this.riskRuntime = markRaw({
-                window: new RTPWindow(cfg.rtp_window_rounds || 48000), // V2/V3 RTP 條件共用
-                ggrWindow: (t.v3 && ggrRounds >= 1) ? new RTPWindow(ggrRounds) : null,
+                window: new RTPWindow(cfg.rtp_window_rounds || 48000), // V2 換表專用 (48h)
+                v3Window: (t.v3 && v3Rounds > 0) ? new RTPWindow(v3Rounds) : null,
+                v3WindowRounds: v3Rounds,
                 decider: t.v2 ? new V2Decider(cfg.zones, cfg.mode ?? 1) : null,
                 v3: t.v3 ? createV3Controller(cfg.jp_protection_v3) : null,
                 v4: v4,
@@ -1451,14 +1492,18 @@ export const useGameStore = defineStore('game', {
             const { rtp, valid } = rt.window.currentRTP();
             this.riskWindowRtp = valid ? rtp : null;
 
-            // V3 GGR 專用窗口狀態 (UI 顯示)
-            if (rt.ggrWindow && rt.v3) {
-                const g = rt.ggrWindow.sums();
+            // V3 專用窗口狀態 (UI 顯示): GGR 盈虧 + V3 窗口 RTP
+            if (rt.v3Window && rt.v3) {
+                const g = rt.v3Window.sums();
                 this.riskGgrValue = g.bet - g.payout;
                 this.riskGgrThreshold = rt.v3.ggrThreshold;
-                this.riskGgrWindowRounds = rt.v3.ggrWindowRounds;
+                this.riskGgrWindowHours = rt.v3.ggrWindowHours;
+                this.riskGgrWindowRounds = rt.v3WindowRounds;
+                const v3Rtp = rt.v3Window.currentRTP();
+                this.riskV3WindowRtp = v3Rtp.valid ? v3Rtp.rtp : null;
             } else {
                 this.riskGgrValue = null;
+                this.riskV3WindowRtp = null;
             }
 
             if (rt.decider) {
@@ -1885,13 +1930,13 @@ export const useGameStore = defineStore('game', {
             }
 
             // V3 JP 強控 context: 窗口原始和取「本局 push 之前」的值 (對齊伺服器: 窗口不含本局)
+            // V3 整組 (RTP 條件 / ΔRTP 分母 / GGR) 都用 V3 專用 24h 窗，與 V2 的 48h 窗獨立
             let riskV3Ctx = null;
             if (this.riskControlEnabled && this.riskRuntime && this.riskRuntime.v3) {
-                const sums = this.riskRuntime.window.sums();
-                const ggrSums = this.riskRuntime.ggrWindow ? this.riskRuntime.ggrWindow.sums() : { bet: 0, payout: 0 };
+                const s = this.riskRuntime.v3Window ? this.riskRuntime.v3Window.sums() : { bet: 0, payout: 0 };
                 riskV3Ctx = {
-                    v3: this.riskRuntime.v3, windowBet: sums.bet, windowPayout: sums.payout,
-                    ggrBet: ggrSums.bet, ggrPayout: ggrSums.payout
+                    v3: this.riskRuntime.v3, windowBet: s.bet, windowPayout: s.payout,
+                    ggrBet: s.bet, ggrPayout: s.payout
                 };
             }
 
@@ -2000,8 +2045,8 @@ export const useGameStore = defineStore('game', {
                 const rt = this.riskRuntime;
                 // (1) RTP 滑動窗口 (payout 口徑 = 主遊戲+二級，不含 JP，對齊 LM01 統計)
                 rt.window.push(result.cost, result.totalWin - (result.jpWin || 0));
-                // GGR 專用窗口 (同口徑，窗長獨立)
-                if (rt.ggrWindow) rt.ggrWindow.push(result.cost, result.totalWin - (result.jpWin || 0));
+                // V3 專用窗口 (同口徑，窗長獨立)
+                if (rt.v3Window) rt.v3Window.push(result.cost, result.totalWin - (result.jpWin || 0));
 
                 // (2) V4 風險分數：餵落球 + 局尾重算 (供下一局取權重)
                 if (rt.v4 && result.v4Entry) {

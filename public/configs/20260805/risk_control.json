@@ -13,10 +13,10 @@
     { "code": 202, "trigger_rtp": 92.0,  "exit_rtp": 93.0,  "mathconfig": "BST2" },
     { "code": 201, "trigger_rtp": 88.0,  "exit_rtp": 90.0,  "mathconfig": "BST1" }
   ],
-  "comment_ggr": "20260805 原版 GGR 意圖: 莊家虧損逾 150,000 才介入 (= GGR < -150000)，統計窗與 RTP 窗同長 (48000 局)。無大戶條件",
+  "comment_ggr": "20260805 原版 GGR 意圖: 莊家虧損逾 150,000 才介入 (= GGR < -150000)，統計窗 48 小時 (依模擬器虛擬時鐘換算局數)。無大戶條件",
   "jp_protection_v3": {
     "enabled": true,
-    "ggr_window_rounds": 48000,
+    "ggr_window_hours": 48,
     "ggr_threshold": -150000,
     "phases": [
       { "code": "U_PRT_L1", "rtp_threshold": 110, "levels": [1.0, 1.0, 1.0, 1.0, 1.0] },

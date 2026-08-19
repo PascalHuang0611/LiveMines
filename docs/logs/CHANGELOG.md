@@ -1,5 +1,23 @@
 ﻿# LiveMines Simulator - 更新日誌 (Changelog)
 
+## [v2.60 / V14A+V14B] - 2026-08-19
+### ✨ 新增功能 (Features)
+- **CSV Version/Round 勾選記憶**: 落球數據來源的 Barrier Version 與物理批次
+  Round 勾選會記錄使用者最後操作 (本地)，重新整理/重新載入資料時自動還原；
+  記錄的選項在現有資料中找不到對應時回歸預設 (V14B 全選 / 上傳檔第一組)。
+### 🔧 調整 (Changes)
+- **V3 窗口全面改為 24 小時專用窗 (三個控制手段窗口各自獨立)**:
+  - V3 整組 (RTP 條件 / 大戶 ΔRTP 分母 / GGR 捷徑) 改用 `ggr_window_hours`
+    定義的專用窗 (prod 24h)，以模擬器虛擬時鐘換算局數
+    (人流模式 = 86400÷一天局數 秒/局，例: 一天 1,200 局 → 24h = 1,200 局)。
+  - V2 換表維持 48h 窗 (`rtp_window_rounds`)；V4 維持數值表內的
+    30 分/2 小時風險分數窗。
+  - 參數欄位由模擬器自創的 `ggr_window_rounds` 改回與 server 1:1 的
+    `ggr_window_hours` (範圍 0.25~72)，之後照抄 gms.xml 不需換算。
+### 🖥️ 介面 (UI)
+- 左側「窗口 RTP」更名「V2 窗口 RTP (48h)」；「V3 窗口 (24h)」一行同時顯示
+  V3 窗口 RTP 與 GGR 盈虧/門檻，tooltip 說明三窗獨立分工。
+
 ## [v2.59 / V14A+V14B] - 2026-08-19
 ### 🔧 參數更新 (Config)
 - **20260819 風控參數同步 prod_gms 新版**: U_PRT_L1 必殺機率全五關

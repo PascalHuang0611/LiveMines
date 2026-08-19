@@ -13,11 +13,11 @@
     { "code": 202, "trigger_rtp": 92.0,  "exit_rtp": 93.0,  "mathconfig": "BST2" },
     { "code": 201, "trigger_rtp": 88.0,  "exit_rtp": 90.0,  "mathconfig": "BST1" }
   ],
-  "comment_ggr": "GGR 捷徑 (prod_gms): 派彩後 GGR 專用窗口的 GGR (下注−派彩) < ggr_threshold → 強制 U_PRT_L1，凌駕四階與大戶條件。0 = 不能虧損 (由盈轉虧即介入)，可負/正。ggr_window_rounds 為模擬器局數制，對應 server ggr_window_hours=24 (24h ≈ 24000 局)，與 rtp_window_rounds 互相獨立。兩參數必填",
+  "comment_ggr": "GGR 捷徑 (prod_gms): 派彩後 GGR 專用窗口的 GGR (下注−派彩) < ggr_threshold → 強制 U_PRT_L1，凌駕四階與大戶條件。0 = 不能虧損 (由盈轉虧即介入)，可負/正。ggr_window_hours 與 server 欄位 1:1 (範圍 0.25~72 小時)，模擬器以虛擬時鐘換算局數 (人流模式 = 86400÷一天局數 秒/局)，與 rtp_window_rounds 互相獨立。兩參數必填",
   "comment_whale": "大戶群體集中度條件 (條件 B，與 RTP 條件 OR)：大戶 = 三同格下注 ≥ whale_bet_threshold；集中度 = 全部大戶合計佔該格 ≥ whale_group_share_threshold；且存活大戶 ΔRTP ≥ 該階 delta_rtp_threshold (兩者 AND；已淘汰/已收手大戶不計入，五關遞減)。whale_* 兩參數同刪 = 停用 (刪時 delta_rtp_threshold 也要一併刪除)。⚠️ 集中度門檻放寬時四階 delta 門檻必須同批重算",
   "jp_protection_v3": {
     "enabled": true,
-    "ggr_window_rounds": 24000,
+    "ggr_window_hours": 24,
     "ggr_threshold": 0,
     "whale_bet_threshold": 3000,
     "whale_group_share_threshold": 0.30,
