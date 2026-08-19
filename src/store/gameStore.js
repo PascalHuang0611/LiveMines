@@ -2050,12 +2050,27 @@ export const useGameStore = defineStore('game', {
 
         async fetchDefaultAgents() {
             try {
-                // V14B 載入真實上線 DNA；V14A 維持原檔
-                const agentFile = IS_V14B ? 'realdata/agents_real.json' : 'agents.json';
+                // V14B 載入真實上線 DNA (gzip 壓縮，65k 玩家 100MB → 6MB)；V14A 維持原檔
+                const agentFile = IS_V14B ? 'realdata/agents_real.json.gz' : 'agents.json';
                 const response = await fetch(`${import.meta.env.BASE_URL}${agentFile}`);
                 if (!response.ok) throw new Error(`找不到預設 ${agentFile}`);
 
-                const rawData = await response.json();
+                let rawData;
+                if (agentFile.endsWith('.gz')) {
+                    // 以 magic bytes 判斷: 伺服器若已自動解壓 (Content-Encoding) 則直接是 JSON
+                    const buf = await response.arrayBuffer();
+                    const u8 = new Uint8Array(buf);
+                    let text;
+                    if (u8[0] === 0x1f && u8[1] === 0x8b) {
+                        const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+                        text = await new Response(stream).text();
+                    } else {
+                        text = new TextDecoder().decode(u8);
+                    }
+                    rawData = JSON.parse(text);
+                } else {
+                    rawData = await response.json();
+                }
                 const processedAgents = processAgentData(rawData);
                 this.agentPoolBase = markRaw(processedAgents);
                 this.applyAgentPool();

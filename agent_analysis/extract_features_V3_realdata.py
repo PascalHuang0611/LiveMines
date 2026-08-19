@@ -51,9 +51,12 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'DNA_v3_real'
 # ====================================================================
 
 def load_bills():
+    # 支援兩種命名: bill_records_*.csv (舊) 與 YYYYMMDD_LEMS.csv (每日匯出)
     files = sorted(glob.glob(os.path.join(DATA_DIR, 'bill_records_*.csv')))
+    files += sorted(f for f in glob.glob(os.path.join(DATA_DIR, '*_LEMS.csv'))
+                    if not os.path.basename(f).startswith('game_results'))
     if not files:
-        print(f"❌ {DATA_DIR} 找不到 bill_records_*.csv")
+        print(f"❌ {DATA_DIR} 找不到注單檔 (bill_records_*.csv 或 *_LEMS.csv)")
         return None
     dfs = []
     for f in files:
@@ -547,11 +550,23 @@ def main():
     user_agg = aggregate_to_user(round_agg, traits_results)
     user_agg['is_active_for_clustering'] = user_agg['Account'].isin(active_accounts)
 
-    # 時間特徵 (每日登入率固定 1.0 — PM 決策)
+    # 時間特徵
     hourly_df, sessions_df = extract_temporal_patterns(round_agg)
     user_agg = pd.merge(user_agg, hourly_df, on='Account', how='left')
     user_agg = pd.merge(user_agg, sessions_df, on='Account', how='left')
-    user_agg['trait_daily_login_probability'] = 1.0
+
+    # 每日登入率: 觀察窗 ≥ 7 天時用真實值 (活躍天數 ÷ 觀察天數)，
+    # 資料太短時依 PM 決策固定 1.0 (短窗會嚴重高估登入率)
+    total_obs_days = df['Date'].nunique()
+    if total_obs_days >= 7:
+        user_agg['trait_daily_login_probability'] = (
+            user_agg['observed_active_days'] / total_obs_days
+        ).clip(upper=1.0).round(4)
+        print(f"📅 觀察窗 {total_obs_days} 天 ≥ 7 → 每日登入率使用真實值 "
+              f"(平均 {user_agg['trait_daily_login_probability'].mean():.3f})")
+    else:
+        user_agg['trait_daily_login_probability'] = 1.0
+        print(f"📅 觀察窗僅 {total_obs_days} 天 < 7 → 每日登入率固定 1.0 (PM 決策)")
 
     # 真實 9 格偏好
     user_agg = pd.merge(user_agg, extract_grid_preferences_9(df), on='Account', how='left')
