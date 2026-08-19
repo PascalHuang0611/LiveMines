@@ -555,18 +555,18 @@ def main():
     user_agg = pd.merge(user_agg, hourly_df, on='Account', how='left')
     user_agg = pd.merge(user_agg, sessions_df, on='Account', how='left')
 
-    # 每日登入率: 觀察窗 ≥ 7 天時用真實值 (活躍天數 ÷ 觀察天數)，
+    # 每日登入率: 觀察窗 ≥ 4 天時用真實值 (活躍天數 ÷ 觀察天數)，
     # 資料太短時依 PM 決策固定 1.0 (短窗會嚴重高估登入率)
     total_obs_days = df['Date'].nunique()
-    if total_obs_days >= 7:
+    if total_obs_days >= 4:
         user_agg['trait_daily_login_probability'] = (
             user_agg['observed_active_days'] / total_obs_days
         ).clip(upper=1.0).round(4)
-        print(f"📅 觀察窗 {total_obs_days} 天 ≥ 7 → 每日登入率使用真實值 "
+        print(f"📅 觀察窗 {total_obs_days} 天 ≥ 4 → 每日登入率使用真實值 "
               f"(平均 {user_agg['trait_daily_login_probability'].mean():.3f})")
     else:
         user_agg['trait_daily_login_probability'] = 1.0
-        print(f"📅 觀察窗僅 {total_obs_days} 天 < 7 → 每日登入率固定 1.0 (PM 決策)")
+        print(f"📅 觀察窗僅 {total_obs_days} 天 < 4 → 每日登入率固定 1.0 (PM 決策)")
 
     # 真實 9 格偏好
     user_agg = pd.merge(user_agg, extract_grid_preferences_9(df), on='Account', how='left')
