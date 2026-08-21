@@ -1168,7 +1168,14 @@ export const useGameStore = defineStore('game', {
                     if (!result) continue;
                     const balls = result.split(',').map(x => parseInt(x.trim(), 10));
                     if (balls.length !== 3 || balls.some(b => !(b >= 1 && b <= 9))) continue;
-                    const dateStr = (c[iStart] || '').slice(0, 10).replace(/-/g, '') || 'unknown';
+                    // 以營運日分組: 早上 8 點為分界 (0820 = 0820 08:00 ~ 0821 08:00，08:00 前算前一天)
+                    const stStr = c[iStart] || '';
+                    let dateStr = 'unknown';
+                    if (stStr.length >= 13) {
+                        const dt = new Date(Date.UTC(+stStr.slice(0, 4), +stStr.slice(5, 7) - 1, +stStr.slice(8, 10)));
+                        if (+stStr.slice(11, 13) < 8) dt.setUTCDate(dt.getUTCDate() - 1);
+                        dateStr = dt.toISOString().slice(0, 10).replace(/-/g, '');
+                    }
                     data.push({
                         version: 'LEMS',
                         round: dateStr,

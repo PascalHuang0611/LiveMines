@@ -210,7 +210,7 @@
                                 </div>
                                 <div class="flex-1">
                                     <div class="flex justify-between items-center mb-1">
-                                        <label class="block text-xs text-gray-400">選擇物理批次 Round (可多選)</label>
+                                        <label class="block text-xs text-gray-400 cursor-help" title="V14B 真實開獎依「營運日」分組：早上 08:00 為分界，例如 20260820 = 0820 08:00 ~ 0821 08:00，凌晨 8 點前的局算前一個營運日。">選擇物理批次 Round (可多選)</label>
                                         <button v-if="$game.availableRounds.length > 0" @click="$game.toggleAllRounds" class="text-[10px] bg-green-600 hover:bg-green-500 text-white px-2 py-0.5 rounded transition">
                                             {{ $game.isAllRoundsSelected ? '取消全選' : '全選' }}
                                         </button>
