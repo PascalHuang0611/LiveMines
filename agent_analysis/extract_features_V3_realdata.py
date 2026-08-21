@@ -45,6 +45,13 @@ SEED = 42
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Realdata')
 OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'DNA_v3_real')
 
+# 帳單日期範圍 (依 YYYYMMDD_LEMS.csv 檔名過濾；None = 不限)。
+# 可用命令列覆蓋: python extract_features_V3_realdata.py 20260816 20260819
+BILL_DATE_FROM = '20260816'
+BILL_DATE_TO = '20260819'
+if len(sys.argv) >= 3:
+    BILL_DATE_FROM, BILL_DATE_TO = sys.argv[1], sys.argv[2]
+
 
 # ====================================================================
 # Section 1 — 載入與清理
@@ -53,8 +60,19 @@ OUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'DNA_v3_real'
 def load_bills():
     # 支援兩種命名: bill_records_*.csv (舊) 與 YYYYMMDD_LEMS.csv (每日匯出)
     files = sorted(glob.glob(os.path.join(DATA_DIR, 'bill_records_*.csv')))
-    files += sorted(f for f in glob.glob(os.path.join(DATA_DIR, '*_LEMS.csv'))
-                    if not os.path.basename(f).startswith('game_results'))
+    daily = sorted(f for f in glob.glob(os.path.join(DATA_DIR, '*_LEMS.csv'))
+                   if not os.path.basename(f).startswith('game_results'))
+    # 依檔名日期過濾 (BILL_DATE_FROM/TO)
+    if BILL_DATE_FROM or BILL_DATE_TO:
+        def in_range(f):
+            d = os.path.basename(f)[:8]
+            if not d.isdigit():
+                return True  # 非日期命名檔不過濾
+            return (not BILL_DATE_FROM or d >= BILL_DATE_FROM) and (not BILL_DATE_TO or d <= BILL_DATE_TO)
+        skipped = [f for f in daily if not in_range(f)]
+        daily = [f for f in daily if in_range(f)]
+        print(f"🗓️ 帳單日期範圍 {BILL_DATE_FROM} ~ {BILL_DATE_TO}: 採用 {len(daily)} 檔，略過 {len(skipped)} 檔")
+    files += daily
     if not files:
         print(f"❌ {DATA_DIR} 找不到注單檔 (bill_records_*.csv 或 *_LEMS.csv)")
         return None
